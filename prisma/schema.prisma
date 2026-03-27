@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+}
+
+model Asset {
+  id               String           @id @default(cuid())
+  name             String
+  hostname         String
+  assetType        String           @default("host")
+  osId             String
+  osVersionId      String
+  osName           String
+  scannedAt        DateTime?
+  packages         Package[]
+  scanJobs         ScanJob[]
+  alerts           Alert[]
+  packageHistories PackageHistory[]
+  assetTags        AssetTag[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model Package {
+  id          String  @id @default(cuid())
+  assetId     String
+  asset       Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  name        String
+  version     String
+  rawVersion  String
+  ecosystem   String
+  source      String
+  location    String?
+  cpe         String?
+}
+
+model ScanJob {
+  id          String    @id @default(cuid())
+  assetId     String
+  asset       Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  status      String    @default("pending")
+  startedAt   DateTime?
+  completedAt DateTime?
+  errorMsg    String?
+  newAlerts   Int       @default(0)
+  createdAt   DateTime  @default(now())
+}
+
+model Alert {
+  id             String         @id @default(cuid())
+  assetId        String
+  asset          Asset          @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  packageName    String
+  packageVersion String
+  ecosystem      String
+  externalId     String
+  sources        String[]
+  cvssScore      Float?
+  cvssVector     String?
+  severity       String?
+  summary        String?
+  isKev          Boolean        @default(false)
+  epssScore      Float?
+  epssPercentile Float?
+  status         String         @default("open")
+  notes          String?
+  resolveReason  String?
+  detectedAt     DateTime       @default(now())
+  resolvedAt     DateTime?
+  updatedAt      DateTime       @updatedAt
+  comments       AlertComment[]
+  alertEvents    AlertEvent[]
+
+  @@unique([assetId, packageName, packageVersion, ecosystem, externalId])
+  @@index([isKev])
+  @@index([epssScore])
+}
+
+model AlertEvent {
+  id                   String              @id @default(cuid())
+  alertId              String
+  alert                Alert               @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  type                 String
+  data                 Json?
+  createdAt            DateTime            @default(now())
+  metadataRefreshRunId String?
+  metadataRefreshRun   MetadataRefreshRun? @relation(fields: [metadataRefreshRunId], references: [id], onDelete: SetNull)
+
+  @@index([alertId])
+  @@index([createdAt])
+  @@index([metadataRefreshRunId])
+}
+
+model MetadataRefreshRun {
+  id           String       @id @default(cuid())
+  executedAt   DateTime     @default(now())
+  updatedCount Int          @default(0)
+  alertEvents  AlertEvent[]
+
+  @@index([executedAt])
+}
+
+model AlertComment {
+  id        String   @id @default(cuid())
+  alertId   String
+  alert     Alert    @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+}
+
+model PackageHistory {
+  id          String   @id @default(cuid())
+  assetId     String
+  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  packageName String
+  ecosystem   String
+  action      String
+  oldVersion  String?
+  newVersion  String?
+  changedAt   DateTime @default(now())
+
+  @@index([assetId])
+  @@index([changedAt])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model Tag {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  type        String
+  color       String?
+  description String?
+  isDefault   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  assetTags   AssetTag[]
+  packageTags PackageTag[]
+}
+
+model AssetTag {
+  tagId   String
+  tag     Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  assetId String
+  asset   Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([tagId, assetId])
+}
+
+model PackageTag {
+  tagId       String
+  tag         Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  packageName String
+
+  @@id([tagId, packageName])
+}
