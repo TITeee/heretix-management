@@ -85,6 +85,63 @@ pnpm dev
 
 `http://localhost:3000` を開いてログイン。
 
+## Docker デプロイ
+
+### 前提条件
+
+- Docker
+- Docker Compose
+
+### セットアップ
+
+プロジェクトルートに `.env` を作成:
+
+```env
+# 必須
+AUTH_SECRET="your-secret-key"   # 生成コマンド: openssl rand -base64 32
+POSTGRES_PASSWORD="changeme"
+
+# 任意（Settings 画面からも設定可能）
+HERETIX_API_URL="http://localhost:5000"
+HERETIX_API_KEY=""
+
+# 定期実行スケジュール（cron 式、UTC）。省略時は Refresh 12:00、Scan 13:00
+CRON_REFRESH="0 12 * * *"
+CRON_SCAN="0 13 * * *"
+```
+
+### ビルドと起動
+
+```bash
+docker compose build
+docker compose up -d
+docker compose logs -f app
+```
+
+コンテナ起動時にデータベースのマイグレーションが自動で適用されます。
+
+### 初回セットアップ
+
+```bash
+# 管理ユーザーの作成
+docker compose exec app node_modules/.bin/tsx prisma/seed.ts
+# デフォルト: admin@example.com / changeme
+# カスタム: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass docker compose exec app node_modules/.bin/tsx prisma/seed.ts
+```
+
+### よく使うコマンド
+
+```bash
+# 停止
+docker compose down
+
+# 停止＋DBボリューム削除（完全リセット）
+docker compose down -v
+
+# ログ確認
+docker compose logs -f app
+```
+
 ## 使い方
 
 ### 1. アセットの登録

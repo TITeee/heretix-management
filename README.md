@@ -87,6 +87,63 @@ pnpm dev
 
 Open `http://localhost:3000` and log in.
 
+## Docker Deployment
+
+### Prerequisites
+
+- Docker
+- Docker Compose
+
+### Setup
+
+Create `.env` in the project root:
+
+```env
+# Required
+AUTH_SECRET="your-secret-key"   # Generate with: openssl rand -base64 32
+POSTGRES_PASSWORD="changeme"
+
+# Optional (can also be set via Settings page)
+HERETIX_API_URL="http://localhost:5000"
+HERETIX_API_KEY=""
+
+# Scheduled jobs (cron syntax, UTC). Defaults: refresh 12:00, scan 13:00
+CRON_REFRESH="0 12 * * *"
+CRON_SCAN="0 13 * * *"
+```
+
+### Build and Run
+
+```bash
+docker compose build
+docker compose up -d
+docker compose logs -f app
+```
+
+Database migrations are applied automatically on container start.
+
+### Initial Setup (first time only)
+
+```bash
+# Create admin user
+docker compose exec app node_modules/.bin/tsx prisma/seed.ts
+# Default: admin@example.com / changeme
+# Custom: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass docker compose exec app node_modules/.bin/tsx prisma/seed.ts
+```
+
+### Useful Commands
+
+```bash
+# Stop
+docker compose down
+
+# Stop and delete database volume (full reset)
+docker compose down -v
+
+# View logs
+docker compose logs -f app
+```
+
 ## Usage
 
 ### 1. Registering Assets
