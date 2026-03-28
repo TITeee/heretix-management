@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: heretix_management
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d heretix_management"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-changeme}@db:5432/heretix_management
+      AUTH_SECRET: ${AUTH_SECRET}
+      HERETIX_API_URL: ${HERETIX_API_URL:-http://localhost:5000}
+      HERETIX_API_KEY: ${HERETIX_API_KEY:-}
+      CRON_REFRESH: ${CRON_REFRESH:-0 12 * * *}
+      CRON_SCAN: ${CRON_SCAN:-0 13 * * *}
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    ports:
+      - "${PORT:-3000}:3000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+volumes:
+  db_data:
