@@ -37,6 +37,7 @@ A vulnerability management console that imports server package information colle
 - **Vulnerability Search** — Search directly by package name, version, and ecosystem
 - **User Management** — Add, edit, and delete users (admin role only)
 - **Settings** — Configure heretix-api URL and API token, connection test
+- **Scheduled Jobs** — On server start, node-cron registers daily jobs: Refresh Metadata (default 12:00 UTC) → Run Scan for all assets (default 13:00 UTC). Override with `CRON_REFRESH` / `CRON_SCAN` environment variables
 
 ## Setup
 
@@ -57,6 +58,9 @@ AUTH_SECRET="your-secret-key"
 # heretix-api URL and token can also be configured via the Settings page in the UI
 HERETIX_API_URL="http://localhost:5000"
 HERETIX_API_KEY="your-api-token"
+# Scheduled job times (cron syntax, UTC). Defaults: refresh 12:00, scan 13:00
+CRON_REFRESH="0 12 * * *"
+CRON_SCAN="0 13 * * *"
 ```
 
 ### Install and Run
@@ -166,11 +170,15 @@ heretix-management/
 │   ├── data-table/             # Shared DataTable & facet filters
 │   ├── dashboard/              # Dashboard chart components (critical-packages-card, production-assets-card, etc.)
 │   └── assets/                 # Asset column definitions
+├── instrumentation.ts          # Initializes scheduler on server start
 ├── lib/
 │   ├── auth.ts                 # Auth.js configuration
 │   ├── db.ts                   # Prisma client
 │   ├── severity.ts             # Severity & status color constants and helpers
-│   └── heretix-api.ts          # heretix-api client
+│   ├── heretix-api.ts          # heretix-api client
+│   ├── scan.ts                 # Scan logic (shared by route handler & scheduler)
+│   ├── refresh.ts              # Metadata refresh logic (shared)
+│   └── scheduler.ts            # node-cron schedule definitions
 ├── prisma/
 │   ├── schema.prisma
 │   └── seed.ts

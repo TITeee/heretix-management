@@ -35,6 +35,7 @@
 - **脆弱性検索** — パッケージ名・バージョン・エコシステムで直接検索
 - **ユーザー管理** — ユーザーの追加・編集・削除（admin ロールのみ表示・操作可能）
 - **設定** — heretix-api 接続 URL・API Token 設定・疎通確認
+- **定期実行** — サーバー起動時に node-cron でスケジューラを起動。Refresh Metadata（デフォルト 12:00 UTC）→ Run Scan 全アセット（デフォルト 13:00 UTC）を毎日自動実行。`CRON_REFRESH` / `CRON_SCAN` 環境変数で時刻変更可能
 
 ## セットアップ
 
@@ -55,6 +56,9 @@ AUTH_SECRET="your-secret-key"
 # heretix-api の URL とトークンは Settings 画面から DB に保存可（環境変数はフォールバック）
 HERETIX_API_URL="http://localhost:5000"
 HERETIX_API_KEY="your-api-token"
+# 定期実行スケジュール（cron 式、UTC）。省略時は Refresh 12:00、Scan 13:00
+CRON_REFRESH="0 12 * * *"
+CRON_SCAN="0 13 * * *"
 ```
 
 ### インストールと起動
@@ -164,11 +168,15 @@ heretix-management/
 │   ├── data-table/             # 共通 DataTable・ファセットフィルタ
 │   ├── dashboard/              # ダッシュボード用チャートコンポーネント（critical-packages-card, production-assets-card 含む）
 │   └── assets/                 # アセット用カラム定義
+├── instrumentation.ts          # サーバー起動時にスケジューラを初期化
 ├── lib/
 │   ├── auth.ts                 # Auth.js 設定
 │   ├── db.ts                   # Prisma クライアント
 │   ├── severity.ts             # 重要度・ステータスのカラー定数・ヘルパー
-│   └── heretix-api.ts             # heretix-api クライアント
+│   ├── heretix-api.ts          # heretix-api クライアント
+│   ├── scan.ts                 # スキャンロジック（ルートハンドラ・スケジューラ共用）
+│   ├── refresh.ts              # メタデータ更新ロジック（同上）
+│   └── scheduler.ts            # node-cron によるスケジュール定義
 ├── prisma/
 │   ├── schema.prisma
 │   └── seed.ts
