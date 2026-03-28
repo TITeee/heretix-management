@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
   try {
     const res = await fetch(`${url}/api/v1/vulnerabilities/stats`, {
       headers,
+      cache: "no-store",
       signal: AbortSignal.timeout(5_000),
     })
     if (!res.ok) {
