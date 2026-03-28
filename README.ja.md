@@ -36,6 +36,7 @@
 - **ユーザー管理** — ユーザーの追加・編集・削除（admin ロールのみ表示・操作可能）
 - **設定** — heretix-api 接続 URL・API Token 設定・疎通確認
 - **定期実行** — サーバー起動時に node-cron でスケジューラを起動。Refresh Metadata（デフォルト 12:00 UTC）→ Run Scan 全アセット（デフォルト 13:00 UTC）を毎日自動実行。`CRON_REFRESH` / `CRON_SCAN` 環境変数で時刻変更可能
+- **構造化ログ** — スキャン進捗（開始・完了・失敗）および認証イベント（ログイン成功・失敗）を JSON 形式で標準出力に記録。Docker 運用時は `docker logs` で収集可能
 
 ## セットアップ
 
@@ -174,6 +175,7 @@ heretix-management/
 │   ├── db.ts                   # Prisma クライアント
 │   ├── severity.ts             # 重要度・ステータスのカラー定数・ヘルパー
 │   ├── heretix-api.ts          # heretix-api クライアント
+│   ├── logger.ts               # 構造化 JSON ログユーティリティ
 │   ├── scan.ts                 # スキャンロジック（ルートハンドラ・スケジューラ共用）
 │   ├── refresh.ts              # メタデータ更新ロジック（同上）
 │   └── scheduler.ts            # node-cron によるスケジュール定義

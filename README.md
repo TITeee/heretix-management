@@ -38,6 +38,7 @@ A vulnerability management console that imports server package information colle
 - **User Management** — Add, edit, and delete users (admin role only)
 - **Settings** — Configure heretix-api URL and API token, connection test
 - **Scheduled Jobs** — On server start, node-cron registers daily jobs: Refresh Metadata (default 12:00 UTC) → Run Scan for all assets (default 13:00 UTC). Override with `CRON_REFRESH` / `CRON_SCAN` environment variables
+- **Structured Logging** — Scan progress (started, completed, failed) and auth events (login success/failure) are logged as JSON to stdout. Collect with `docker logs` in Docker deployments
 
 ## Setup
 
@@ -176,6 +177,7 @@ heretix-management/
 │   ├── db.ts                   # Prisma client
 │   ├── severity.ts             # Severity & status color constants and helpers
 │   ├── heretix-api.ts          # heretix-api client
+│   ├── logger.ts               # Structured JSON log utility
 │   ├── scan.ts                 # Scan logic (shared by route handler & scheduler)
 │   ├── refresh.ts              # Metadata refresh logic (shared)
 │   └── scheduler.ts            # node-cron schedule definitions
