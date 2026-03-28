@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db"
 import { batchSearch, searchByCPE } from "@/lib/heretix-api"
 import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
+import { logger } from "@/lib/logger"
 
 const BATCH_SIZE = 1000
 
@@ -15,14 +16,22 @@ export async function scanAsset(assetId: string): Promise<{ newAlerts: number }>
     data: { assetId, status: "running", startedAt: new Date() },
   })
 
+  const startedAt = Date.now()
+
+  const pkgs = asset.packages.filter(
+    (p) => p.name.trim().length > 0 && p.version.trim().length > 0
+  )
+  const cpePkgs = pkgs.filter((p) => p.cpe && p.cpe.trim().length > 0)
+  const normalPkgs = pkgs.filter((p) => !p.cpe || p.cpe.trim().length === 0)
+
+  logger.info("scan started", {
+    assetId,
+    totalPackages: pkgs.length,
+    normalPackages: normalPkgs.length,
+    cpePackages: cpePkgs.length,
+  })
+
   try {
-    const pkgs = asset.packages.filter(
-      (p) => p.name.trim().length > 0 && p.version.trim().length > 0
-    )
-
-    const cpePkgs = pkgs.filter((p) => p.cpe && p.cpe.trim().length > 0)
-    const normalPkgs = pkgs.filter((p) => !p.cpe || p.cpe.trim().length === 0)
-
     const chunks: typeof normalPkgs[] = []
     for (let i = 0; i < normalPkgs.length; i += BATCH_SIZE) {
       chunks.push(normalPkgs.slice(i, i + BATCH_SIZE))
@@ -140,6 +149,12 @@ export async function scanAsset(assetId: string): Promise<{ newAlerts: number }>
       data: { scannedAt: new Date() },
     })
 
+    logger.info("scan completed", {
+      assetId,
+      newAlerts: newAlertCount,
+      durationMs: Date.now() - startedAt,
+    })
+
     if (newAlertsList.length > 0) {
       const assetTagIds = asset.assetTags.map((at) => at.tagId)
       await notifySlackIfNeeded({
@@ -157,17 +172,27 @@ export async function scanAsset(assetId: string): Promise<{ newAlerts: number }>
       where: { id: job.id },
       data: { status: "failed", completedAt: new Date(), errorMsg: msg },
     })
+    logger.warn("scan failed", { assetId, error: msg })
     throw err
   }
 }
 
 export async function scanAllAssets(): Promise<void> {
   const assets = await prisma.asset.findMany({ select: { id: true } })
-  for (const asset of assets) {
+  const total = assets.length
+  const startedAt = Date.now()
+
+  logger.info("scan all assets started", { total })
+
+  for (let i = 0; i < assets.length; i++) {
+    const asset = assets[i]
     try {
       await scanAsset(asset.id)
+      logger.info("scan all assets progress", { assetId: asset.id, index: i + 1, total })
     } catch {
       // Continue scanning remaining assets even if one fails
     }
   }
+
+  logger.info("scan all assets completed", { total, durationMs: Date.now() - startedAt })
 }

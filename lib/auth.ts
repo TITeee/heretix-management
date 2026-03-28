@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials"
 import { prisma } from "@/lib/db"
 import bcrypt from "bcryptjs"
 import { authConfig } from "@/lib/auth.config"
+import { logger } from "@/lib/logger"
 
 declare module "next-auth" {
   interface User {
@@ -30,17 +31,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        })
-        if (!user) return null
+        const email = credentials.email as string
 
-        const valid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        )
-        if (!valid) return null
+        const user = await prisma.user.findUnique({ where: { email } })
+        if (!user) {
+          logger.warn("login failed", { email, reason: "user_not_found" })
+          return null
+        }
 
+        const valid = await bcrypt.compare(credentials.password as string, user.password)
+        if (!valid) {
+          logger.warn("login failed", { email, reason: "invalid_password" })
+          return null
+        }
+
+        logger.info("login success", { email })
         return { id: user.id, email: user.email, name: user.name, role: user.role }
       },
     }),
