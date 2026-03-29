@@ -48,7 +48,7 @@ export default function SettingsPage() {
         return r.json().catch(() => ({}))
       })
       .then((data: Record<string, string>) => {
-        setVulnApiUrl(data.HERETIX_API_URL ?? "http://localhost:3001")
+        setVulnApiUrl(data.HERETIX_API_URL ?? "http://localhost:5000")
         setVulnApiKey(data.HERETIX_API_KEY ?? "")
         setSlackEnabled(data.SLACK_ENABLED === "true")
         setSlackWebhookUrl(data.SLACK_WEBHOOK_URL ?? "")
@@ -159,7 +159,7 @@ export default function SettingsPage() {
                 id="heretix-api-url"
                 value={vulnApiUrl}
                 onChange={(e) => setVulnApiUrl(e.target.value)}
-                placeholder="http://localhost:3001"
+                placeholder="http://localhost:5000"
               />
             </div>
             <div className="space-y-2">
