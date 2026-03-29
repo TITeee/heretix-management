@@ -330,9 +330,13 @@ export default function SettingsPage() {
           <CardTitle>About</CardTitle>
         </CardHeader>
         <CardContent className="text-muted-foreground space-y-1">
-          <p className="text-base">heretix-management</p>
+          <p className="text-base">heretix-management <span className="text-base">v{process.env.NEXT_PUBLIC_VERSION}</span></p>
+          <p className="text-base">
+            <a href="https://titeee.github.io/heretix-web/" target="_blank" rel="noopener noreferrer" className="hover:underline">
+              https://titeee.github.io/heretix-web/
+            </a>
+          </p>
           <p className="text-xs">Powered by heretix-cli + heretix-api</p>
-          <p className="text-xs">v{process.env.NEXT_PUBLIC_VERSION}</p>
           <p className="text-xs">Licensed under the Apache License 2.0</p>
         </CardContent>
       </Card>
