@@ -88,7 +88,7 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
   const [vendor, setVendor] = useState<"fortinet" | "paloalto">("fortinet")
   const [product, setProduct] = useState(FORTINET_PRODUCTS[0])
   const [advVersion, setAdvVersion] = useState("")
-  const [vulnCount, setVulnCount] = useState<number | null>(null)
+  const [vulnCount, setVulnCount] = useState<number | "error" | null>(null)
   const [searching, setSearching] = useState(false)
 
   // CPE tab state
@@ -117,6 +117,7 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
     try {
       const q = new URLSearchParams({ package: product, version: advVersion, ecosystem: "advisory" })
       const res = await fetch(`/api/search?${q}`)
+      if (!res.ok) { setVulnCount("error"); return }
       const data = await res.json()
       const results: unknown[] = data.results ?? []
       const seen = new Set<string>()
@@ -125,7 +126,7 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
         return !seen.has(id) && seen.add(id)
       }).length)
     } catch {
-      setVulnCount(0)
+      setVulnCount("error")
     } finally {
       setSearching(false)
     }
@@ -291,10 +292,12 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
                 </Button>
               </div>
               {vulnCount !== null && (
-                <p className="text-sm font-medium text-green-600">
-                  {vulnCount > 0
-                    ? `${vulnCount} vulnerabilit${vulnCount === 1 ? "y" : "ies"} found`
-                    : "No vulnerabilities found"}
+                <p className={`text-sm font-medium ${vulnCount === "error" ? "text-destructive" : "text-green-600"}`}>
+                  {vulnCount === "error"
+                    ? "Could not connect to API. Check Settings."
+                    : vulnCount > 0
+                      ? `${vulnCount} vulnerabilit${vulnCount === 1 ? "y" : "ies"} found`
+                      : "No vulnerabilities found"}
                 </p>
               )}
             </DialogFooter>
