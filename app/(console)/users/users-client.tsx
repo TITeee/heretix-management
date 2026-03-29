@@ -229,7 +229,7 @@ export function UsersClient({ currentUserId }: { currentUserId: string }) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="operator">Viewer</SelectItem>
+                  <SelectItem value="operator">Operator</SelectItem>
                 </SelectContent>
               </Select>
             </div>
