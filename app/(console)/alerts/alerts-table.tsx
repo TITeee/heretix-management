@@ -758,7 +758,7 @@ export function AlertsTable({ data: initialData, initialPackageName }: { data: A
         filterPlaceholder="Search by package name..."
         secondFilterColumn="externalId"
         secondFilterPlaceholder="Vuln ID..."
-        initialPageSize={10}
+        initialPageSize={25}
         initialFilterValue={initialPackageName}
         onFilterReset={() => { window.location.href = "/alerts" }}
         onRowClick={(row) => { setSelected(row); setOpen(true) }}
