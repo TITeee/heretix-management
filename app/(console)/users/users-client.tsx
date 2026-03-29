@@ -36,7 +36,7 @@ export function UsersClient({ currentUserId }: { currentUserId: string }) {
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "viewer" })
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "operator" })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
@@ -52,7 +52,7 @@ export function UsersClient({ currentUserId }: { currentUserId: string }) {
 
   function openCreate() {
     setEditingUser(null)
-    setForm({ name: "", email: "", password: "", role: "viewer" })
+    setForm({ name: "", email: "", password: "", role: "operator" })
     setError("")
     setDialogOpen(true)
   }
@@ -229,7 +229,7 @@ export function UsersClient({ currentUserId }: { currentUserId: string }) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
+                  <SelectItem value="operator">Viewer</SelectItem>
                 </SelectContent>
               </Select>
             </div>

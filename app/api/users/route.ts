@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
   }
-  if (role && !["admin", "viewer"].includes(role)) {
+  if (role && !["admin", "operator"].includes(role)) {
     return NextResponse.json({ error: "Invalid role" }, { status: 400 })
   }
 
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   const hash = await bcrypt.hash(password, 12)
   const user = await prisma.user.create({
-    data: { email, password: hash, name: name || null, role: role || "viewer" },
+    data: { email, password: hash, name: name || null, role: role || "operator" },
     select: { id: true, email: true, name: true, role: true, createdAt: true },
   })
   return NextResponse.json(user, { status: 201 })
