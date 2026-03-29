@@ -612,7 +612,6 @@ const CVSS_OPTIONS = [
 
 const KEV_OPTIONS = [
   { value: "kev", label: "KEV" },
-  { value: "non_kev", label: "Non-KEV" },
 ]
 
 export function AlertsTable({ data: initialData, initialPackageName }: { data: Alert[]; initialPackageName?: string }) {
