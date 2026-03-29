@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db"
 
 export async function getHeretixApiUrl(): Promise<string> {
   const setting = await prisma.setting.findUnique({ where: { key: "HERETIX_API_URL" } })
-  return setting?.value ?? process.env.HERETIX_API_URL ?? "http://localhost:3001"
+  return setting?.value ?? process.env.HERETIX_API_URL ?? "http://localhost:5000"
 }
 
 export async function getHeretixApiKey(): Promise<string | null> {
