@@ -56,6 +56,7 @@ Create `.env.local`:
 ```env
 DATABASE_URL="postgresql://postgres:password@localhost:5432/heretix_management?schema=public"
 AUTH_SECRET="your-secret-key"
+AUTH_URL="http://localhost:3000"
 # heretix-api URL and token can also be configured via the Settings page in the UI
 HERETIX_API_URL="http://localhost:5000"
 HERETIX_API_KEY="your-api-token"
@@ -101,6 +102,7 @@ Create `.env` in the project root:
 ```env
 # Required
 AUTH_SECRET="your-secret-key"   # Generate with: openssl rand -base64 32
+AUTH_URL="http://your-server-ip:3000"  # Set to the actual server IP/domain
 POSTGRES_PASSWORD="changeme"
 
 # Optional (can also be set via Settings page)

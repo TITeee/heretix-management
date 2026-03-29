@@ -54,6 +54,7 @@
 ```env
 DATABASE_URL="postgresql://postgres:password@localhost:5432/heretix_management?schema=public"
 AUTH_SECRET="your-secret-key"
+AUTH_URL="http://localhost:3000"  # Docker デプロイ時はサーバーの IP/ドメインに変更
 # heretix-api の URL とトークンは Settings 画面から DB に保存可（環境変数はフォールバック）
 HERETIX_API_URL="http://localhost:5000"
 HERETIX_API_KEY="your-api-token"
@@ -99,6 +100,7 @@ pnpm dev
 ```env
 # 必須
 AUTH_SECRET="your-secret-key"   # 生成コマンド: openssl rand -base64 32
+AUTH_URL="http://your-server-ip:3000"  # サーバーの実際の IP/ドメインに変更
 POSTGRES_PASSWORD="changeme"
 
 # 任意（Settings 画面からも設定可能）
