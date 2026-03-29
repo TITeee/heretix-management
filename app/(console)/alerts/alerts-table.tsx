@@ -604,10 +604,10 @@ const STATUS_OPTIONS = [
 ]
 
 const CVSS_OPTIONS = [
-  { value: "critical", label: "Critical ≥9.0" },
-  { value: "high", label: "High 7.0–8.9" },
-  { value: "medium", label: "Medium 4.0–6.9" },
-  { value: "low", label: "Low <4.0" },
+  { value: "critical", label: "Critical" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
 ]
 
 const KEV_OPTIONS = [
