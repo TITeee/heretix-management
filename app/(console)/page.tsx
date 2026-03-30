@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Server, Bell, ShieldAlert, CheckCircle2, Package, CalendarClock, Info } from "lucide-react"
 import Link from "next/link"
 import { SeverityBadge, StatusBadge } from "@/components/ui/severity-badge"
@@ -11,6 +10,7 @@ import { KevHighlights } from "@/components/dashboard/kev-highlights"
 import { TagSeverityDonut } from "@/components/dashboard/tag-severity-donut"
 import { CriticalPackagesCard } from "@/components/dashboard/critical-packages-card"
 import { ProductionAssetsCard } from "@/components/dashboard/production-assets-card"
+import { DashboardTabs } from "@/components/dashboard/dashboard-tabs"
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -328,13 +328,34 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Dashboard</h1>
 
-      <Tabs defaultValue="overview">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="critical-packages">Tags</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6 mt-4">
+      <DashboardTabs
+        tagsContent={
+          <>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Info className="h-3.5 w-3.5 shrink-0" />
+            Each vulnerability count shows open and in-progress alerts only.
+          </p>
+          {(["Critical Packages", "Production", "Development", "Staging"] as const).map((tagName) => (
+            <Card key={tagName}>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg font-medium">
+                  {tagColors[tagName] && (
+                    <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: tagColors[tagName] }} />
+                  )}
+                  {tagName}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {tagName === "Critical Packages" && <CriticalPackagesCard packages={criticalPackages} />}
+                {tagName === "Production" && <ProductionAssetsCard assets={productionAssets} />}
+                {tagName === "Development" && <ProductionAssetsCard assets={developmentAssets} />}
+                {tagName === "Staging" && <ProductionAssetsCard assets={stagingAssets} />}
+              </CardContent>
+            </Card>
+          ))}
+          </>
+        }
+        overviewContent={<>
         {/* Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
         <Card>
@@ -519,33 +540,8 @@ export default async function DashboardPage() {
         </CardContent>
         </Card>
       </div>
-        </TabsContent>
-
-        <TabsContent value="critical-packages" className="mt-4 space-y-4">
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Info className="h-3.5 w-3.5 shrink-0" />
-            Each vulnerability count shows open and in-progress alerts only.
-          </p>
-          {(["Critical Packages", "Production", "Development", "Staging"] as const).map((tagName) => (
-            <Card key={tagName}>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-lg font-medium">
-                  {tagColors[tagName] && (
-                    <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: tagColors[tagName] }} />
-                  )}
-                  {tagName}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {tagName === "Critical Packages" && <CriticalPackagesCard packages={criticalPackages} />}
-                {tagName === "Production" && <ProductionAssetsCard assets={productionAssets} />}
-                {tagName === "Development" && <ProductionAssetsCard assets={developmentAssets} />}
-                {tagName === "Staging" && <ProductionAssetsCard assets={stagingAssets} />}
-              </CardContent>
-            </Card>
-          ))}
-        </TabsContent>
-      </Tabs>
+        </>}
+      />
     </div>
   )
 }

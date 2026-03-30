@@ -45,6 +45,7 @@ export type OsvRawData = {
   details?: string
   references?: Array<{ type: string; url: string }>
   affected?: Array<{ versions?: string[] }>
+  severity?: Array<{ type: string; score: string }>
 }
 
 export type AdvisoryAffectedProduct = {
@@ -101,6 +102,8 @@ export type VulnDetail = {
     packageName: string | null
     summary: string | null
     publishedAt: string | null
+    cvssScore: number | null
+    severity: string | null
     affectedPackages: OsvPackage[]
     rawData: OsvRawData
   }>
@@ -401,6 +404,23 @@ export function OsvTab({ detail, loading }: { detail: VulnDetail | null; loading
                   <span>{new Date(osv.publishedAt).toLocaleDateString("en-US")}</span>
                 </div>
               )}
+              <div className="flex items-center gap-2">
+                <span className="w-28 text-muted-foreground shrink-0">CVSS</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <SeverityBadge score={osv.cvssScore} />
+                  {osv.rawData?.severity
+                    ?.filter(s => s.score.startsWith("CVSS:"))
+                    .map((s, i) => (
+                      <span key={i} className="font-mono text-xs text-muted-foreground break-all">
+                        {s.score}
+                      </span>
+                    ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-28 text-muted-foreground shrink-0">Severity</span>
+                <span>{osv.severity ?? "n/a"}</span>
+              </div>
               {osv.summary && (
                 <div className="flex gap-2">
                   <span className="w-28 text-muted-foreground shrink-0">Summary</span>
