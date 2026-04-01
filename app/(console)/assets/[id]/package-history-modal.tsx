@@ -44,7 +44,7 @@ export function PackageHistoryModal({ entries }: { entries: PackageHistoryEntry[
                 <div key={entry.id} className="flex items-start justify-between text-sm py-2 border-b last:border-0 gap-3">
                   <div className="space-y-0.5 min-w-0">
                     <div className="font-medium truncate">{entry.packageName}</div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-muted-foreground" suppressHydrationWarning>
                       {entry.ecosystem} · {new Date(entry.changedAt).toLocaleString()}
                     </div>
                     {entry.action === "updated" && entry.oldVersion && entry.newVersion && (

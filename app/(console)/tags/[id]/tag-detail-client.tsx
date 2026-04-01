@@ -40,6 +40,8 @@ type TagDetail = {
   packageTags: PackageTagItem[]
   alertSummary: AlertSummary
   assetAlertCounts: Record<string, number>
+  packageAlertCounts: Record<string, number>
+  packageEcosystems: Record<string, string>
 }
 
 const SEVERITY_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"]
@@ -358,16 +360,26 @@ export function TagDetailClient({ id }: { id: string }) {
               <thead>
                 <tr className="border-b bg-muted/50">
                   <th className="px-4 py-3 text-left font-medium">Package Name</th>
+                  <th className="px-4 py-3 text-left font-medium">Ecosystem</th>
+                  <th className="px-4 py-3 text-left font-medium">Open Alerts</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
                 {tag.packageTags.length === 0 && (
-                  <tr><td colSpan={2} className="px-4 py-8 text-center text-muted-foreground">No packages tagged</td></tr>
+                  <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">No packages tagged</td></tr>
                 )}
                 {tag.packageTags.map(pt => (
                   <tr key={pt.packageName} className="border-b last:border-0">
                     <td className="px-4 py-3 font-medium">{pt.packageName}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      {tag.packageEcosystems[pt.packageName] || "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {tag.packageAlertCounts[pt.packageName]
+                        ? <span className="text-destructive font-medium">{tag.packageAlertCounts[pt.packageName]}</span>
+                        : <span className="text-muted-foreground">0</span>}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <Button
                         variant="ghost"

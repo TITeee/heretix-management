@@ -43,7 +43,7 @@ export function ScanHistoryModal({ scanJobs }: { scanJobs: ScanJob[] }) {
               scanJobs.map((job) => (
                 <div key={job.id} className="flex items-center justify-between text-sm py-2 border-b last:border-0">
                   <div className="space-y-0.5">
-                    <div className="text-muted-foreground">
+                    <div className="text-muted-foreground" suppressHydrationWarning>
                       {new Date(job.createdAt).toLocaleString()}
                     </div>
                     {job.errorMsg && (

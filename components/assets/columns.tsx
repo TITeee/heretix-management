@@ -123,7 +123,7 @@ export const assetColumns: ColumnDef<AssetRow>[] = [
               key={tag.id}
               variant="outline"
               className="text-xs font-medium"
-              style={undefined}
+              style={tag.color ? { color: tag.color, borderColor: tag.color } : undefined}
             >
               {tag.name}
             </Badge>

@@ -189,7 +189,7 @@ function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open
             </div>
             <div className={`pt-0.5 ${isLast ? "" : "pb-6"}`}>
               <p className="text-sm font-medium">{config.label(event.data ?? {})}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5" suppressHydrationWarning>
                 {new Date(event.createdAt).toLocaleString()}
               </p>
               {event.type === "detected" && !!event.data?.severity && (
@@ -374,12 +374,12 @@ function AlertDetailSheet({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-28 text-muted-foreground shrink-0">Detected</span>
-                  <span>{new Date(alert.detectedAt).toLocaleDateString()}</span>
+                  <span suppressHydrationWarning>{new Date(alert.detectedAt).toLocaleDateString()}</span>
                 </div>
                 {alert.resolvedAt && (
                   <div className="flex items-center gap-2">
                     <span className="w-28 text-muted-foreground shrink-0">Resolved</span>
-                    <span>{new Date(alert.resolvedAt).toLocaleDateString()}</span>
+                    <span suppressHydrationWarning>{new Date(alert.resolvedAt).toLocaleDateString()}</span>
                   </div>
                 )}
                 {alert.resolveReason && (
@@ -562,7 +562,7 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
       </Button>
     ),
     cell: ({ row }) => (
-      <span className="text-xs text-muted-foreground">
+      <span className="text-xs text-muted-foreground" suppressHydrationWarning>
         {new Date(row.original.detectedAt).toLocaleDateString()}
       </span>
     ),
@@ -575,7 +575,7 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
       </Button>
     ),
     cell: ({ row }) => (
-      <span className="text-xs text-muted-foreground">
+      <span className="text-xs text-muted-foreground" suppressHydrationWarning>
         {new Date(row.original.updatedAt).toLocaleDateString()}
       </span>
     ),

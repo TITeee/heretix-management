@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
+import { logger } from "@/lib/logger"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -185,7 +186,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(asset, { status: 201 })
   } catch (err) {
-    console.error(err)
+    logger.warn("failed to create asset", { error: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: "Failed to create asset" }, { status: 500 })
   }
 }

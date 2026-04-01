@@ -267,7 +267,7 @@ export default function SearchPage() {
                   )}
                   <div className="flex gap-4 text-xs text-muted-foreground">
                     {v.publishedAt && (
-                      <span>Published: {new Date(v.publishedAt).toLocaleDateString()}</span>
+                      <span suppressHydrationWarning>Published: {new Date(v.publishedAt).toLocaleDateString()}</span>
                     )}
                     {v.epssScore != null && (
                       <span>EPSS: {v.epssScore.toFixed(3)} ({(v.epssPercentile! * 100).toFixed(0)}th pct)</span>

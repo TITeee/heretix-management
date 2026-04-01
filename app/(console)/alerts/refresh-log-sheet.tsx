@@ -35,9 +35,9 @@ function EventChanges({ type, data }: { type: string; data: Record<string, unkno
     return (
       <span className="flex items-center gap-1 text-xs">
         <span className="text-muted-foreground">severity:</span>
-        <span className="font-mono">{from ?? "—"}</span>
-        <span className="text-muted-foreground">→</span>
-        <span className="font-mono font-medium">{to ?? "—"}</span>
+        <span className="font-mono">{from ?? "n/a"}</span>
+        <span className="text-muted-foreground">▶</span>
+        <span className="font-mono font-medium">{to ?? "n/a"}</span>
       </span>
     )
   }
@@ -49,7 +49,7 @@ function EventChanges({ type, data }: { type: string; data: Record<string, unkno
       <span className="flex items-center gap-1 text-xs">
         <span className="text-muted-foreground">CVSS:</span>
         <SeverityBadge score={from} />
-        <span className="text-muted-foreground">→</span>
+        <span className="text-muted-foreground">▶</span>
         <SeverityBadge score={to} />
       </span>
     )
@@ -65,13 +65,14 @@ function EventChanges({ type, data }: { type: string; data: Record<string, unkno
   }
 
   if (type === "epss_changed") {
+    const from = data.percentileFrom as number | null
     const to = data.percentileTo as number | null
     return (
       <span className="flex items-center gap-1 text-xs">
         <span className="text-muted-foreground">EPSS:</span>
-        <span className="font-mono font-medium">
-          {to != null ? `${(to * 100).toFixed(1)}th percentile` : "—"}
-        </span>
+        <span className="font-mono">{from != null ? `${(from * 100).toFixed(1)}%ile` : "n/a"}</span>
+        <span className="text-muted-foreground">▶</span>
+        <span className="font-mono font-medium">{to != null ? `${(to * 100).toFixed(1)}%ile` : "n/a"}</span>
       </span>
     )
   }
@@ -102,7 +103,7 @@ function RunRow({ run }: { run: RefreshRun }) {
       >
         <div className="flex items-center gap-3">
           {expanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
-          <span className="text-sm font-medium">
+          <span className="text-sm font-medium" suppressHydrationWarning>
             {new Date(run.executedAt).toLocaleString()}
           </span>
         </div>

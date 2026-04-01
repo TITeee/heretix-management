@@ -50,7 +50,28 @@ export async function GET(
     assetAlertCounts = Object.fromEntries(counts.map(c => [c.assetId, c._count.id]))
   }
 
-  return NextResponse.json({ ...tag, alertSummary, assetAlertCounts })
+  // Open alert counts per package name
+  let packageAlertCounts: Record<string, number> = {}
+  // Ecosystem per package name (first match)
+  let packageEcosystems: Record<string, string> = {}
+  if (tag.type === "package") {
+    const packageNames = tag.packageTags.map(pt => pt.packageName)
+    const counts = await prisma.alert.groupBy({
+      by: ["packageName"],
+      where: { packageName: { in: packageNames }, status: { not: "resolved" } },
+      _count: { id: true },
+    })
+    packageAlertCounts = Object.fromEntries(counts.map(c => [c.packageName, c._count.id]))
+
+    const pkgs = await prisma.package.findMany({
+      where: { name: { in: packageNames } },
+      select: { name: true, ecosystem: true },
+      distinct: ["name"],
+    })
+    packageEcosystems = Object.fromEntries(pkgs.map(p => [p.name, p.ecosystem ?? ""]))
+  }
+
+  return NextResponse.json({ ...tag, alertSummary, assetAlertCounts, packageAlertCounts, packageEcosystems })
 }
 
 export async function PATCH(

@@ -10,6 +10,13 @@ export async function POST(req: NextRequest) {
   if (!url) return NextResponse.json({ error: "url is required" }, { status: 400 })
 
   try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== "https:") throw new Error()
+  } catch {
+    return NextResponse.json({ error: "Invalid URL: must be a valid https URL" }, { status: 400 })
+  }
+
+  try {
     await testSlackWebhook(url)
     return NextResponse.json({ ok: true })
   } catch (err) {
