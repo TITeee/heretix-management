@@ -25,7 +25,10 @@ type Tag = {
   openAlerts: { critical: number; high: number; medium: number; low: number; na: number }
 }
 
-const PRESET_COLORS = ["#ef4444","#f97316","#eab308","#22c55e","#3b82f6","#8b5cf6","#ec4899","#6b7280"]
+const PRESET_COLORS = [
+  "#ef4444","#f97316","#eab308","#22c55e","#3b82f6","#8b5cf6","#ec4899","#6b7280",
+  "#f43f5e","#f59e0b","#84cc16","#14b8a6","#06b6d4","#6366f1","#a855f7","#64748b",
+]
 
 function ColorPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
