@@ -21,6 +21,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Search, ShieldAlert } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { SEVERITY_COLORS } from "@/lib/severity"
 import { VulnDetail, NvdTab, OsvTab, AdvisoryTab } from "@/components/alerts/vuln-detail-tabs"
 
@@ -146,6 +147,12 @@ export default function SearchPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <h1 className="text-2xl font-bold">Vulnerability Search</h1>
+      <p className="text-sm text-muted-foreground -mt-4">
+        Directly queries the heretix-api vulnerability database, independent of your asset
+        inventory. Any CVE can be looked up regardless of what assets you have.
+        Useful for identifying the exact package name and ecosystem when manually adding
+        packages to an asset.
+      </p>
 
       {/* Mode toggle */}
       <div className="flex gap-1 rounded-lg border p-1 w-fit">
