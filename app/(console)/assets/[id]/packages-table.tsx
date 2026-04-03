@@ -35,6 +35,7 @@ const ECOSYSTEMS = [
   "Debian:12",
   "AlmaLinux:8",
   "AlmaLinux:9",
+  "oracle-linux",
   "Alpine:v3.18",
   "Alpine:v3.19",
   "Alpine:v3.20",
