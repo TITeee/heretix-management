@@ -116,8 +116,7 @@ async function getDashboardData() {
     stagingAlertRaw,
     totalPackages,
     todayAlerts,
-    criticalTagPackages,
-    tagColorRecords,
+    allTags,
   ] = await Promise.all([
     prisma.asset.count(),
     prisma.alert.count(),
@@ -184,71 +183,56 @@ async function getDashboardData() {
     // stats
     prisma.package.count(),
     prisma.alert.count({ where: { detectedAt: { gte: todayStart } } }),
-    // Tags: package names in "Critical Packages" tag
-    prisma.packageTag.findMany({
-      where: { tag: { name: "Critical Packages" } },
-      select: { packageName: true },
-    }),
-    // Tags: tag colors
+    // All tags for Tags tab (default tags first, then alphabetical)
     prisma.tag.findMany({
-      where: { name: { in: ["Critical Packages", "Production", "Development", "Staging"] } },
-      select: { name: true, color: true },
+      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+      select: { id: true, name: true, type: true, color: true },
     }),
   ])
 
   const trendData = buildWeeklyTrend(trendAlerts)
   const topAssetsData = buildTopAssets(topAssetAlerts)
-  const topPackagesData = topPkgGroups.map((g) => ({
-    name: g.packageName,
-    count: g._count.id,
-  }))
-  // Tag assets (Production / Development / Staging)
-  const [productionAssetRecords, developmentAssetRecords, stagingAssetRecords] = await Promise.all([
-    prisma.asset.findMany({
-      where: { assetTags: { some: { tag: { name: "Production" } } } },
-      select: { id: true, name: true, hostname: true, assetType: true },
+  const topPackagesData = topPkgGroups.map((g) => ({ name: g.packageName, count: g._count.id }))
+
+  // ── Tags tab: fetch all asset/package relationships for every tag ─────────
+  const assetTagIds = allTags.filter((t) => t.type === "asset").map((t) => t.id)
+  const packageTagIds = allTags.filter((t) => t.type === "package").map((t) => t.id)
+
+  const [assetTagRecords, packageTagRecords] = await Promise.all([
+    prisma.assetTag.findMany({
+      where: { tagId: { in: assetTagIds } },
+      select: { tagId: true, asset: { select: { id: true, name: true, hostname: true, assetType: true } } },
     }),
-    prisma.asset.findMany({
-      where: { assetTags: { some: { tag: { name: "Development" } } } },
-      select: { id: true, name: true, hostname: true, assetType: true },
-    }),
-    prisma.asset.findMany({
-      where: { assetTags: { some: { tag: { name: "Staging" } } } },
-      select: { id: true, name: true, hostname: true, assetType: true },
+    prisma.packageTag.findMany({
+      where: { tagId: { in: packageTagIds } },
+      select: { tagId: true, packageName: true },
     }),
   ])
 
-  const allTaggedIds = [
-    ...productionAssetRecords,
-    ...developmentAssetRecords,
-    ...stagingAssetRecords,
-  ].map((a) => a.id)
-
-  const tagAlertGroups = await prisma.alert.groupBy({
-    by: ["assetId"],
-    _count: { id: true },
-    _max: { cvssScore: true },
-    where: { assetId: { in: allTaggedIds }, status: { in: ["open", "in_progress"] } },
-  })
-  const tagAlertMap = new Map(tagAlertGroups.map((g) => [g.assetId, g]))
-
-  function buildAssetItems(records: { id: string; name: string; hostname: string; assetType: string }[]) {
-    return records
-      .map((a) => {
-        const g = tagAlertMap.get(a.id)
-        return { id: a.id, name: a.name, hostname: a.hostname, assetType: a.assetType, count: g?._count.id ?? 0, maxCvss: g?._max.cvssScore ?? null }
-      })
-      .sort((a, b) => (b.maxCvss ?? -1) - (a.maxCvss ?? -1))
+  // Group by tagId
+  const assetsByTagId = new Map<string, { id: string; name: string; hostname: string; assetType: string }[]>()
+  for (const r of assetTagRecords) {
+    if (!assetsByTagId.has(r.tagId)) assetsByTagId.set(r.tagId, [])
+    assetsByTagId.get(r.tagId)!.push(r.asset)
+  }
+  const pkgNamesByTagId = new Map<string, string[]>()
+  for (const r of packageTagRecords) {
+    if (!pkgNamesByTagId.has(r.tagId)) pkgNamesByTagId.set(r.tagId, [])
+    pkgNamesByTagId.get(r.tagId)!.push(r.packageName)
   }
 
-  const productionAssets = buildAssetItems(productionAssetRecords)
-  const developmentAssets = buildAssetItems(developmentAssetRecords)
-  const stagingAssets = buildAssetItems(stagingAssetRecords)
+  const allTaggedAssetIds = [...new Set(assetTagRecords.map((r) => r.asset.id))]
+  const allTaggedPkgNames = [...new Set(packageTagRecords.map((r) => r.packageName))]
 
-  const criticalTagNames = [...new Set(criticalTagPackages.map((p) => p.packageName))]
-  const [criticalPkgRecords, criticalAlertData] = await Promise.all([
+  const [assetAlertGroups, pkgRecords, pkgAlertGroups] = await Promise.all([
+    prisma.alert.groupBy({
+      by: ["assetId"],
+      _count: { id: true },
+      _max: { cvssScore: true },
+      where: { assetId: { in: allTaggedAssetIds }, status: { in: ["open", "in_progress"] } },
+    }),
     prisma.package.findMany({
-      where: { name: { in: criticalTagNames } },
+      where: { name: { in: allTaggedPkgNames } },
       select: { name: true, version: true },
       distinct: ["name", "version"],
     }),
@@ -256,25 +240,40 @@ async function getDashboardData() {
       by: ["packageName", "packageVersion"],
       _count: { id: true },
       _max: { cvssScore: true },
-      where: { packageName: { in: criticalTagNames }, status: { in: ["open", "in_progress"] } },
+      where: { packageName: { in: allTaggedPkgNames }, status: { in: ["open", "in_progress"] } },
     }),
   ])
-  const criticalAlertMap = new Map(
-    criticalAlertData.map((a) => [`${a.packageName}@${a.packageVersion}`, a])
-  )
-  const criticalPackages = criticalPkgRecords
-    .map((pkg) => {
-      const alert = criticalAlertMap.get(`${pkg.name}@${pkg.version}`)
-      return {
-        packageName: pkg.name,
-        packageVersion: pkg.version,
-        count: alert?._count.id ?? 0,
-        maxCvss: alert?._max.cvssScore ?? null,
-      }
-    })
-    .sort((a, b) => (b.maxCvss ?? -1) - (a.maxCvss ?? -1))
 
-  const tagColors = Object.fromEntries(tagColorRecords.map((t) => [t.name, t.color ?? undefined]))
+  const assetAlertMap = new Map(assetAlertGroups.map((g) => [g.assetId, g]))
+  const pkgAlertMap = new Map(pkgAlertGroups.map((a) => [`${a.packageName}@${a.packageVersion}`, a]))
+
+  function buildAssetItems(assets: { id: string; name: string; hostname: string; assetType: string }[]) {
+    return assets
+      .map((a) => {
+        const g = assetAlertMap.get(a.id)
+        return { id: a.id, name: a.name, hostname: a.hostname, assetType: a.assetType, count: g?._count.id ?? 0, maxCvss: g?._max.cvssScore ?? null }
+      })
+      .sort((a, b) => (b.maxCvss ?? -1) - (a.maxCvss ?? -1))
+  }
+
+  function buildPackageItems(packageNames: string[]) {
+    return pkgRecords
+      .filter((p) => packageNames.includes(p.name))
+      .map((pkg) => {
+        const alert = pkgAlertMap.get(`${pkg.name}@${pkg.version}`)
+        return { packageName: pkg.name, packageVersion: pkg.version, count: alert?._count.id ?? 0, maxCvss: alert?._max.cvssScore ?? null }
+      })
+      .sort((a, b) => (b.maxCvss ?? -1) - (a.maxCvss ?? -1))
+  }
+
+  const tagData = allTags.map((tag) => ({
+    id: tag.id,
+    name: tag.name,
+    type: tag.type,
+    color: tag.color,
+    assets: tag.type === "asset" ? buildAssetItems(assetsByTagId.get(tag.id) ?? []) : undefined,
+    packages: tag.type === "package" ? buildPackageItems([...new Set(pkgNamesByTagId.get(tag.id) ?? [])]) : undefined,
+  }))
 
   return {
     totalAssets,
@@ -291,11 +290,7 @@ async function getDashboardData() {
     stagingSeverity: buildTagSeverity(stagingAlertRaw),
     totalPackages,
     todayAlerts,
-    criticalPackages,
-    productionAssets,
-    developmentAssets,
-    stagingAssets,
-    tagColors,
+    tagData,
   }
 }
 
@@ -317,11 +312,7 @@ export default async function DashboardPage() {
     stagingSeverity,
     totalPackages,
     todayAlerts,
-    criticalPackages,
-    productionAssets,
-    developmentAssets,
-    stagingAssets,
-    tagColors,
+    tagData,
   } = await getDashboardData()
 
   return (
@@ -335,21 +326,19 @@ export default async function DashboardPage() {
             <Info className="h-3.5 w-3.5 shrink-0" />
             Each vulnerability count shows open and in-progress alerts only.
           </p>
-          {(["Critical Packages", "Production", "Development", "Staging"] as const).map((tagName) => (
-            <Card key={tagName}>
+          {tagData.map(({ id, name, type, color, assets, packages }) => (
+            <Card key={id}>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-lg font-medium">
-                  {tagColors[tagName] && (
-                    <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: tagColors[tagName] }} />
+                  {color && (
+                    <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
                   )}
-                  {tagName}
+                  {name}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {tagName === "Critical Packages" && <CriticalPackagesCard packages={criticalPackages} />}
-                {tagName === "Production" && <ProductionAssetsCard assets={productionAssets} />}
-                {tagName === "Development" && <ProductionAssetsCard assets={developmentAssets} />}
-                {tagName === "Staging" && <ProductionAssetsCard assets={stagingAssets} />}
+                {type === "package" && <CriticalPackagesCard packages={packages ?? []} />}
+                {type === "asset" && <ProductionAssetsCard assets={assets ?? []} />}
               </CardContent>
             </Card>
           ))}
