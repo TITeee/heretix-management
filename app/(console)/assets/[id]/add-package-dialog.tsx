@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
+import { HelpCircle } from "lucide-react"
 
 const ECOSYSTEMS = [
   "Ubuntu:20.04:LTS",
@@ -230,7 +232,33 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
               <Input placeholder="e.g. 1.24.0" value={genVersion} onChange={(e) => setGenVersion(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Ecosystem <span className="text-destructive">*</span></label>
+              <div className="flex items-center gap-1">
+                <label className="text-sm font-medium">Ecosystem <span className="text-destructive">*</span></label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger render={
+                      <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                        <HelpCircle className="h-3.5 w-3.5" />
+                      </button>
+                    } />
+                    <TooltipContent side="right" className="flex flex-col gap-2 w-72 max-w-none p-3 text-left">
+                      <p className="font-medium">About Ecosystem</p>
+                      <p className="opacity-80 leading-relaxed">
+                        Specifies the package ecosystem used for OSV-based vulnerability matching.
+                        Select the Linux distribution or language registry that this package belongs to.
+                      </p>
+                      <div className="border-t border-background/20 pt-2 flex flex-col gap-1">
+                        <p className="font-medium">Other</p>
+                        <p className="opacity-80 leading-relaxed">
+                          Ecosystem is stored as empty. OSV ecosystem matching is skipped.
+                          Vulnerability detection relies on CPE-based or advisory-based lookup only.
+                          Use this for packages not covered by the listed ecosystems.
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <Select value={genEcosystemSelect} onValueChange={(v) => setGenEcosystemSelect(v ?? "")}>
                 <SelectTrigger><SelectValue placeholder="Select ecosystem" /></SelectTrigger>
                 <SelectContent>
@@ -239,6 +267,11 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
                   ))}
                 </SelectContent>
               </Select>
+              {genEcosystemSelect === "Other" && (
+                <p className="text-xs text-muted-foreground">
+                  No ecosystem. Vulnerability matching via CPE / advisory only.
+                </p>
+              )}
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <DialogFooter>
