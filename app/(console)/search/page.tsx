@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Search, ShieldAlert } from "lucide-react"
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { SEVERITY_COLORS } from "@/lib/severity"
 import { VulnDetail, NvdTab, OsvTab, AdvisoryTab } from "@/components/alerts/vuln-detail-tabs"
 
@@ -148,39 +149,79 @@ export default function SearchPage() {
 
       {/* Mode toggle */}
       <div className="flex gap-1 rounded-lg border p-1 w-fit">
-        <button
-          type="button"
-          onClick={() => { setMode("package"); setResults(null); setError("") }}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            mode === "package"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Package
-        </button>
-        <button
-          type="button"
-          onClick={() => { setMode("id"); setResults(null); setError("") }}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            mode === "id"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          CVE / OSV ID
-        </button>
-        <button
-          type="button"
-          onClick={() => { setMode("cpe"); setResults(null); setError("") }}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            mode === "cpe"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          CPE
-        </button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger render={
+              <button
+                type="button"
+                onClick={() => { setMode("package"); setResults(null); setError("") }}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  mode === "package"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Package
+              </button>
+            } />
+            <TooltipContent side="bottom" className="flex flex-col gap-1.5 max-w-xs text-left">
+              <p>Search vulnerabilities by package name, version, and ecosystem.</p>
+              <p className="opacity-80">
+                Ecosystem &ldquo;All&rdquo; searches across all supported databases without
+                filtering by distribution or language registry.
+                Specifying an ecosystem narrows results to that platform only.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger render={
+              <button
+                type="button"
+                onClick={() => { setMode("id"); setResults(null); setError("") }}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  mode === "id"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                CVE / OSV ID
+              </button>
+            } />
+            <TooltipContent side="bottom" className="flex flex-col gap-1.5 max-w-xs text-left">
+              <p>Search by exact vulnerability ID.</p>
+              <p className="opacity-80">
+                Supports CVE IDs (e.g. CVE-2021-44228) and
+                GHSA IDs (e.g. GHSA-67hx-6x53-jw92).
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger render={
+              <button
+                type="button"
+                onClick={() => { setMode("cpe"); setResults(null); setError("") }}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  mode === "cpe"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                CPE
+              </button>
+            } />
+            <TooltipContent side="bottom" className="flex flex-col gap-1.5 max-w-xs text-left">
+              <p>Search by CPE 2.3 string (vendor + product).</p>
+              <p className="opacity-80">
+                Useful for products not covered by package ecosystems.
+                Format: cpe:2.3:&lt;part&gt;:&lt;vendor&gt;:&lt;product&gt;[:version]
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <form onSubmit={handleSearch} className="flex gap-2 flex-wrap">
