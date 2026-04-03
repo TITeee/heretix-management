@@ -21,7 +21,6 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Search, ShieldAlert } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { SEVERITY_COLORS } from "@/lib/severity"
 import { VulnDetail, NvdTab, OsvTab, AdvisoryTab } from "@/components/alerts/vuln-detail-tabs"
 
