@@ -50,6 +50,7 @@ export type Alert = {
   updatedAt: Date
   resolvedAt: Date | null
   asset: { id: string; name: string; hostname: string }
+  tags: { id: string; name: string; color: string | null }[]
 }
 
 function StatusSelect({ alertId, currentStatus, onStatusChange }: {
@@ -546,6 +547,28 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
     ),
   },
   {
+    id: "tags",
+    header: "Tags",
+    cell: ({ row }) => {
+      const tags = row.original.tags
+      if (tags.length === 0) return null
+      return (
+        <div className="flex gap-1 flex-wrap">
+          {tags.map(tag => (
+            <Badge
+              key={tag.id}
+              variant="outline"
+              className="text-xs font-medium"
+              style={tag.color ? { color: tag.color, borderColor: tag.color } : undefined}
+            >
+              {tag.name}
+            </Badge>
+          ))}
+        </div>
+      )
+    },
+  },
+  {
     accessorKey: "status",
     header: "Status",
     cell: ({ row }) => (
@@ -626,6 +649,7 @@ export function AlertsTable({ data: initialData, initialPackageName }: { data: A
   const [kevFilter, setKevFilter] = useState<Set<string>>(new Set())
   const [ecosystemFilter, setEcosystemFilter] = useState<Set<string>>(new Set())
   const [sourcesFilter, setSourcesFilter] = useState<Set<string>>(new Set())
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set())
   const [selectedAlerts, setSelectedAlerts] = useState<Alert[]>([])
   const [bulkStatus, setBulkStatus] = useState("")
   const [bulkLoading, setBulkLoading] = useState(false)
@@ -651,6 +675,16 @@ export function AlertsTable({ data: initialData, initialPackageName }: { data: A
     [data]
   )
 
+  const tagOptions = useMemo(() => {
+    const seen = new Map<string, { value: string; label: string }>()
+    for (const alert of data) {
+      for (const tag of alert.tags) {
+        if (!seen.has(tag.id)) seen.set(tag.id, { value: tag.id, label: tag.name })
+      }
+    }
+    return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label))
+  }, [data])
+
   const filteredData = useMemo(() => data.filter(alert => {
     if (assetFilter.size > 0 && !assetFilter.has(alert.assetId)) return false
     if (statusFilter.size > 0 && !statusFilter.has(alert.status)) return false
@@ -662,10 +696,11 @@ export function AlertsTable({ data: initialData, initialPackageName }: { data: A
     if (kevFilter.size > 0 && !kevFilter.has(alert.isKev ? "kev" : "non_kev")) return false
     if (ecosystemFilter.size > 0 && !ecosystemFilter.has(alert.ecosystem)) return false
     if (sourcesFilter.size > 0 && !alert.sources.some(s => sourcesFilter.has(s))) return false
+    if (tagFilter.size > 0 && !alert.tags.some(t => tagFilter.has(t.id))) return false
     return true
-  }), [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter])
+  }), [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter])
 
-  const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0
+  const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0
 
   function handleStatusChange(alertId: string, newStatus: string) {
     setData(prev => prev.map(a => a.id === alertId ? { ...a, status: newStatus } : a))
@@ -740,11 +775,18 @@ export function AlertsTable({ data: initialData, initialPackageName }: { data: A
           selected={sourcesFilter}
           onSelectedChange={setSourcesFilter}
         />
+        <DataTableFacetedFilter
+          title="Tags"
+          options={tagOptions}
+          selected={tagFilter}
+          onSelectedChange={setTagFilter}
+          searchable
+        />
         {hasFilter && (
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => { setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()) }}
+            onClick={() => { setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set()) }}
           >
             Reset <X className="ml-1 size-4" />
           </Button>
