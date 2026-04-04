@@ -31,6 +31,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
+
+    // CycloneDX BOM → inventory 変換
+    if (body.bomFormat === "CycloneDX") {
+      body.inventory = convertCycloneDXToInventory(body)
+    }
+
     const { name, inventory, hostname: simpleHostname, assetType: simpleAssetType } = body
 
     // Simple creation (no inventory) — used by Add Manually
@@ -188,5 +194,50 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     logger.warn("failed to create asset", { error: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: "Failed to create asset" }, { status: 500 })
+  }
+}
+
+type CycloneDXComponent = {
+  name?: string
+  version?: string
+  purl?: string
+}
+
+type CycloneDXBom = {
+  metadata?: { component?: { name?: string; version?: string }; timestamp?: string }
+  components?: CycloneDXComponent[]
+}
+
+function parsePURL(purl: string | undefined): { ecosystem: string; name: string | undefined } {
+  if (!purl) return { ecosystem: "unknown", name: undefined }
+  const match = purl.match(/^pkg:(\w+)\/(?:([^/?#@]+)\/)?([^/?#@]+)@/)
+  if (!match) return { ecosystem: "unknown", name: undefined }
+  const [, type, namespace, name] = match
+  const osTypes = ["rpm", "deb", "apk"]
+  const ecosystem = osTypes.includes(type) && namespace ? namespace : type
+  return { ecosystem, name: decodeURIComponent(name) }
+}
+
+function convertCycloneDXToInventory(bom: CycloneDXBom) {
+  const hostname = bom.metadata?.component?.name ?? "unknown"
+  const osName = bom.metadata?.component?.version ?? ""
+  const packages = (bom.components ?? []).map((c: CycloneDXComponent) => {
+    const { ecosystem, name } = parsePURL(c.purl)
+    return {
+      name: name ?? c.name ?? "",
+      version: c.version ?? "",
+      rawVersion: c.version ?? "",
+      ecosystem,
+      source: "sbom",
+      location: null,
+    }
+  }).filter(p => p.name !== "")
+
+  return {
+    version: "1.0",
+    hostname,
+    scannedAt: bom.metadata?.timestamp ?? new Date().toISOString(),
+    os: { id: "", versionId: "", name: osName },
+    packages,
   }
 }
