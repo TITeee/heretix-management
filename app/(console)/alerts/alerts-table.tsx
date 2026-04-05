@@ -103,7 +103,7 @@ type AlertEvent = {
   createdAt: string
 }
 
-const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: string }>; iconClass: string; label: (data: Record<string, unknown>) => string }> = {
+const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: string }>; iconClass: string; label: (data: Record<string, unknown>) => string; getIcon?: (data: Record<string, unknown>) => { icon: React.ComponentType<{ className?: string }>; iconClass: string } }> = {
   detected: {
     icon: FaCircleExclamation,
     iconClass: "text-red-500",
@@ -115,6 +115,10 @@ const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: str
     label: (data) => {
       const STATUS_LABELS: Record<string, string> = { open: "Open", in_progress: "In Progress", resolved: "Resolved", ignored: "Ignored" }
       return `Status changed to "${STATUS_LABELS[data.to as string] ?? data.to}"`
+    },
+    getIcon: (data) => {
+      const entry = STATUS_ICON_MAP[data.to as string]
+      return entry ? { icon: entry.icon, iconClass: entry.className.replace(/h-\S+ w-\S+ /, "") } : { icon: FaCircleExclamation, iconClass: "text-blue-500" }
     },
   },
   kev_added: {
@@ -178,13 +182,14 @@ function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open
       {events.map((event, index) => {
         const config = EVENT_CONFIG[event.type]
         if (!config) return null
-        const Icon = config.icon
+        const resolved = config.getIcon ? config.getIcon(event.data ?? {}) : { icon: config.icon, iconClass: config.iconClass }
+        const Icon = resolved.icon
         const isLast = index === events.length - 1
         return (
           <div key={event.id} className="flex gap-3">
             <div className="flex flex-col items-center">
               <div className="rounded-full border-2 border-border bg-background p-1 shrink-0">
-                <Icon className={`h-3.5 w-3.5 ${config.iconClass}`} />
+                <Icon className={`h-3.5 w-3.5 ${resolved.iconClass}`} />
               </div>
               {!isLast && <div className="w-px flex-1 bg-border my-1" />}
             </div>
