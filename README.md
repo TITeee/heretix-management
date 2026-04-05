@@ -23,12 +23,12 @@ A vulnerability management console that imports server package information colle
 - **Dashboard** — Two-tab layout: Overview / Tags
   - **Overview** — Total assets & alerts, severity summary, tag severity donut charts (Production / Development / Staging with color indicators), 8-week alert trend, Top 10 vulnerable assets & packages, KEV (Known Exploited Vulnerabilities) highlights
   - **Tags** — Cards for packages and assets linked to tags, color-coded by severity. Critical Packages cards (click to navigate to alert list), Production / Development / Staging asset cards (with Host / Docker Image icons, click to navigate to alert list)
-- **Asset Management** — Import `inventory.json` (incremental updates), asset list & detail views, edit & delete
+- **Asset Management** — Import `inventory.json` or **CycloneDX BOM** (incremental updates), asset list & detail views, edit & delete
 - **Manual Asset Registration** — Register network devices and firewalls directly via GUI
 - **Manual Package Management** — Add, edit, and delete software installed outside the package manager. The Advisory tab supports Fortinet and Palo Alto Networks products via dropdown selection
 - **Package Change History** — View added/updated/removed package history per asset at import time
 - **Vulnerability Scanning** — Detect vulnerabilities via heretix-api batch search and record alerts (creates new Alerts only; does not update or auto-resolve existing Alerts)
-- **Alert Management** — Status tracking (Open / In Progress / Resolved / Ignored), filters (Asset / Status / Severity, multi-value), bulk status update via checkbox selection
+- **Alert Management** — Status tracking (Open / In Progress / Resolved / Ignored), filters (Asset / Status / Severity / Tags, multi-value), Tags column display, bulk status update via checkbox selection
 - **Auto-resolve Alerts** — Automatically marks old-version alerts as resolved when a package is upgraded during import
 - **Alert Metadata Refresh** — Re-fetches the latest CVSS score, severity, EPSS, and KEV data from heretix-api for all open/in-progress Alerts (does not create new Alerts)
 - **Refresh Run Log** — Records execution history only when changes occur. View run timestamp, update count, and before/after details via the **View History** button on the Alerts page
@@ -251,7 +251,7 @@ heretix-management/
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/assets` | List assets |
-| POST | `/api/assets` | Create/update asset (inventory.json incremental import) |
+| POST | `/api/assets` | Create/update asset (inventory.json or CycloneDX BOM incremental import) |
 | GET | `/api/assets/[id]` | Asset detail |
 | PATCH | `/api/assets/[id]` | Update asset info (name / hostname / osName / osVersionId) |
 | DELETE | `/api/assets/[id]` | Delete asset |

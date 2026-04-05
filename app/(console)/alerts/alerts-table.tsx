@@ -231,7 +231,7 @@ function AlertDetailSheet({
       setStatus(alert.status)
       setNotes(alert.notes ?? "")
     }
-  }, [alert?.id])
+  }, [alert?.id, alert?.status])
 
   useEffect(() => {
     if (!open || !alert) return

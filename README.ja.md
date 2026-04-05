@@ -21,12 +21,12 @@
 - **ダッシュボード** — Overview / Tags の2タブ構成
   - **Overview** — 総アセット数・アラート数・重要度別サマリー、タグ別重要度ドーナツチャート（Production / Development / Staging、各タグカラーのインジケーター付き）、アラートトレンド（8週）、脆弱アセット Top 10・脆弱パッケージ Top 10、KEV（既知悪用脆弱性）ハイライト
   - **Tags** — タグに紐づくパッケージ・アセットを重要度カラーのカードで一覧表示。Critical Packages タグに属するパッケージカード（クリックでアラート一覧へ遷移）、Production / Development / Staging タグのアセットカード（ホスト / Docker Image アイコン付き、クリックでアラート一覧へ遷移）
-- **アセット管理** — `inventory.json` インポート（差分更新）、ホスト一覧・詳細表示、アセット編集・削除
+- **アセット管理** — `inventory.json` または **CycloneDX BOM** インポート（差分更新）、ホスト一覧・詳細表示、アセット編集・削除
 - **手動アセット登録** — ネットワーク機器・FW を GUI から直接登録
 - **手動パッケージ管理** — パッケージマネージャ外でインストールしたソフトウェアを手動で追加・編集・削除。Advisory タブで Fortinet / Palo Alto Networks 製品をドロップダウン選択して登録可能
 - **パッケージ更新履歴** — インポート時の追加・更新・削除の変更履歴をアセット詳細で参照
 - **脆弱性スキャン** — heretix-api のバッチ検索でアセットの脆弱性を検出・アラート記録（新規 Alert の作成のみ。既存 Alert の更新・自動解決は行わない）
-- **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度）・複数選択による一括ステータス変更
+- **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度 / Tags）・Tagsカラム表示・複数選択による一括ステータス変更
 - **アラート自動解決** — インポート時にパッケージがアップグレードされた場合、旧バージョンのアラートを自動で解決済みに変更
 - **アラートメタデータ更新** — open / in_progress の全 Alert に対して heretix-api から最新の CVSS スコア・重要度・EPSS・KEV 情報を再取得して更新（新規 Alert の作成は行わない）
 - **Refresh 実行ログ** — Refresh Metadata 実行ごとに変更があった場合のみ実行履歴を記録。Alerts ページの **View History** ボタンから実行日時・更新件数・変更内容（before/after）を参照可能
@@ -249,7 +249,7 @@ heretix-management/
 | メソッド | パス | 説明 |
 |---|---|---|
 | GET | `/api/assets` | アセット一覧 |
-| POST | `/api/assets` | アセット作成・更新（inventory.json、差分インポート） |
+| POST | `/api/assets` | アセット作成・更新（inventory.json または CycloneDX BOM、差分インポート） |
 | GET | `/api/assets/[id]` | アセット詳細 |
 | PATCH | `/api/assets/[id]` | アセット情報更新（name / hostname / osName / osVersionId） |
 | DELETE | `/api/assets/[id]` | アセット削除 |
