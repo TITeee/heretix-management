@@ -32,7 +32,7 @@ A vulnerability management console that imports server package information colle
 - **Auto-resolve Alerts** — Automatically marks old-version alerts as resolved when a package is upgraded during import
 - **Alert Metadata Refresh** — Re-fetches the latest CVSS score, severity, EPSS, and KEV data from heretix-api for all open/in-progress Alerts (does not create new Alerts)
 - **Refresh Run Log** — Records execution history only when changes occur. View run timestamp, update count, and before/after details via the **View History** button on the Alerts page
-- **Alert Detail Panel** — Click a row to open a slide-over panel with Overview (basic info, memo, resolution reason), NVD tab (CVSS details, CWE, CISA KEV, reference links), OSV tab (description, affected versions, references), and Timeline tab (response history)
+- **Alert Detail Panel** — Click a row to open a slide-over panel with Overview (basic info, memo, resolution reason), NVD tab (CVSS details, CWE, CISA KEV, reference links), OSV tab (description, affected versions, references), Advisory tab (vendor advisory details; shown only when advisory data exists), and Timeline tab (response history)
 - **Alert Timeline** — Automatically records detection, status changes, memo saves, CVSS score changes, severity changes, and KEV additions in the Timeline tab
 - **Vulnerability Search** — Search directly by package name, version, and ecosystem
 - **User Management** — Add, edit, and delete users (admin role only)
@@ -189,6 +189,7 @@ docker compose logs -f app
    - **Overview** tab — Basic info, status change, memo, auto-resolution reason
    - **NVD** tab — CVSS detailed scores, CWE, CISA KEV info, reference links
    - **OSV** tab — Description, affected versions, reference links
+   - **Advisory** tab — Vendor advisory ID, severity, affected products and versions (shown only when advisory data exists)
 5. Track progress by changing status: `Open` → `In Progress` → `Resolved` / `Ignored`
 6. Click **Refresh Metadata** to sync the latest data from heretix-api
 
