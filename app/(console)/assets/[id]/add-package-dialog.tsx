@@ -35,6 +35,7 @@ const ECOSYSTEMS = [
   "Go",
   "Maven",
   "NuGet",
+  "Packagist",
   "Other",
 ]
 

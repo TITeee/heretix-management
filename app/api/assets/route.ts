@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       name: p.name,
       version: p.version,
       rawVersion: p.rawVersion,
-      ecosystem: p.ecosystem,
+      ecosystem: PURL_TYPE_MAP[p.ecosystem] ?? p.ecosystem,
       source: p.source,
       location: p.location ?? null,
     }))
@@ -208,13 +208,20 @@ type CycloneDXBom = {
   components?: CycloneDXComponent[]
 }
 
+// Maps PURL type strings to OSV canonical ecosystem names
+const PURL_TYPE_MAP: Record<string, string> = {
+  golang: "Go",          // pkg:golang/... → "Go" (inventory JSON と統一)
+  composer: "Packagist", // pkg:composer/... → "Packagist" (OSV 正式名)
+}
+
 function parsePURL(purl: string | undefined): { ecosystem: string; name: string | undefined } {
   if (!purl) return { ecosystem: "unknown", name: undefined }
   const match = purl.match(/^pkg:(\w+)\/(?:([^/?#@]+)\/)?([^/?#@]+)@/)
   if (!match) return { ecosystem: "unknown", name: undefined }
   const [, type, namespace, name] = match
   const osTypes = ["rpm", "deb", "apk"]
-  const ecosystem = osTypes.includes(type) && namespace ? namespace : type
+  const rawEcosystem = osTypes.includes(type) && namespace ? namespace : type
+  const ecosystem = PURL_TYPE_MAP[rawEcosystem] ?? rawEcosystem
   return { ecosystem, name: decodeURIComponent(name) }
 }
 

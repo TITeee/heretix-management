@@ -55,6 +55,7 @@ const ECOSYSTEMS = [
   "Go",
   "Maven",
   "NuGet",
+  "Packagist",
 ]
 
 type SearchMode = "package" | "id" | "cpe"

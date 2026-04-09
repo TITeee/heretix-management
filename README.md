@@ -168,7 +168,7 @@ docker compose logs -f app
 
 1. Click **Add Package** in the top-right of the package table on the asset detail page
 2. Select a tab and fill in the details:
-   - **General** — Package name, version, and ecosystem (Linux, npm, PyPI, etc.)
+   - **General** — Package name, version, and ecosystem (Linux, npm, PyPI, Go, Packagist, etc.)
    - **Advisory** — Select Vendor (Fortinet / Palo Alto Networks) and product from the dropdown, enter version (for network devices and firewalls)
    - **CPE** — Enter a CPE 2.3 string directly
 3. Packages with a `manual` badge can be edited or deleted

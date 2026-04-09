@@ -166,7 +166,7 @@ docker compose logs -f app
 
 1. アセット詳細ページのパッケージテーブル右上の **Add Package** をクリック
 2. タブを選択して入力:
-   - **General** — パッケージ名・バージョン・エコシステムを入力（Linux/npm/PyPI 等）
+   - **General** — パッケージ名・バージョン・エコシステムを入力（Linux/npm/PyPI/Go/Packagist 等）
    - **Advisory** — Vendor（Fortinet / Palo Alto Networks）と製品名をドロップダウンで選択し、バージョンを入力（FW・ネットワーク機器向け）
    - **CPE** — CPE 2.3 文字列を直接入力
 3. `manual` バッジが付いたパッケージは編集・削除が可能
