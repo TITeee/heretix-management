@@ -2,11 +2,11 @@ import { prisma } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Server, Bell, ShieldAlert, CheckCircle2, Package, CalendarClock, Info } from "lucide-react"
 import Link from "next/link"
-import { SeverityBadge, StatusBadge } from "@/components/ui/severity-badge"
 import { AlertsTrend } from "@/components/dashboard/alerts-trend"
 import { TopAssetsChart, type AssetBarData } from "@/components/dashboard/top-assets-chart"
 import { TopPackagesChart } from "@/components/dashboard/top-packages-chart"
 import { KevHighlights } from "@/components/dashboard/kev-highlights"
+import { RecentAlertsClient } from "@/components/dashboard/recent-alerts-client"
 import { TagSeverityDonut } from "@/components/dashboard/tag-severity-donut"
 import { CriticalPackagesCard } from "@/components/dashboard/critical-packages-card"
 import { ProductionAssetsCard } from "@/components/dashboard/production-assets-card"
@@ -123,9 +123,9 @@ async function getDashboardData() {
     prisma.alert.count({ where: { status: "open" } }),
     prisma.alert.count({ where: { status: { in: ["open", "in_progress"] }, cvssScore: { gte: 9.0 } } }),
     prisma.alert.findMany({
-      take: 5,
+      take: 10,
       orderBy: { detectedAt: "desc" },
-      include: { asset: { select: { name: true, hostname: true } } },
+      include: { asset: { select: { id: true, name: true, hostname: true } } },
     }),
     // A3 trend
     prisma.alert.findMany({
@@ -489,43 +489,7 @@ export default async function DashboardPage() {
             <CardTitle className="text-base">Recent Alerts</CardTitle>
           </CardHeader>
         <CardContent>
-          {recentAlerts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No alerts yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {recentAlerts.map((alert) => (
-                <div
-                  key={alert.id}
-                  className="flex items-center justify-between rounded-md border p-3 text-sm"
-                >
-                  <div className="space-y-0.5">
-                    <div className="font-medium">
-                      {alert.packageName} {alert.packageVersion}
-                      <span className="ml-2 text-muted-foreground text-xs">({alert.ecosystem})</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      <Link href={`/assets/${alert.assetId}`} className="hover:underline">
-                        {alert.asset.name || alert.asset.hostname}
-                      </Link>
-                      {" · "}
-                      {alert.externalId}
-                      {" · "}
-                      {new Date(alert.detectedAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <SeverityBadge score={alert.cvssScore} />
-                    <StatusBadge status={alert.status} />
-                  </div>
-                </div>
-              ))}
-              <div className="pt-1">
-                <Link href="/alerts" className="text-xs text-muted-foreground hover:underline">
-                  View all alerts →
-                </Link>
-              </div>
-            </div>
-          )}
+          <RecentAlertsClient alerts={recentAlerts} />
         </CardContent>
         </Card>
       </div>
