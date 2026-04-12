@@ -27,7 +27,7 @@ A vulnerability management console that imports server package information colle
 - **Manual Asset Registration** — Register network devices and firewalls directly via GUI
 - **Manual Package Management** — Add, edit, and delete software installed outside the package manager. The Advisory tab supports Fortinet and Palo Alto Networks products via dropdown selection
 - **Package Change History** — View added/updated/removed package history per asset at import time
-- **Vulnerability Scanning** — Detect vulnerabilities via heretix-api batch search and record alerts (creates new Alerts only; does not update or auto-resolve existing Alerts)
+- **Vulnerability Scanning** — Detect vulnerabilities via heretix-api batch search and record alerts (creates new Alerts only; does not update or auto-resolve existing Alerts). Malicious package detection (`MAL-` alerts) is also supported via [ossf/malicious-packages](https://github.com/ossf/malicious-packages)
 - **Alert Management** — Status tracking (Open / In Progress / Resolved / Ignored), filters (Asset / Status / Severity / Tags, multi-value), Tags column display, bulk status update via checkbox selection
 - **Auto-resolve Alerts** — Automatically marks old-version alerts as resolved when a package is upgraded during import
 - **Alert Metadata Refresh** — Re-fetches the latest CVSS score, severity, EPSS, and KEV data from heretix-api for all open/in-progress Alerts (does not create new Alerts)

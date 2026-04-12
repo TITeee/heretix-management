@@ -5,6 +5,7 @@ import Link from "next/link"
 import { SeverityBadge, StatusBadge } from "@/components/ui/severity-badge"
 import { Badge } from "@/components/ui/badge"
 import { AlertDetailSheet, type SheetAlert } from "@/components/alerts/alert-detail-sheet"
+import { FaVirus } from "react-icons/fa6"
 
 export function RecentAlertsClient({ alerts: initialAlerts }: { alerts: SheetAlert[] }) {
   const [alerts, setAlerts] = useState<SheetAlert[]>(initialAlerts)
@@ -54,7 +55,12 @@ export function RecentAlertsClient({ alerts: initialAlerts }: { alerts: SheetAle
                   >
                     {alert.asset.name || alert.asset.hostname}
                   </Link>
-                  <span>{alert.externalId}</span>
+                  <span className="flex items-center gap-1">
+                    {alert.externalId.startsWith("MAL-") && (
+                      <FaVirus className="h-3 w-3 text-red-600 shrink-0" title="Malicious Package" />
+                    )}
+                    {alert.externalId}
+                  </span>
                 </div>
               </div>
               <StatusBadge status={alert.status} />

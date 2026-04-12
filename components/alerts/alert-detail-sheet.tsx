@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Clock, TrendingUp, TrendingDown, AlertTriangle, History } from "lucide-react"
-import { FaBiohazard, FaCircleExclamation, FaClock, FaCircleMinus, FaCircleCheck } from "react-icons/fa6"
+import { FaTriangleExclamation, FaVirus, FaCircleExclamation, FaClock, FaCircleMinus, FaCircleCheck } from "react-icons/fa6"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -296,7 +296,15 @@ export function AlertDetailSheet({
                   <div className="flex items-center gap-2">
                     <span className="w-28 text-muted-foreground shrink-0">KEV</span>
                     <span className="flex items-center gap-1 text-red-600 font-medium">
-                      <FaBiohazard className="h-3.5 w-3.5" /> Known Exploited (CISA KEV)
+                      <FaTriangleExclamation className="h-3.5 w-3.5" /> Known Exploited (CISA KEV)
+                    </span>
+                  </div>
+                )}
+                {alert.externalId.startsWith("MAL-") && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 text-muted-foreground shrink-0">Malware</span>
+                    <span className="flex items-center gap-1 text-red-600 font-medium">
+                      <FaVirus className="h-3.5 w-3.5" /> Malicious Package (ossf/malicious-packages)
                     </span>
                   </div>
                 )}

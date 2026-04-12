@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ShieldAlert } from "lucide-react"
+import { FaTriangleExclamation } from "react-icons/fa6"
 import Link from "next/link"
 import { SeverityBadge } from "@/components/ui/severity-badge"
 import { AlertDetailSheet, type SheetAlert } from "@/components/alerts/alert-detail-sheet"
@@ -38,7 +38,7 @@ export function KevHighlights({ alerts: initialAlerts }: { alerts: SheetAlert[] 
             >
               <div className="space-y-0.5">
                 <div className="font-medium flex items-center gap-1.5">
-                  <ShieldAlert className="h-3.5 w-3.5 text-red-600 shrink-0" />
+                  <FaTriangleExclamation className="h-3.5 w-3.5 text-red-600 shrink-0" />
                   <span className="font-mono text-xs">{alert.externalId}</span>
                   <span className="text-muted-foreground">·</span>
                   <span>{alert.packageName}</span>

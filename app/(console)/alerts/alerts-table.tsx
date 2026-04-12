@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ArrowUpDown, X } from "lucide-react"
-import { FaBiohazard } from "react-icons/fa6"
+import { FaTriangleExclamation, FaVirus } from "react-icons/fa6"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -104,15 +104,23 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
     accessorKey: "isKev",
     header: ({ column }) => (
       <Button variant="ghost" size="sm" onClick={() => column.toggleSorting()}>
-        KEV <ArrowUpDown className="ml-1 h-3 w-3" />
+        Risk <ArrowUpDown className="ml-1 h-3 w-3" />
       </Button>
     ),
-    cell: ({ row }) =>
-      row.original.isKev ? (
-        <span title="CISA Known Exploited Vulnerability">
-          <FaBiohazard className="h-4 w-4 text-red-600" />
-        </span>
-      ) : null,
+    cell: ({ row }) => (
+      <div className="flex gap-1.5">
+        {row.original.isKev && (
+          <span title="CISA Known Exploited Vulnerability">
+            <FaTriangleExclamation className="h-4 w-4 text-red-600" />
+          </span>
+        )}
+        {row.original.externalId.startsWith("MAL-") && (
+          <span title="Malicious Package (ossf/malicious-packages)">
+            <FaVirus className="h-4 w-4 text-red-600" />
+          </span>
+        )}
+      </div>
+    ),
   },
   {
     accessorKey: "epssScore",
@@ -258,6 +266,7 @@ const CVSS_OPTIONS = [
 
 const KEV_OPTIONS = [
   { value: "kev", label: "KEV" },
+  { value: "malware", label: "Malware" },
 ]
 
 export function AlertsTable({ data: initialData, initialPackageName }: { data: Alert[]; initialPackageName?: string }) {
@@ -317,7 +326,12 @@ export function AlertsTable({ data: initialData, initialPackageName }: { data: A
       const tier = score >= 9.0 ? "critical" : score >= 7.0 ? "high" : score >= 4.0 ? "medium" : "low"
       if (!cvssFilter.has(tier)) return false
     }
-    if (kevFilter.size > 0 && !kevFilter.has(alert.isKev ? "kev" : "non_kev")) return false
+    if (kevFilter.size > 0) {
+      const matches =
+        (kevFilter.has("kev") && alert.isKev) ||
+        (kevFilter.has("malware") && alert.externalId.startsWith("MAL-"))
+      if (!matches) return false
+    }
     if (ecosystemFilter.size > 0 && !ecosystemFilter.has(alert.ecosystem)) return false
     if (sourcesFilter.size > 0 && !alert.sources.some(s => sourcesFilter.has(s))) return false
     if (tagFilter.size > 0 && !alert.tags.some(t => tagFilter.has(t.id))) return false
@@ -381,7 +395,7 @@ export function AlertsTable({ data: initialData, initialPackageName }: { data: A
           onSelectedChange={setCvssFilter}
         />
         <DataTableFacetedFilter
-          title="KEV"
+          title="Risk"
           options={KEV_OPTIONS}
           selected={kevFilter}
           onSelectedChange={setKevFilter}
