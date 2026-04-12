@@ -286,6 +286,7 @@ export function AlertsTable({ data: initialData, initialPackageName }: { data: A
 
   const ecosystemOptions = useMemo(() =>
     [...new Set(data.map(a => a.ecosystem))]
+      .filter(Boolean)
       .sort()
       .map(eco => ({ value: eco, label: eco })),
     [data]

@@ -252,8 +252,9 @@ export function AlertDetailSheet({
       <SheetContent side="right" className="w-[80vw] sm:max-w-4xl flex flex-col p-0">
         <SheetHeader className="px-6 pt-6 pb-4 border-b">
           <SheetTitle className="font-mono text-sm">{alert.externalId}</SheetTitle>
-          <SheetDescription>
-            {alert.packageName} {alert.packageVersion} · {alert.ecosystem}
+          <SheetDescription className="flex items-center gap-2">
+            {alert.packageName} {alert.packageVersion}
+            <Badge variant="secondary" className="text-xs font-normal">{alert.ecosystem}</Badge>
           </SheetDescription>
         </SheetHeader>
 

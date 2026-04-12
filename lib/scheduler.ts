@@ -4,8 +4,8 @@ import { scanAllAssets } from "@/lib/scan"
 import { logger } from "@/lib/logger"
 
 export function startScheduler() {
-  const refreshSchedule = process.env.CRON_REFRESH ?? "0 12 * * *"
-  const scanSchedule = process.env.CRON_SCAN ?? "0 13 * * *"
+  const scanSchedule = process.env.CRON_SCAN ?? "0 12 * * *"
+  const refreshSchedule = process.env.CRON_REFRESH ?? "0 13 * * *"
 
   schedule(refreshSchedule, () => {
     refreshMetadata().catch((err) => {

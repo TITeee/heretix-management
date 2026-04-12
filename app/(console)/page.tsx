@@ -152,16 +152,7 @@ async function getDashboardData() {
     // B3 KEV
     prisma.alert.findMany({
       where: { isKev: true, status: { in: ["open", "in_progress"] } },
-      select: {
-        id: true,
-        externalId: true,
-        packageName: true,
-        cvssScore: true,
-        epssScore: true,
-        isKev: true,
-        assetId: true,
-        asset: { select: { name: true, hostname: true } },
-      },
+      include: { asset: { select: { id: true, name: true, hostname: true } } },
       orderBy: { cvssScore: "desc" },
       take: 10,
     }),

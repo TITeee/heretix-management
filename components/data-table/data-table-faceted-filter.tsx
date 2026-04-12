@@ -56,12 +56,12 @@ export function DataTableFacetedFilter({
             <Separator orientation="vertical" className="mx-1 h-4" />
             {selected.size <= 2
               ? [...selected].map(v => (
-                  <Badge key={v} variant="secondary" className="rounded-sm px-1 font-normal">
+                  <Badge key={v} variant="default" className="rounded-sm px-1 font-normal">
                     {options.find(o => o.value === v)?.label ?? v}
                   </Badge>
                 ))
               : (
-                  <Badge variant="secondary" className="rounded-sm px-1 font-normal">
+                  <Badge variant="default" className="rounded-sm px-1 font-normal">
                     {selected.size} selected
                   </Badge>
                 )

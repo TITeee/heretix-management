@@ -58,7 +58,7 @@ export default function SettingsPage() {
       })
     fetch("/api/tags")
       .then((r) => r.ok ? r.json() : [])
-      .then((tags: Tag[]) => setAssetTags(tags.filter((t) => t.type === "asset")))
+      .then((tags: Tag[]) => setAssetTags(tags))
   }, [])
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
