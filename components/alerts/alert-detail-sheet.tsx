@@ -204,7 +204,13 @@ export function AlertDetailSheet({
       setStatus(alert.status)
       setNotes(alert.notes ?? "")
     }
-  }, [alert?.id, alert?.status])
+  }, [alert?.id])
+
+  useEffect(() => {
+    if (alert) {
+      setStatus(alert.status)
+    }
+  }, [alert?.status])
 
   useEffect(() => {
     if (!open || !alert) return
