@@ -151,9 +151,14 @@ export function DataTable<TData, TValue>({
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     enableRowSelection: !!enableRowSelection,
+    autoResetPageIndex: false,
     initialState: { pagination: { pageSize } },
     state: { sorting, columnFilters, columnVisibility, rowSelection },
   })
+
+  useEffect(() => {
+    table.setPageIndex(0)
+  }, [columnFilters]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!onRowSelectionChange) return

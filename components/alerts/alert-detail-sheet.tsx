@@ -196,6 +196,7 @@ export function AlertDetailSheet({
   const [savingStatus, setSavingStatus] = useState(false)
   const [vulnDetail, setVulnDetail] = useState<VulnDetail | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
   const [timelineKey, setTimelineKey] = useState(0)
 
   useEffect(() => {
@@ -208,11 +209,15 @@ export function AlertDetailSheet({
   useEffect(() => {
     if (!open || !alert) return
     setVulnDetail(null)
+    setFetchError(false)
     setLoadingDetail(true)
     fetch(`/api/search?id=${encodeURIComponent(alert.externalId)}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("API error")
+        return r.json()
+      })
       .then((data) => setVulnDetail(data.results?.[0] ?? null))
-      .catch(() => {})
+      .catch(() => setFetchError(true))
       .finally(() => setLoadingDetail(false))
   }, [open, alert?.id])
 
@@ -413,11 +418,11 @@ export function AlertDetailSheet({
           </TabsContent>
 
           <TabsContent value="nvd" className="flex-1 overflow-y-auto px-6 py-4">
-            <NvdTab detail={vulnDetail} loading={loadingDetail} />
+            <NvdTab detail={vulnDetail} loading={loadingDetail} error={fetchError} />
           </TabsContent>
 
           <TabsContent value="osv" className="flex-1 overflow-y-auto px-6 py-4">
-            <OsvTab detail={vulnDetail} loading={loadingDetail} />
+            <OsvTab detail={vulnDetail} loading={loadingDetail} error={fetchError} />
           </TabsContent>
 
           <TabsContent value="advisory" className="flex-1 overflow-y-auto px-6 py-4">

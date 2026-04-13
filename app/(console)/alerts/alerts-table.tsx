@@ -350,7 +350,6 @@ export function AlertsTable({ data: initialData, initialPackageName }: { data: A
 
   function handleOpenChange(v: boolean) {
     setOpen(v)
-    if (!v) router.refresh()
   }
 
   async function handleBulkStatusChange() {

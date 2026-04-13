@@ -136,12 +136,12 @@ function NvdRefTag({ tag }: { tag: string }) {
   return <Badge variant="outline" className="text-xs">{tag}</Badge>
 }
 
-export function NvdTab({ detail, loading }: { detail: VulnDetail | null; loading: boolean }) {
+export function NvdTab({ detail, loading, error }: { detail: VulnDetail | null; loading: boolean; error?: boolean }) {
   if (loading) return <DetailSkeleton />
 
   const nvd = detail?.nvdVulnerability
   if (!nvd) {
-    return <p className="text-sm text-muted-foreground py-2">No NVD data available.</p>
+    return <p className="text-sm text-muted-foreground py-2">{error ? "Failed to retrieve data from heretix-api." : "No NVD data available."}</p>
   }
 
   const raw = nvd.rawData
@@ -362,12 +362,12 @@ function OsvRefBadge({ type }: { type: string }) {
   return <Badge variant="outline" className="text-xs shrink-0">{type}</Badge>
 }
 
-export function OsvTab({ detail, loading }: { detail: VulnDetail | null; loading: boolean }) {
+export function OsvTab({ detail, loading, error }: { detail: VulnDetail | null; loading: boolean; error?: boolean }) {
   if (loading) return <DetailSkeleton />
 
   const osvList = detail?.osvVulnerabilities ?? []
   if (osvList.length === 0) {
-    return <p className="text-sm text-muted-foreground py-2">No OSV data available.</p>
+    return <p className="text-sm text-muted-foreground py-2">{error ? "Failed to retrieve data from heretix-api." : "No OSV data available."}</p>
   }
 
   return (
