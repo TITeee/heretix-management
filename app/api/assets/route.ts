@@ -146,7 +146,8 @@ export async function POST(req: NextRequest) {
       // Auto-resolve alerts for upgraded packages
       const upgraded = historyEntries.filter(h => h.action === "updated")
       for (const pkg of upgraded) {
-        await prisma.alert.updateMany({
+        const resolveReason = `Auto-resolved: package upgraded from ${pkg.oldVersion} to ${pkg.newVersion}`
+        const alertsToResolve = await prisma.alert.findMany({
           where: {
             assetId: existing.id,
             packageName: pkg.packageName,
@@ -154,12 +155,21 @@ export async function POST(req: NextRequest) {
             ecosystem: pkg.ecosystem,
             status: { in: ["open", "in_progress"] },
           },
-          data: {
-            status: "resolved",
-            resolvedAt: new Date(),
-            resolveReason: `Auto-resolved: package upgraded from ${pkg.oldVersion} to ${pkg.newVersion}`,
-          },
+          select: { id: true, status: true },
         })
+        for (const alert of alertsToResolve) {
+          await prisma.alert.update({
+            where: { id: alert.id },
+            data: { status: "resolved", resolvedAt: new Date(), resolveReason },
+          })
+          await prisma.alertEvent.create({
+            data: {
+              alertId: alert.id,
+              type: "status_changed",
+              data: { from: alert.status, to: "resolved", reason: resolveReason },
+            },
+          })
+        }
       }
 
       const asset = await prisma.asset.update({
