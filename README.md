@@ -31,7 +31,7 @@ A vulnerability management console that imports server package information colle
 - **Alert Management** — Status tracking (Open / In Progress / Resolved / Ignored), filters (Asset / Status / Severity / Tags, multi-value), Tags column display, bulk status update via checkbox selection
 - **Auto-resolve Alerts** — Automatically marks old-version alerts as resolved when a package is upgraded during import
 - **Alert Metadata Refresh** — Re-fetches the latest CVSS score, severity, EPSS, and KEV data from heretix-api for all open/in-progress Alerts (does not create new Alerts)
-- **Refresh Run Log** — Records execution history only when changes occur. View run timestamp, update count, and before/after details via the **View History** button on the Alerts page
+- **Alert Activity** — View all alert events (detections, status changes, metadata updates) across all assets in a single table. Filter by event type or asset. Accessible via the **Activity** button on the Alerts page
 - **Alert Detail Panel** — Click a row to open a slide-over panel with Overview (basic info, memo, resolution reason), NVD tab (CVSS details, CWE, CISA KEV, reference links), OSV tab (description, affected versions, references), Advisory tab (vendor advisory details; shown only when advisory data exists), and Timeline tab (response history)
 - **Alert Timeline** — Automatically records detection, status changes, memo saves, CVSS score changes, severity changes, and KEV additions in the Timeline tab
 - **Vulnerability Search** — Search directly by package name, version, and ecosystem
@@ -264,7 +264,7 @@ heretix-management/
 | PATCH | `/api/alerts/[id]` | Update alert status / memo |
 | GET | `/api/alerts/[id]/events` | List alert event history |
 | POST | `/api/alerts/refresh` | Bulk refresh alert metadata from heretix-api |
-| GET | `/api/alerts/refresh-log` | List Refresh Metadata run history |
+| GET | `/api/alerts/events` | List all alert events across all alerts |
 | GET | `/api/search` | Vulnerability search (heretix-api proxy) |
 | GET | `/api/settings` | Get settings |
 | PATCH | `/api/settings` | Update settings |

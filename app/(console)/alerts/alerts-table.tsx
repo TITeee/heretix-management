@@ -269,14 +269,14 @@ const KEV_OPTIONS = [
   { value: "malware", label: "Malware" },
 ]
 
-export function AlertsTable({ data: initialData, initialPackageName }: { data: Alert[]; initialPackageName?: string }) {
+export function AlertsTable({ data: initialData, initialPackageName, initialAssetId }: { data: Alert[]; initialPackageName?: string; initialAssetId?: string }) {
   const router = useRouter()
   const [data, setData] = useState(initialData)
   useEffect(() => { setData(initialData) }, [initialData])
   const [selected, setSelected] = useState<Alert | null>(null)
   const [open, setOpen] = useState(false)
-  const [assetFilter, setAssetFilter] = useState<Set<string>>(new Set())
-  const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set())
+  const [assetFilter, setAssetFilter] = useState<Set<string>>(new Set(initialAssetId ? [initialAssetId] : []))
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set(["open", "in_progress"]))
   const [cvssFilter, setCvssFilter] = useState<Set<string>>(new Set())
   const [kevFilter, setKevFilter] = useState<Set<string>>(new Set())
   const [ecosystemFilter, setEcosystemFilter] = useState<Set<string>>(new Set())
@@ -423,7 +423,10 @@ export function AlertsTable({ data: initialData, initialPackageName }: { data: A
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => { setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set()) }}
+            onClick={() => {
+              if (initialAssetId) { window.location.href = "/alerts"; return }
+              setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set())
+            }}
           >
             Reset <X className="ml-1 size-4" />
           </Button>

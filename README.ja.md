@@ -29,7 +29,7 @@
 - **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度 / Tags）・Tagsカラム表示・複数選択による一括ステータス変更
 - **アラート自動解決** — インポート時にパッケージがアップグレードされた場合、旧バージョンのアラートを自動で解決済みに変更
 - **アラートメタデータ更新** — open / in_progress の全 Alert に対して heretix-api から最新の CVSS スコア・重要度・EPSS・KEV 情報を再取得して更新（新規 Alert の作成は行わない）
-- **Refresh 実行ログ** — Refresh Metadata 実行ごとに変更があった場合のみ実行履歴を記録。Alerts ページの **View History** ボタンから実行日時・更新件数・変更内容（before/after）を参照可能
+- **Alert Activity** — 全アセット・全アラートの変更イベント（検知・ステータス変更・メタデータ更新）を1つのテーブルで一覧表示。イベント種別・アセットでフィルタ可能。Alerts ページの **Activity** ボタンからアクセス
 - **アラート詳細** — 行クリックでスライドパネルを表示。Overview（基本情報・メモ・解決理由）・NVD タブ（CVSS 詳細・CWE・KEV・参照リンク）・OSV タブ（詳細説明・影響バージョン・参照リンク）・Advisory タブ（ベンダーアドバイザリ情報・影響製品とバージョン、Advisory データが存在する場合のみ表示）・Timeline タブ（対応履歴）
 - **アラート対応履歴** — 検知・ステータス変更・メモ保存・CVSSスコア変更・重要度変更・KEV追加を自動記録し、Timeline タブで時系列表示
 - **脆弱性検索** — パッケージ名・バージョン・エコシステムで直接検索
@@ -262,7 +262,7 @@ heretix-management/
 | PATCH | `/api/alerts/[id]` | アラートのステータス・メモ更新 |
 | GET | `/api/alerts/[id]/events` | アラートイベント履歴一覧 |
 | POST | `/api/alerts/refresh` | アラートメタデータを heretix-api から一括更新 |
-| GET | `/api/alerts/refresh-log` | Refresh Metadata 実行履歴一覧 |
+| GET | `/api/alerts/events` | 全アラートイベント一覧 |
 | GET | `/api/search` | 脆弱性検索（heretix-api プロキシ） |
 | GET | `/api/settings` | 設定取得 |
 | PATCH | `/api/settings` | 設定更新 |

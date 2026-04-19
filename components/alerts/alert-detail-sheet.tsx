@@ -170,6 +170,11 @@ function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open
                   {String(event.data?.severity)}{event.data?.cvssScore != null ? ` · CVSS ${String(event.data?.cvssScore)}` : ""}
                 </p>
               )}
+              {event.type === "status_changed" && !!event.data?.reason && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {String(event.data.reason)}
+                </p>
+              )}
             </div>
           </div>
         )

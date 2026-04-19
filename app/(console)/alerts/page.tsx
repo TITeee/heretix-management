@@ -51,7 +51,7 @@ export default async function AlertsPage({
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Alerts</h1>
-      <AlertsTableClient data={alertsWithTags} initialPackageName={params.packageName} />
+      <AlertsTableClient data={alertsWithTags} initialPackageName={params.packageName} initialAssetId={params.assetId} />
     </div>
   )
 }

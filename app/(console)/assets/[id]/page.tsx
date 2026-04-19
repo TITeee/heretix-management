@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db"
 import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Bell } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { ScanButton } from "./scan-button"
@@ -73,7 +74,8 @@ export default async function AssetDetailPage({
         <div className="flex items-center gap-2">
           <EditAssetDialog asset={{ id: asset.id, name: asset.name, hostname: asset.hostname, osName: asset.osName, osVersionId: asset.osVersionId }} />
           <Link href={`/alerts?assetId=${id}`}>
-            <Button variant="outline" size="sm">
+            <Button variant="destructive" size="sm">
+              <Bell className="h-4 w-4" />
               {openAlerts} Open Alerts
             </Button>
           </Link>

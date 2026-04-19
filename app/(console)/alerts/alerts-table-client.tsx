@@ -8,7 +8,7 @@ import { toast } from "sonner"
 import { AlertsTable } from "./alerts-table"
 import type { Alert } from "./alerts-table"
 
-export function AlertsTableClient({ data, initialPackageName }: { data: Alert[]; initialPackageName?: string }) {
+export function AlertsTableClient({ data, initialPackageName, initialAssetId }: { data: Alert[]; initialPackageName?: string; initialAssetId?: string }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
@@ -49,7 +49,7 @@ export function AlertsTableClient({ data, initialPackageName }: { data: Alert[];
           Activity
         </Link>
       </div>
-      <AlertsTable data={data} initialPackageName={initialPackageName} />
+      <AlertsTable data={data} initialPackageName={initialPackageName} initialAssetId={initialAssetId} />
     </div>
   )
 }
