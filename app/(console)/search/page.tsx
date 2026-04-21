@@ -13,11 +13,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Search, ShieldAlert } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
@@ -329,12 +329,12 @@ export default function SearchPage() {
         </div>
       )}
 
-      <Dialog open={!!selectedId} onOpenChange={(open) => { if (!open) setSelectedId(null) }}>
-        <DialogContent className="max-w-6xl sm:max-w-6xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-mono">{selectedId}</DialogTitle>
-          </DialogHeader>
-          <Tabs defaultValue="nvd">
+      <Sheet open={!!selectedId} onOpenChange={(open) => { if (!open) setSelectedId(null) }}>
+        <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto p-6">
+          <SheetHeader>
+            <SheetTitle className="font-mono text-sm">{selectedId}</SheetTitle>
+          </SheetHeader>
+          <Tabs defaultValue="nvd" className="mt-4">
             <TabsList>
               <TabsTrigger value="nvd">NVD</TabsTrigger>
               <TabsTrigger value="osv">OSV</TabsTrigger>
@@ -352,8 +352,8 @@ export default function SearchPage() {
               <AdvisoryTab detail={detailData} loading={detailLoading} />
             </TabsContent>
           </Tabs>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

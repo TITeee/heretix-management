@@ -41,9 +41,10 @@ export function AppSidebar({ userRole }: { userRole?: string }) {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="flex h-14 items-center px-2 overflow-hidden">
+        <div className="flex h-14 items-center gap-2 overflow-hidden group-data-[collapsible=icon]:justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/heretix_icon.png" alt="heretix" width={28} height={28} className="shrink-0" />
           <span className="group-data-[collapsible=icon]:hidden text-2xl font-bold tracking-tight">heretix</span>
-          <span className="hidden group-data-[collapsible=icon]:block text-2xl font-bold">H</span>
         </div>
       </SidebarHeader>
 

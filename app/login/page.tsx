@@ -43,10 +43,13 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-[#1e293b] dark:bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="space-y-4 text-center pb-6 pt-8">
-
+          <div className="flex justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/heretix_icon.png" alt="heretix" width={72} height={72} />
+          </div>
           <CardTitle className="text-4xl font-bold">heretix</CardTitle>
           <CardDescription>
-            OSS Vulnerability Management Console
+            Vulnerability Management Console
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -74,7 +77,7 @@ export default function LoginPage() {
             {error && (
               <p className="text-sm text-destructive text-center">{error}</p>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full h-11" disabled={loading}>
               {loading ? "Signing in..." : "Sign in"}
             </Button>
           </form>
