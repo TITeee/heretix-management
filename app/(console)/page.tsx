@@ -261,10 +261,10 @@ async function getDashboardData() {
     }),
   ])
 
-  type SeverityCounts = { critical: number; high: number; medium: number; low: number }
+  type SeverityCounts = { critical: number; high: number; medium: number; low: number; unknown: number }
 
   function buildSeverityCounts(rows: { severity?: string | null; _count?: { id?: number } | number }[]): SeverityCounts {
-    const c = { critical: 0, high: 0, medium: 0, low: 0 }
+    const c = { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 }
     for (const r of rows) {
       const s = ((r as { severity?: string | null }).severity ?? "").toUpperCase()
       const cnt = typeof r._count === "number" ? r._count : ((r._count as { id?: number })?.id ?? 0)
@@ -272,6 +272,7 @@ async function getDashboardData() {
       else if (s === "HIGH") c.high += cnt
       else if (s === "MEDIUM") c.medium += cnt
       else if (s === "LOW") c.low += cnt
+      else c.unknown += cnt
     }
     return c
   }

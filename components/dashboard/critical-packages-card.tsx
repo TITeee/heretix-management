@@ -3,9 +3,8 @@
 import Link from "next/link"
 import { Package } from "lucide-react"
 import { FaTriangleExclamation } from "react-icons/fa6"
-import { SEVERITY_COLORS, getSeverityTier } from "@/lib/severity"
 
-type SeverityCounts = { critical: number; high: number; medium: number; low: number }
+type SeverityCounts = { critical: number; high: number; medium: number; low: number; unknown: number }
 
 type PackageItem = {
   packageName: string
@@ -21,16 +20,17 @@ const PILL_COLORS = {
   high:     "#9f1239",
   medium:   "#e11d48",
   low:      "#fb7185",
+  unknown:  "#6b7280",
 } as const
 
-const PILL_LABELS = { critical: "Critical", high: "High", medium: "Medium", low: "Low" } as const
+const PILL_LABELS = { critical: "Critical", high: "High", medium: "Medium", low: "Low", unknown: "N/A" } as const
 
-function SeverityRow({ label, counts, textColor }: { label: string; counts: SeverityCounts; textColor: string }) {
-  const tiers = ["critical", "high", "medium", "low"] as const
+function SeverityRow({ label, counts }: { label: string; counts: SeverityCounts }) {
+  const tiers = ["critical", "high", "medium", "low", "unknown"] as const
   return (
     <div className="space-y-0.5">
-      <div className="text-[10px] text-center" style={{ color: textColor, opacity: 0.6 }}>{label}</div>
-      <div className="grid grid-cols-4 gap-0.5">
+      <div className="text-[10px] text-center text-muted-foreground">{label}</div>
+      <div className="grid grid-cols-5 gap-0.5">
         {tiers.map((t) => (
           <div key={t} className="rounded flex flex-col items-center py-0.5"
             style={{ backgroundColor: PILL_COLORS[t], opacity: counts[t] === 0 ? 0.25 : 1 }}>
@@ -50,37 +50,29 @@ export function CriticalPackagesCard({ packages }: { packages: PackageItem[] }) 
 
   return (
     <div className="flex flex-wrap gap-3">
-      {packages.map((pkg) => {
-        const tier = getSeverityTier(pkg.maxCvss)
-        const bg = SEVERITY_COLORS[tier]
-        const isLight = tier === "na"
-        const textColor = isLight ? "#404040" : "#ffffff"
-
-        return (
-          <Link
-            key={`${pkg.packageName}@${pkg.packageVersion}`}
-            href={`/alerts?packageName=${encodeURIComponent(pkg.packageName)}`}
-            className="flex flex-col gap-2 rounded-md p-3 shrink-0 w-44 hover:opacity-80 transition-opacity"
-            style={{ backgroundColor: bg, color: textColor }}
-          >
-            <div className="text-center">
-              <div className="flex justify-center mb-1">
-                <Package className="h-7 w-7 opacity-80" />
-              </div>
-              <div className="text-sm font-semibold truncate">{pkg.packageName}</div>
-              <div className="text-xs" style={{ opacity: 0.7 }}>{pkg.packageVersion}</div>
+      {packages.map((pkg) => (
+        <Link
+          key={`${pkg.packageName}@${pkg.packageVersion}`}
+          href={`/alerts?packageName=${encodeURIComponent(pkg.packageName)}`}
+          className="flex flex-col gap-1.5 rounded-md border-2 border-border bg-card p-3 shrink-0 w-52 h-52 hover:bg-accent transition-colors"
+        >
+          <div className="text-center">
+            <div className="flex justify-center mb-1">
+              <Package className="h-7 w-7 text-muted-foreground" />
             </div>
-            <div className="space-y-0.5">
-              <SeverityRow label="24h" counts={pkg.severity24h} textColor={textColor} />
-              <SeverityRow label="All" counts={pkg.severityAll} textColor={textColor} />
-            </div>
-            <div className="flex items-center justify-center gap-1 text-xs" style={{ opacity: 0.85 }}>
-              <FaTriangleExclamation className="h-3 w-3 shrink-0" />
-              <span>{pkg.kevCount} KEV</span>
-            </div>
-          </Link>
-        )
-      })}
+            <div className="text-sm font-semibold truncate">{pkg.packageName}</div>
+            <div className="text-xs text-muted-foreground">{pkg.packageVersion}</div>
+          </div>
+          <div className="space-y-0.5">
+            <SeverityRow label="24h" counts={pkg.severity24h} />
+            <SeverityRow label="All" counts={pkg.severityAll} />
+          </div>
+          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+            <FaTriangleExclamation className="h-3 w-3 shrink-0" />
+            <span>{pkg.kevCount} KEV</span>
+          </div>
+        </Link>
+      ))}
     </div>
   )
 }
