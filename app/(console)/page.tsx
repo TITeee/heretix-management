@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Server, Bell, ShieldAlert, CheckCircle2, Package, CalendarClock, Info } from "lucide-react"
+import { Server, Bell, ShieldAlert, CheckCircle2, Package, Info } from "lucide-react"
+import { FaTriangleExclamation } from "react-icons/fa6"
 import Link from "next/link"
 import { AlertsTrend } from "@/components/dashboard/alerts-trend"
 import { TopAssetsChart, type AssetBarData } from "@/components/dashboard/top-assets-chart"
@@ -98,8 +99,6 @@ function buildTopAssets(
 async function getDashboardData() {
   const eightWeeksAgo = new Date()
   eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56)
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
 
   const [
     totalAssets,
@@ -115,7 +114,7 @@ async function getDashboardData() {
     developmentAlertRaw,
     stagingAlertRaw,
     totalPackages,
-    todayAlerts,
+    kevCount,
     allTags,
   ] = await Promise.all([
     prisma.asset.count(),
@@ -173,7 +172,7 @@ async function getDashboardData() {
     }),
     // stats
     prisma.package.count(),
-    prisma.alert.count({ where: { detectedAt: { gte: todayStart } } }),
+    prisma.alert.count({ where: { isKev: true, status: { in: ["open", "in_progress"] } } }),
     // All tags for Tags tab (default tags first, then alphabetical)
     prisma.tag.findMany({
       orderBy: [{ isDefault: "desc" }, { name: "asc" }],
@@ -215,12 +214,29 @@ async function getDashboardData() {
   const allTaggedAssetIds = [...new Set(assetTagRecords.map((r) => r.asset.id))]
   const allTaggedPkgNames = [...new Set(packageTagRecords.map((r) => r.packageName))]
 
-  const [assetAlertGroups, pkgRecords, pkgAlertGroups] = await Promise.all([
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  const activeStatus = ["open", "in_progress"]
+
+  const [
+    assetMaxCvss, assetSevAll, assetSev24h, assetKev,
+    pkgRecords,
+    pkgMaxCvss, pkgSevAll, pkgSev24h, pkgKev,
+  ] = await Promise.all([
     prisma.alert.groupBy({
-      by: ["assetId"],
-      _count: { id: true },
-      _max: { cvssScore: true },
-      where: { assetId: { in: allTaggedAssetIds }, status: { in: ["open", "in_progress"] } },
+      by: ["assetId"], _max: { cvssScore: true },
+      where: { assetId: { in: allTaggedAssetIds }, status: { in: activeStatus } },
+    }),
+    prisma.alert.groupBy({
+      by: ["assetId", "severity"], _count: { id: true },
+      where: { assetId: { in: allTaggedAssetIds }, status: { in: activeStatus } },
+    }),
+    prisma.alert.groupBy({
+      by: ["assetId", "severity"], _count: { id: true },
+      where: { assetId: { in: allTaggedAssetIds }, status: { in: activeStatus }, detectedAt: { gte: since24h } },
+    }),
+    prisma.alert.groupBy({
+      by: ["assetId"], _count: { id: true },
+      where: { assetId: { in: allTaggedAssetIds }, status: { in: activeStatus }, isKev: true },
     }),
     prisma.package.findMany({
       where: { name: { in: allTaggedPkgNames } },
@@ -228,31 +244,68 @@ async function getDashboardData() {
       distinct: ["name", "version"],
     }),
     prisma.alert.groupBy({
-      by: ["packageName", "packageVersion"],
-      _count: { id: true },
-      _max: { cvssScore: true },
-      where: { packageName: { in: allTaggedPkgNames }, status: { in: ["open", "in_progress"] } },
+      by: ["packageName", "packageVersion"], _max: { cvssScore: true },
+      where: { packageName: { in: allTaggedPkgNames }, status: { in: activeStatus } },
+    }),
+    prisma.alert.groupBy({
+      by: ["packageName", "packageVersion", "severity"], _count: { id: true },
+      where: { packageName: { in: allTaggedPkgNames }, status: { in: activeStatus } },
+    }),
+    prisma.alert.groupBy({
+      by: ["packageName", "packageVersion", "severity"], _count: { id: true },
+      where: { packageName: { in: allTaggedPkgNames }, status: { in: activeStatus }, detectedAt: { gte: since24h } },
+    }),
+    prisma.alert.groupBy({
+      by: ["packageName", "packageVersion"], _count: { id: true },
+      where: { packageName: { in: allTaggedPkgNames }, status: { in: activeStatus }, isKev: true },
     }),
   ])
 
-  const assetAlertMap = new Map(assetAlertGroups.map((g) => [g.assetId, g]))
-  const pkgAlertMap = new Map(pkgAlertGroups.map((a) => [`${a.packageName}@${a.packageVersion}`, a]))
+  type SeverityCounts = { critical: number; high: number; medium: number; low: number }
+
+  function buildSeverityCounts(rows: { severity?: string | null; _count?: { id?: number } | number }[]): SeverityCounts {
+    const c = { critical: 0, high: 0, medium: 0, low: 0 }
+    for (const r of rows) {
+      const s = ((r as { severity?: string | null }).severity ?? "").toUpperCase()
+      const cnt = typeof r._count === "number" ? r._count : ((r._count as { id?: number })?.id ?? 0)
+      if (s === "CRITICAL") c.critical += cnt
+      else if (s === "HIGH") c.high += cnt
+      else if (s === "MEDIUM") c.medium += cnt
+      else if (s === "LOW") c.low += cnt
+    }
+    return c
+  }
+
+  const assetMaxCvssMap = new Map(assetMaxCvss.map((g) => [g.assetId, g._max?.cvssScore ?? null]))
+  const assetKevMap = new Map(assetKev.map((g) => [g.assetId, (g._count as { id: number }).id]))
 
   function buildAssetItems(assets: { id: string; name: string; hostname: string; assetType: string }[]) {
     return assets
-      .map((a) => {
-        const g = assetAlertMap.get(a.id)
-        return { id: a.id, name: a.name, hostname: a.hostname, assetType: a.assetType, count: g?._count.id ?? 0, maxCvss: g?._max.cvssScore ?? null }
-      })
+      .map((a) => ({
+        id: a.id, name: a.name, hostname: a.hostname, assetType: a.assetType,
+        maxCvss: assetMaxCvssMap.get(a.id) ?? null,
+        severityAll: buildSeverityCounts(assetSevAll.filter((r) => r.assetId === a.id)),
+        severity24h: buildSeverityCounts(assetSev24h.filter((r) => r.assetId === a.id)),
+        kevCount: assetKevMap.get(a.id) ?? 0,
+      }))
       .sort((a, b) => (b.maxCvss ?? -1) - (a.maxCvss ?? -1))
   }
+
+  const pkgMaxCvssMap = new Map(pkgMaxCvss.map((g) => [`${g.packageName}@${g.packageVersion}`, g._max?.cvssScore ?? null]))
+  const pkgKevMap = new Map(pkgKev.map((g) => [`${g.packageName}@${g.packageVersion}`, (g._count as { id: number }).id]))
 
   function buildPackageItems(packageNames: string[]) {
     return pkgRecords
       .filter((p) => packageNames.includes(p.name))
       .map((pkg) => {
-        const alert = pkgAlertMap.get(`${pkg.name}@${pkg.version}`)
-        return { packageName: pkg.name, packageVersion: pkg.version, count: alert?._count.id ?? 0, maxCvss: alert?._max.cvssScore ?? null }
+        const key = `${pkg.name}@${pkg.version}`
+        return {
+          packageName: pkg.name, packageVersion: pkg.version,
+          maxCvss: pkgMaxCvssMap.get(key) ?? null,
+          severityAll: buildSeverityCounts(pkgSevAll.filter((r) => r.packageName === pkg.name && r.packageVersion === pkg.version)),
+          severity24h: buildSeverityCounts(pkgSev24h.filter((r) => r.packageName === pkg.name && r.packageVersion === pkg.version)),
+          kevCount: pkgKevMap.get(key) ?? 0,
+        }
       })
       .sort((a, b) => (b.maxCvss ?? -1) - (a.maxCvss ?? -1))
   }
@@ -280,7 +333,7 @@ async function getDashboardData() {
     developmentSeverity: buildTagSeverity(developmentAlertRaw),
     stagingSeverity: buildTagSeverity(stagingAlertRaw),
     totalPackages,
-    todayAlerts,
+    kevCount,
     tagData,
   }
 }
@@ -302,7 +355,7 @@ export default async function DashboardPage() {
     developmentSeverity,
     stagingSeverity,
     totalPackages,
-    todayAlerts,
+    kevCount,
     tagData,
   } = await getDashboardData()
 
@@ -385,11 +438,11 @@ export default async function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Today Alerts</CardTitle>
-            <CalendarClock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">KEV Alerts</CardTitle>
+            <FaTriangleExclamation className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{todayAlerts}</div>
+            <div className="text-3xl font-bold text-destructive">{kevCount}</div>
           </CardContent>
         </Card>
       </div>
