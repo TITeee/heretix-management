@@ -59,7 +59,7 @@ export function ProductionAssetsCard({ assets }: { assets: AssetItem[] }) {
           <Link
             key={asset.id}
             href={`/alerts?assetId=${asset.id}`}
-            className="flex flex-col gap-1.5 rounded-md border-2 border-border bg-card p-3 shrink-0 w-52 h-52 hover:bg-accent transition-colors"
+            className="flex flex-col gap-1.5 rounded-md border-2 border-border bg-card p-3 shrink-0 w-60 h-60 hover:bg-accent transition-colors"
           >
             <div className="text-center">
               <div className="flex justify-center mb-1">
@@ -68,13 +68,13 @@ export function ProductionAssetsCard({ assets }: { assets: AssetItem[] }) {
                   : <FaServer className="h-5 w-5 text-muted-foreground" />
                 }
               </div>
-              <div className="text-sm font-semibold truncate">{label}</div>
+              <div className="text-sm font-semibold truncate mb-2">{label}</div>
             </div>
-            <div className="space-y-0.5">
+            <div className="space-y-2">
               <SeverityRow label="24h" counts={asset.severity24h} />
               <SeverityRow label="All" counts={asset.severityAll} />
             </div>
-            <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+            <div className={`flex items-center justify-center gap-1 text-xs mt-auto ${asset.kevCount > 0 ? "text-red-600" : "text-muted-foreground"}`}>
               <FaTriangleExclamation className="h-3 w-3 shrink-0" />
               <span>{asset.kevCount} KEV</span>
             </div>

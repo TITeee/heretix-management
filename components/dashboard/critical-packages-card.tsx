@@ -54,20 +54,20 @@ export function CriticalPackagesCard({ packages }: { packages: PackageItem[] }) 
         <Link
           key={`${pkg.packageName}@${pkg.packageVersion}`}
           href={`/alerts?packageName=${encodeURIComponent(pkg.packageName)}`}
-          className="flex flex-col gap-1.5 rounded-md border-2 border-border bg-card p-3 shrink-0 w-52 h-52 hover:bg-accent transition-colors"
+          className="flex flex-col gap-1.5 rounded-md border-2 border-border bg-card p-3 shrink-0 w-60 h-60 hover:bg-accent transition-colors"
         >
           <div className="text-center">
             <div className="flex justify-center mb-1">
               <Package className="h-7 w-7 text-muted-foreground" />
             </div>
-            <div className="text-sm font-semibold truncate">{pkg.packageName}</div>
-            <div className="text-xs text-muted-foreground">{pkg.packageVersion}</div>
+            <div className="text-sm font-semibold truncate mb-2">{pkg.packageName}</div>
+            <div className="text-xs mb-2">{pkg.packageVersion}</div>
           </div>
-          <div className="space-y-0.5">
+          <div className="space-y-2">
             <SeverityRow label="24h" counts={pkg.severity24h} />
             <SeverityRow label="All" counts={pkg.severityAll} />
           </div>
-          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+          <div className={`flex items-center justify-center gap-1 text-xs mt-auto ${pkg.kevCount > 0 ? "text-red-600" : "text-muted-foreground"}`}>
             <FaTriangleExclamation className="h-3 w-3 shrink-0" />
             <span>{pkg.kevCount} KEV</span>
           </div>
