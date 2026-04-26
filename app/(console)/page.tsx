@@ -440,7 +440,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">KEV Alerts</CardTitle>
-            <FaTriangleExclamation className="h-4 w-4 text-destructive" />
+            <FaTriangleExclamation className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-destructive">{kevCount}</div>

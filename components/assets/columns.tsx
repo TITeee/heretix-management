@@ -82,32 +82,50 @@ export const assetColumns: ColumnDef<AssetRow>[] = [
       </Button>
     ),
     cell: ({ row }) => (
-      <span className="flex items-center gap-2 font-medium">
-        {row.original.assetType === "docker_image"
-          ? <FaDocker className="h-5 w-5 shrink-0" />
-          : <FaServer className="h-5 w-5 shrink-0" />
-        }
-        {row.original.name || row.original.hostname}
-      </span>
+      <span className="font-medium">{row.original.name || row.original.hostname}</span>
     ),
   },
   {
     accessorKey: "assetType",
-    header: "Type",
-    cell: ({ row }) => row.original.assetType === "docker_image" ? "Docker Image" : "Host",
+    header: ({ column }) => (
+      <Button variant="ghost" size="sm" onClick={() => column.toggleSorting()}>
+        Type <ArrowUpDown className="ml-1 h-3 w-3" />
+      </Button>
+    ),
+    cell: ({ row }) => (
+      <span className="flex items-center gap-2">
+        {row.original.assetType === "docker_image"
+          ? <FaDocker className="h-5 w-5 shrink-0" />
+          : <FaServer className="h-5 w-5 shrink-0" />
+        }
+        {row.original.assetType === "docker_image" ? "Docker Image" : "Host"}
+      </span>
+    ),
   },
   {
     accessorKey: "hostname",
-    header: "Hostname",
+    header: ({ column }) => (
+      <Button variant="ghost" size="sm" onClick={() => column.toggleSorting()}>
+        Hostname <ArrowUpDown className="ml-1 h-3 w-3" />
+      </Button>
+    ),
   },
   {
     accessorKey: "osName",
-    header: "OS",
+    header: ({ column }) => (
+      <Button variant="ghost" size="sm" onClick={() => column.toggleSorting()}>
+        OS <ArrowUpDown className="ml-1 h-3 w-3" />
+      </Button>
+    ),
   },
   {
     accessorKey: "_count.packages",
     id: "packages",
-    header: "Packages",
+    header: ({ column }) => (
+      <Button variant="ghost" size="sm" onClick={() => column.toggleSorting()}>
+        Packages <ArrowUpDown className="ml-1 h-3 w-3" />
+      </Button>
+    ),
     cell: ({ row }) => row.original._count.packages,
   },
   {
