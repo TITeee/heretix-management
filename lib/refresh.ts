@@ -58,7 +58,7 @@ export async function refreshMetadata(): Promise<{ updated: number }> {
           if (!kevAddedMap.has(alert.assetId)) kevAddedMap.set(alert.assetId, [])
           kevAddedMap.get(alert.assetId)!.push(entry)
         }
-        if (alert.epssScore != null && vuln.epssScore != null && vuln.epssScore !== alert.epssScore) {
+        if (alert.epssScore != null && vuln.epssScore != null && Math.abs(vuln.epssScore - alert.epssScore) >= 0.001) {
           events.push({ type: "epss_changed", data: { from: alert.epssScore, to: vuln.epssScore, percentileFrom: alert.epssPercentile, percentileTo: vuln.epssPercentile } })
         }
 
