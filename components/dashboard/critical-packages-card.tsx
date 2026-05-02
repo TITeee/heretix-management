@@ -29,13 +29,16 @@ function SeverityRow({ label, counts }: { label: string; counts: SeverityCounts 
   const tiers = ["critical", "high", "medium", "low", "unknown"] as const
   return (
     <div className="space-y-0.5">
-      <div className="text-[10px] text-center text-muted-foreground">{label}</div>
+      <div className="text-[11px] text-center">{label}</div>
       <div className="grid grid-cols-5 gap-0.5">
         {tiers.map((t) => (
           <div key={t} className="rounded flex flex-col items-center py-0.5"
-            style={{ backgroundColor: PILL_COLORS[t], opacity: counts[t] === 0 ? 0.25 : 1 }}>
-            <span className="text-[9px] text-white font-medium leading-none">{PILL_LABELS[t]}</span>
-            <span className="text-xs text-white font-bold leading-none mt-0.5">{counts[t]}</span>
+            style={counts[t] === 0
+              ? { border: `1px solid ${PILL_COLORS[t]}` }
+              : { backgroundColor: PILL_COLORS[t] }
+            }>
+            <span className="text-[10px] font-medium leading-none" style={{ color: counts[t] === 0 ? PILL_COLORS[t] : "white" }}>{PILL_LABELS[t]}</span>
+            <span className="text-[13px] font-bold leading-none mt-0.5" style={{ color: counts[t] === 0 ? PILL_COLORS[t] : "white" }}>{counts[t]}</span>
           </div>
         ))}
       </div>
@@ -54,21 +57,21 @@ export function CriticalPackagesCard({ packages }: { packages: PackageItem[] }) 
         <Link
           key={`${pkg.packageName}@${pkg.packageVersion}`}
           href={`/alerts?packageName=${encodeURIComponent(pkg.packageName)}`}
-          className="flex flex-col gap-1.5 rounded-md border-2 border-border bg-card p-3 shrink-0 w-60 h-60 hover:bg-accent transition-colors"
+          className="flex flex-col gap-1.5 rounded-md border-2 border-border bg-card p-3.25 shrink-0 w-66 h-66 hover:bg-accent transition-colors"
         >
           <div className="text-center">
-            <div className="flex justify-center mb-1">
-              <Package className="h-7 w-7 text-muted-foreground" />
+            <div className="flex justify-center mb-1.25">
+              <Package className="h-7.75 w-7.75 text-muted-foreground" />
             </div>
-            <div className="text-sm font-semibold truncate mb-2">{pkg.packageName}</div>
-            <div className="text-xs mb-2">{pkg.packageVersion}</div>
+            <div className="text-[15px] font-semibold truncate mb-2.25">{pkg.packageName}</div>
+            <div className="text-[13px] mb-2.25">{pkg.packageVersion}</div>
           </div>
           <div className="space-y-2">
             <SeverityRow label="24h" counts={pkg.severity24h} />
             <SeverityRow label="All" counts={pkg.severityAll} />
           </div>
-          <div className={`flex items-center justify-center gap-1 text-xs mt-auto ${pkg.kevCount > 0 ? "text-red-600" : "text-muted-foreground"}`}>
-            <FaTriangleExclamation className="h-3 w-3 shrink-0" />
+          <div className={`flex items-center justify-center gap-1 text-[13px] mt-auto ${pkg.kevCount > 0 ? "text-red-600" : "text-muted-foreground"}`}>
+            <FaTriangleExclamation className="h-3.25 w-3.25 shrink-0" />
             <span>{pkg.kevCount} KEV</span>
           </div>
         </Link>
