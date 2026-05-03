@@ -46,7 +46,10 @@ export async function PATCH(
       data: {
         alertId: id,
         type: "notes_saved",
-        data: {},
+        data: {
+          notes: notes.trim(),
+          userName: session.user?.name ?? session.user?.email ?? "Unknown",
+        },
       },
     })
   }

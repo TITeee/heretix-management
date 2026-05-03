@@ -115,7 +115,7 @@ const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: str
   notes_saved: {
     icon: Clock,
     iconClass: "text-muted-foreground",
-    label: () => "Notes saved",
+    label: (data) => data.userName ? `Notes saved by ${String(data.userName)}` : "Notes saved",
   },
 }
 
@@ -173,6 +173,11 @@ function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open
               {event.type === "status_changed" && !!event.data?.reason && (
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {String(event.data.reason)}
+                </p>
+              )}
+              {event.type === "notes_saved" && !!event.data?.notes && (
+                <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap line-clamp-3">
+                  {String(event.data.notes)}
                 </p>
               )}
             </div>
