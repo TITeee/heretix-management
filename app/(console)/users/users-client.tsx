@@ -225,7 +225,7 @@ export function UsersClient({ currentUserId }: { currentUserId: string }) {
                 disabled={editingUser?.id === currentUserId}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue>{form.role === "admin" ? "Admin" : "Operator"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>

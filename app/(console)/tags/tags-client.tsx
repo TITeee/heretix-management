@@ -98,7 +98,7 @@ function TagFormDialog({
             <div className="space-y-2">
               <label className="text-sm font-medium">Type <span className="text-destructive">*</span></label>
               <Select value={type} onValueChange={(v) => setType(v ?? "asset")}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue>{type === "asset" ? "Asset" : "Package"}</SelectValue></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="asset">Asset</SelectItem>
                   <SelectItem value="package">Package</SelectItem>

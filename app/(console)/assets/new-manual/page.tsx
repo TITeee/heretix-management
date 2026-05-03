@@ -106,7 +106,7 @@ export default function NewManualAssetPage() {
               <label className="text-sm font-medium">Type</label>
               <Select value={assetType} onValueChange={(v) => setAssetType(v as "host" | "docker_image")}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue>{assetType === "host" ? "Host" : "Docker Image"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="host">Host</SelectItem>
