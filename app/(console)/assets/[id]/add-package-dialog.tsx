@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { HelpCircle } from "lucide-react"
+import { ADVISORY_VENDORS, FORTINET_PRODUCTS, PALOALTO_PRODUCTS, type AdvisoryVendor } from "@/lib/advisory-products"
 
 const ECOSYSTEMS = [
   "Ubuntu:20.04:LTS",
@@ -39,50 +40,6 @@ const ECOSYSTEMS = [
   "Other",
 ]
 
-const FORTINET_PRODUCTS = [
-  "FortiAnalyzer",
-  "FortiAnalyzer-BigData",
-  "FortiAnalyzer Cloud",
-  "FortiAuthenticator",
-  "FortiClientEMS",
-  "FortiClientLinux",
-  "FortiClientWindows",
-  "FortiDeceptor",
-  "FortiFone",
-  "FortiMail",
-  "FortiManager",
-  "FortiManager Cloud",
-  "FortiOS",
-  "FortiPAM",
-  "FortiPortal",
-  "FortiProxy",
-  "FortiRecorder",
-  "FortiSandbox",
-  "FortiSandbox Cloud",
-  "FortiSASE",
-  "FortiSIEM",
-  "FortiSOAR Agent Communication Bridge",
-  "FortiSOAR on-premise",
-  "FortiSOAR PaaS",
-  "FortiSRA",
-  "FortiSwitchAXFixed",
-  "FortiSwitchManager",
-  "FortiVoice",
-  "FortiWeb",
-]
-
-const PALOALTO_PRODUCTS = [
-  "PAN-OS",
-  "Cortex XDR",
-  "Cortex XSOAR",
-  "CloudNGFW",
-  "Prisma Access",
-  "Prisma Cloud",
-  "GlobalProtect App",
-  "Panorama",
-  "WildFire Appliance",
-]
-
 export function AddPackageDialog({ assetId }: { assetId: string }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -93,7 +50,7 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
   const [genEcosystemSelect, setGenEcosystemSelect] = useState("")
 
   // Advisory tab state
-  const [vendor, setVendor] = useState<"fortinet" | "paloalto">("fortinet")
+  const [vendor, setVendor] = useState<AdvisoryVendor>("fortinet")
   const [product, setProduct] = useState(FORTINET_PRODUCTS[0])
   const [advVersion, setAdvVersion] = useState("")
   const [vulnCount, setVulnCount] = useState<number | "error" | null>(null)
@@ -287,12 +244,14 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
             <div className="space-y-2">
               <label className="text-sm font-medium">Vendor <span className="text-destructive">*</span></label>
               <Select value={vendor} onValueChange={(v) => {
-                const next = v as "fortinet" | "paloalto"
+                const next = v as AdvisoryVendor
                 setVendor(next)
                 setProduct(next === "paloalto" ? PALOALTO_PRODUCTS[0] : FORTINET_PRODUCTS[0])
                 setVulnCount(null)
               }}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full">
+                  <SelectValue>{ADVISORY_VENDORS.find((v) => v.value === vendor)?.label}</SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="fortinet">Fortinet</SelectItem>
                   <SelectItem value="paloalto">Palo Alto Networks</SelectItem>

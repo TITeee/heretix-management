@@ -23,6 +23,7 @@ import { Search, ShieldAlert } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { SEVERITY_COLORS } from "@/lib/severity"
 import { VulnDetail, NvdTab, OsvTab, AdvisoryTab } from "@/components/alerts/vuln-detail-tabs"
+import { ADVISORY_VENDORS, FORTINET_PRODUCTS, getProductsByVendor, type AdvisoryVendor } from "@/lib/advisory-products"
 
 type Vuln = {
   id: string
@@ -58,7 +59,7 @@ const ECOSYSTEMS = [
   "Packagist",
 ]
 
-type SearchMode = "package" | "id" | "cpe"
+type SearchMode = "package" | "id" | "cpe" | "advisory"
 
 function SeverityBadge({ score }: { score: number | null }) {
   if (!score) return <Badge variant="outline">Unknown</Badge>
@@ -79,6 +80,9 @@ export default function SearchPage() {
   const [cpeParsed, setCpeParsed] = useState<{ vendor: string; product: string; version: string | null } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [advisoryVendor, setAdvisoryVendor] = useState<AdvisoryVendor>("fortinet")
+  const [advisoryProduct, setAdvisoryProduct] = useState(FORTINET_PRODUCTS[0])
+  const [advisoryVersion, setAdvisoryVersion] = useState("")
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detailData, setDetailData] = useState<VulnDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -117,6 +121,9 @@ export default function SearchPage() {
           return
         }
         q = new URLSearchParams({ cpe: cpeTrimmed })
+      } else if (mode === "advisory") {
+        if (!advisoryProduct || !advisoryVersion.trim()) return
+        q = new URLSearchParams({ package: advisoryProduct, version: advisoryVersion.trim(), ecosystem: "advisory" })
       } else {
         if (!pkg) return
         q = new URLSearchParams({ package: pkg })
@@ -229,6 +236,30 @@ export default function SearchPage() {
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger render={
+              <button
+                type="button"
+                onClick={() => { setMode("advisory"); setResults(null); setError("") }}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  mode === "advisory"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Advisory
+              </button>
+            } />
+            <TooltipContent side="bottom" className="flex flex-col gap-1.5 max-w-xs text-left">
+              <p>Search by vendor advisory.</p>
+              <p className="opacity-80">
+                Supports Fortinet and Palo Alto Networks products.
+                Select the vendor, product, and version to find known vulnerabilities.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <form onSubmit={handleSearch} className="flex gap-2 flex-wrap">
@@ -267,6 +298,47 @@ export default function SearchPage() {
             className="w-96"
             required
           />
+        ) : mode === "advisory" ? (
+          <>
+            <Select
+              value={advisoryVendor}
+              onValueChange={(v) => {
+                const next = v as AdvisoryVendor
+                setAdvisoryVendor(next)
+                setAdvisoryProduct(getProductsByVendor(next)[0])
+                setResults(null)
+              }}
+            >
+              <SelectTrigger className="w-44">
+                <SelectValue>{ADVISORY_VENDORS.find((v) => v.value === advisoryVendor)?.label}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {ADVISORY_VENDORS.map((v) => (
+                  <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={advisoryProduct}
+              onValueChange={(v) => { setAdvisoryProduct(v ?? advisoryProduct); setResults(null) }}
+            >
+              <SelectTrigger className="w-52">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {getProductsByVendor(advisoryVendor).map((p) => (
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Version (e.g. 7.4.3)"
+              value={advisoryVersion}
+              onChange={(e) => setAdvisoryVersion(e.target.value)}
+              className="w-40"
+              required
+            />
+          </>
         ) : (
           <Input
             placeholder="e.g. CVE-2021-44228 or GHSA-67hx-6x53-jw92"
