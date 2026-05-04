@@ -54,16 +54,35 @@ export const SOPHOS_PRODUCTS = [
   "Sophos Email Gateway",
 ]
 
-export type AdvisoryVendor = "fortinet" | "paloalto" | "sophos"
+export const ORACLE_CPU_PRODUCTS = [
+  "Database",
+  "Java SE",
+  "MySQL Server",
+  "WebLogic Server",
+  "Fusion Middleware",
+  "GoldenGate",
+  "HTTP Server",
+  "VM VirtualBox",
+  "Solaris",
+  "E-Business Suite",
+  "PeopleSoft",
+  "Siebel CRM",
+  "Communications",
+  "Financial Services",
+]
+
+export type AdvisoryVendor = "fortinet" | "paloalto" | "sophos" | "oracle"
 
 export const ADVISORY_VENDORS: { value: AdvisoryVendor; label: string }[] = [
   { value: "fortinet", label: "Fortinet" },
   { value: "paloalto", label: "Palo Alto Networks" },
   { value: "sophos", label: "Sophos" },
+  { value: "oracle", label: "Oracle" },
 ]
 
 export function getProductsByVendor(vendor: AdvisoryVendor): string[] {
   if (vendor === "paloalto") return PALOALTO_PRODUCTS
   if (vendor === "sophos") return SOPHOS_PRODUCTS
+  if (vendor === "oracle") return ORACLE_CPU_PRODUCTS
   return FORTINET_PRODUCTS
 }
