@@ -25,16 +25,16 @@ A vulnerability management console that imports server package information colle
   - **Tags** — Cards for packages and assets linked to tags, color-coded by severity. Critical Packages cards (click to navigate to alert list), Production / Development / Staging asset cards (with Host / Docker Image icons, click to navigate to alert list)
 - **Asset Management** — Import `inventory.json` or **CycloneDX BOM** (incremental updates), asset list & detail views, edit & delete
 - **Manual Asset Registration** — Register network devices and firewalls directly via GUI
-- **Manual Package Management** — Add, edit, and delete software installed outside the package manager. The Advisory tab supports Fortinet and Palo Alto Networks products via dropdown selection
+- **Manual Package Management** — Add, edit, and delete software installed outside the package manager. The Advisory tab supports Fortinet, Palo Alto Networks, Sophos, and Oracle products via dropdown selection
 - **Package Change History** — View added/updated/removed package history per asset at import time
 - **Vulnerability Scanning** — Detect vulnerabilities via heretix-api batch search and record alerts (creates new Alerts only; does not update or auto-resolve existing Alerts). Malicious package detection (`MAL-` alerts) is also supported via [ossf/malicious-packages](https://github.com/ossf/malicious-packages)
-- **Alert Management** — Status tracking (Open / In Progress / Resolved / Ignored), filters (Asset / Status / Severity / Tags, multi-value), Tags column display, bulk status update via checkbox selection
+- **Alert Management** — Status tracking (Open / In Progress / Resolved / Ignored), filters (Asset / Status / Severity / Tags, multi-value), Tags column display, bulk status update via checkbox selection, **export to CSV / JSON** (reflects active filters)
 - **Auto-resolve Alerts** — Automatically marks old-version alerts as resolved when a package is upgraded during import
 - **Alert Metadata Refresh** — Re-fetches the latest CVSS score, severity, EPSS, and KEV data from heretix-api for all open/in-progress Alerts (does not create new Alerts)
 - **Alert Activity** — View all alert events (detections, status changes, metadata updates) across all assets in a single table. Filter by event type or asset. Accessible via the **Activity** button on the Alerts page
 - **Alert Detail Panel** — Click a row to open a slide-over panel with Overview (basic info, memo, resolution reason), NVD tab (CVSS details, CWE, CISA KEV, reference links), OSV tab (description, affected versions, references), Advisory tab (vendor advisory details; shown only when advisory data exists), and Timeline tab (response history)
-- **Alert Timeline** — Automatically records detection, status changes, memo saves, CVSS score changes, severity changes, and KEV additions in the Timeline tab
-- **Vulnerability Search** — Search directly by package name, version, and ecosystem
+- **Alert Timeline** — Automatically records detection, status changes, memo saves (with author name and memo content), CVSS score changes, severity changes, and KEV additions in the Timeline tab
+- **Vulnerability Search** — Search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or **Advisory mode** (Vendor Advisory search for Fortinet, Palo Alto Networks, Sophos, and Oracle products)
 - **User Management** — Add, edit, and delete users (admin role only)
 - **Settings** — Configure heretix-api URL and API token, connection test
 - **Scheduled Jobs** — On server start, node-cron registers daily jobs: Refresh Metadata (default 12:00 UTC) → Run Scan for all assets (default 13:00 UTC). Override with `CRON_REFRESH` / `CRON_SCAN` environment variables
@@ -160,7 +160,7 @@ docker compose logs -f app
 1. Go to **Assets** → **Add Manually** in the sidebar
 2. Enter Name, Hostname, and Type, then click **Create Asset**
 3. On the asset detail page, click **Add Package** → **Advisory tab**
-   - Select Vendor (Fortinet / Palo Alto Networks) and product from the dropdown, then enter the version
+   - Select Vendor (Fortinet / Palo Alto Networks / Sophos / Oracle) and product from the dropdown, then enter the version
 4. Click **Run Scan** to detect vulnerabilities (uses heretix-api Vendor Advisory data)
 5. After a firmware update, click **Edit** on the package to change the version and re-scan
 
@@ -169,7 +169,7 @@ docker compose logs -f app
 1. Click **Add Package** in the top-right of the package table on the asset detail page
 2. Select a tab and fill in the details:
    - **General** — Package name, version, and ecosystem (Linux, npm, PyPI, Go, Packagist, etc.)
-   - **Advisory** — Select Vendor (Fortinet / Palo Alto Networks) and product from the dropdown, enter version (for network devices and firewalls)
+   - **Advisory** — Select Vendor (Fortinet / Palo Alto Networks / Sophos / Oracle) and product from the dropdown, enter version (for network devices and firewalls)
    - **CPE** — Enter a CPE 2.3 string directly
 3. Packages with a `manual` badge can be edited or deleted
 4. Click the badge in the Alerts column to navigate to the alert list for that package
@@ -203,7 +203,7 @@ docker compose logs -f app
 
 ### 5. Vulnerability Search
 
-Use **Search** in the sidebar to search directly by package name, version, and ecosystem.
+Use **Search** in the sidebar to search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or vendor advisory (**Advisory** mode: select Vendor and product to search Fortinet, Palo Alto Networks, Sophos, and Oracle advisories).
 
 ## Directory Structure
 

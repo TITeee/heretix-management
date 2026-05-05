@@ -23,16 +23,16 @@
   - **Tags** — タグに紐づくパッケージ・アセットを重要度カラーのカードで一覧表示。Critical Packages タグに属するパッケージカード（クリックでアラート一覧へ遷移）、Production / Development / Staging タグのアセットカード（ホスト / Docker Image アイコン付き、クリックでアラート一覧へ遷移）
 - **アセット管理** — `inventory.json` または **CycloneDX BOM** インポート（差分更新）、ホスト一覧・詳細表示、アセット編集・削除
 - **手動アセット登録** — ネットワーク機器・FW を GUI から直接登録
-- **手動パッケージ管理** — パッケージマネージャ外でインストールしたソフトウェアを手動で追加・編集・削除。Advisory タブで Fortinet / Palo Alto Networks 製品をドロップダウン選択して登録可能
+- **手動パッケージ管理** — パッケージマネージャ外でインストールしたソフトウェアを手動で追加・編集・削除。Advisory タブで Fortinet / Palo Alto Networks / Sophos / Oracle 製品をドロップダウン選択して登録可能
 - **パッケージ更新履歴** — インポート時の追加・更新・削除の変更履歴をアセット詳細で参照
 - **脆弱性スキャン** — heretix-api のバッチ検索でアセットの脆弱性を検出・アラート記録（新規 Alert の作成のみ。既存 Alert の更新・自動解決は行わない）。[ossf/malicious-packages](https://github.com/ossf/malicious-packages) によるマルウェアパッケージ検知（`MAL-` アラート）にも対応
-- **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度 / Tags）・Tagsカラム表示・複数選択による一括ステータス変更
+- **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度 / Tags）・Tagsカラム表示・複数選択による一括ステータス変更・**CSV / JSON エクスポート**（現在のフィルター状態を反映）
 - **アラート自動解決** — インポート時にパッケージがアップグレードされた場合、旧バージョンのアラートを自動で解決済みに変更
 - **アラートメタデータ更新** — open / in_progress の全 Alert に対して heretix-api から最新の CVSS スコア・重要度・EPSS・KEV 情報を再取得して更新（新規 Alert の作成は行わない）
 - **Alert Activity** — 全アセット・全アラートの変更イベント（検知・ステータス変更・メタデータ更新）を1つのテーブルで一覧表示。イベント種別・アセットでフィルタ可能。Alerts ページの **Activity** ボタンからアクセス
 - **アラート詳細** — 行クリックでスライドパネルを表示。Overview（基本情報・メモ・解決理由）・NVD タブ（CVSS 詳細・CWE・KEV・参照リンク）・OSV タブ（詳細説明・影響バージョン・参照リンク）・Advisory タブ（ベンダーアドバイザリ情報・影響製品とバージョン、Advisory データが存在する場合のみ表示）・Timeline タブ（対応履歴）
-- **アラート対応履歴** — 検知・ステータス変更・メモ保存・CVSSスコア変更・重要度変更・KEV追加を自動記録し、Timeline タブで時系列表示
-- **脆弱性検索** — パッケージ名・バージョン・エコシステムで直接検索
+- **アラート対応履歴** — 検知・ステータス変更・メモ保存（更新者名とメモ内容を記録）・CVSSスコア変更・重要度変更・KEV追加を自動記録し、Timeline タブで時系列表示
+- **脆弱性検索** — パッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列、または **Advisory モード**（Fortinet / Palo Alto Networks / Sophos / Oracle のベンダーアドバイザリ検索）で直接検索
 - **ユーザー管理** — ユーザーの追加・編集・削除（admin ロールのみ表示・操作可能）
 - **設定** — heretix-api 接続 URL・API Token 設定・疎通確認
 - **定期実行** — サーバー起動時に node-cron でスケジューラを起動。Refresh Metadata（デフォルト 12:00 UTC）→ Run Scan 全アセット（デフォルト 13:00 UTC）を毎日自動実行。`CRON_REFRESH` / `CRON_SCAN` 環境変数で時刻変更可能
@@ -158,7 +158,7 @@ docker compose logs -f app
 1. サイドバーの **Assets** → **Add Manually** を開く
 2. Name・Hostname・Type を入力して **Create Asset**
 3. アセット詳細ページで **Add Package** → **Advisory タブ** を選択
-   - Vendor（Fortinet / Palo Alto Networks）と製品名をドロップダウンで選択し、バージョンを入力
+   - Vendor（Fortinet / Palo Alto Networks / Sophos / Oracle）と製品名をドロップダウンで選択し、バージョンを入力
 4. **Run Scan** で脆弱性を検出（heretix-api の Vendor Advisory データを使用）
 5. ファームウェアアップデート後はパッケージの **Edit** でバージョンを変更して再スキャン
 
@@ -167,7 +167,7 @@ docker compose logs -f app
 1. アセット詳細ページのパッケージテーブル右上の **Add Package** をクリック
 2. タブを選択して入力:
    - **General** — パッケージ名・バージョン・エコシステムを入力（Linux/npm/PyPI/Go/Packagist 等）
-   - **Advisory** — Vendor（Fortinet / Palo Alto Networks）と製品名をドロップダウンで選択し、バージョンを入力（FW・ネットワーク機器向け）
+   - **Advisory** — Vendor（Fortinet / Palo Alto Networks / Sophos / Oracle）と製品名をドロップダウンで選択し、バージョンを入力（FW・ネットワーク機器向け）
    - **CPE** — CPE 2.3 文字列を直接入力
 3. `manual` バッジが付いたパッケージは編集・削除が可能
 4. Alerts 列のバッジをクリックするとそのパッケージのアラート一覧に遷移
@@ -201,7 +201,7 @@ docker compose logs -f app
 
 ### 5. 脆弱性検索
 
-サイドバーの **Search** でパッケージ名・バージョン・エコシステムを指定して直接検索。
+サイドバーの **Search** でパッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列を指定して直接検索。**Advisory モード**ではベンダーと製品を選択して Fortinet / Palo Alto Networks / Sophos / Oracle のアドバイザリを検索可能。
 
 ## ディレクトリ構成
 
