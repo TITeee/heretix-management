@@ -50,6 +50,7 @@ interface DataTableProps<TData, TValue> {
   initialSorting?: SortingState
   initialColumnVisibility?: VisibilityState
   initialPageSize?: number
+  exportRef?: React.MutableRefObject<(() => TData[]) | undefined>
 }
 
 function CheckboxCell({
@@ -97,6 +98,7 @@ export function DataTable<TData, TValue>({
   initialSorting = [],
   initialColumnVisibility = {},
   initialPageSize = 25,
+  exportRef,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>(initialSorting)
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
@@ -155,6 +157,10 @@ export function DataTable<TData, TValue>({
     initialState: { pagination: { pageSize } },
     state: { sorting, columnFilters, columnVisibility, rowSelection },
   })
+
+  if (exportRef) {
+    exportRef.current = () => table.getFilteredRowModel().rows.map((r) => r.original)
+  }
 
   useEffect(() => {
     table.setPageIndex(0)

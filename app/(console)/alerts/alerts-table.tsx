@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { ColumnDef } from "@tanstack/react-table"
 import { DataTable } from "@/components/data-table/data-table"
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter"
@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ArrowUpDown, X } from "lucide-react"
+import { ArrowUpDown, Download, X } from "lucide-react"
 import { FaTriangleExclamation, FaVirus } from "react-icons/fa6"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -371,6 +371,85 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
     router.refresh()
   }
 
+  const exportRef = useRef<(() => Alert[]) | undefined>(undefined)
+
+  function escapeCSV(v: unknown): string {
+    const s = v == null ? "" : String(v)
+    return `"${s.replace(/"/g, '""')}"`
+  }
+
+  function download(content: string, filename: string, mime: string) {
+    const blob = new Blob([content], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url; a.download = filename; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function handleExportCSV() {
+    const rows = exportRef.current?.() ?? filteredData
+    const headers = [
+      "Vuln ID", "Severity", "CVSS Score", "CVSS Vector",
+      "EPSS Score", "EPSS Percentile", "KEV",
+      "Summary", "Package", "Version", "Ecosystem", "Sources",
+      "Asset", "Hostname", "Tags", "Status", "Notes",
+      "Detected At", "Resolved At", "Updated At",
+    ]
+    const lines = [
+      headers.map(escapeCSV).join(","),
+      ...rows.map(a => [
+        a.externalId,
+        a.severity ?? "",
+        a.cvssScore ?? "",
+        a.cvssVector ?? "",
+        a.epssScore ?? "",
+        a.epssPercentile != null ? (a.epssPercentile * 100).toFixed(1) : "",
+        a.isKev ? "Yes" : "No",
+        a.summary ?? "",
+        a.packageName,
+        a.packageVersion,
+        a.ecosystem,
+        a.sources.join(";"),
+        a.asset.name || a.asset.hostname,
+        a.asset.hostname,
+        a.tags.map(t => t.name).join(";"),
+        a.status,
+        a.notes ?? "",
+        new Date(a.detectedAt).toISOString(),
+        a.resolvedAt ? new Date(a.resolvedAt).toISOString() : "",
+        new Date(a.updatedAt).toISOString(),
+      ].map(escapeCSV).join(",")),
+    ]
+    download(lines.join("\r\n"), `alerts-${new Date().toISOString().slice(0, 10)}.csv`, "text/csv;charset=utf-8;")
+  }
+
+  function handleExportJSON() {
+    const rows = exportRef.current?.() ?? filteredData
+    const out = rows.map(a => ({
+      vulnId: a.externalId,
+      severity: a.severity,
+      cvssScore: a.cvssScore,
+      cvssVector: a.cvssVector,
+      epssScore: a.epssScore,
+      epssPercentile: a.epssPercentile,
+      kev: a.isKev,
+      summary: a.summary,
+      package: a.packageName,
+      version: a.packageVersion,
+      ecosystem: a.ecosystem,
+      sources: a.sources,
+      asset: a.asset.name || a.asset.hostname,
+      hostname: a.asset.hostname,
+      tags: a.tags.map(t => t.name),
+      status: a.status,
+      notes: a.notes,
+      detectedAt: new Date(a.detectedAt).toISOString(),
+      resolvedAt: a.resolvedAt ? new Date(a.resolvedAt).toISOString() : null,
+      updatedAt: new Date(a.updatedAt).toISOString(),
+    }))
+    download(JSON.stringify(out, null, 2), `alerts-${new Date().toISOString().slice(0, 10)}.json`, "application/json")
+  }
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
@@ -449,29 +528,45 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
         onRowSelectionChange={setSelectedAlerts}
         initialSorting={[{ id: "detectedAt", desc: true }]}
         initialColumnVisibility={{ updatedAt: false, sources: false }}
+        exportRef={exportRef}
         headerActions={
-          selectedAlerts.length > 0 ? (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{selectedAlerts.length} selected</span>
-              <Select value={bulkStatus} onValueChange={(v) => { if (v) setBulkStatus(v) }}>
-                <SelectTrigger className="h-8 w-44 text-sm">
-                  <span className="flex items-center gap-1.5">
-                    {bulkStatus && <StatusIcon status={bulkStatus} />}
-                    <SelectValue placeholder="Change status..." />
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="open"><span className="flex items-center gap-1.5"><StatusIcon status="open" />Open</span></SelectItem>
-                  <SelectItem value="in_progress"><span className="flex items-center gap-1.5"><StatusIcon status="in_progress" />In Progress</span></SelectItem>
-                  <SelectItem value="resolved"><span className="flex items-center gap-1.5"><StatusIcon status="resolved" />Resolved</span></SelectItem>
-                  <SelectItem value="ignored"><span className="flex items-center gap-1.5"><StatusIcon status="ignored" />Ignored</span></SelectItem>
-                </SelectContent>
-              </Select>
-              <Button size="sm" onClick={handleBulkStatusChange} disabled={!bulkStatus || bulkLoading}>
-                {bulkLoading ? "Applying..." : "Apply"}
-              </Button>
+          <div className="flex items-center gap-2">
+            <div className="relative group">
+              <button
+                type="button"
+                className="inline-flex h-8 items-center gap-1 rounded-md border border-input bg-transparent px-3 text-sm font-medium shadow-sm hover:bg-accent"
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </button>
+              <div className="absolute right-0 top-full z-10 mt-1 hidden group-focus-within:flex group-hover:flex flex-col rounded-md border bg-popover shadow-md min-w-30">
+                <button type="button" onClick={handleExportCSV} className="px-3 py-2 text-sm text-left hover:bg-accent rounded-t-md">CSV</button>
+                <button type="button" onClick={handleExportJSON} className="px-3 py-2 text-sm text-left hover:bg-accent rounded-b-md">JSON</button>
+              </div>
             </div>
-          ) : undefined
+            {selectedAlerts.length > 0 && (
+              <>
+                <span className="text-sm text-muted-foreground">{selectedAlerts.length} selected</span>
+                <Select value={bulkStatus} onValueChange={(v) => { if (v) setBulkStatus(v) }}>
+                  <SelectTrigger className="h-8 w-44 text-sm">
+                    <span className="flex items-center gap-1.5">
+                      {bulkStatus && <StatusIcon status={bulkStatus} />}
+                      <SelectValue placeholder="Change status..." />
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open"><span className="flex items-center gap-1.5"><StatusIcon status="open" />Open</span></SelectItem>
+                    <SelectItem value="in_progress"><span className="flex items-center gap-1.5"><StatusIcon status="in_progress" />In Progress</span></SelectItem>
+                    <SelectItem value="resolved"><span className="flex items-center gap-1.5"><StatusIcon status="resolved" />Resolved</span></SelectItem>
+                    <SelectItem value="ignored"><span className="flex items-center gap-1.5"><StatusIcon status="ignored" />Ignored</span></SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="sm" onClick={handleBulkStatusChange} disabled={!bulkStatus || bulkLoading}>
+                  {bulkLoading ? "Applying..." : "Apply"}
+                </Button>
+              </>
+            )}
+          </div>
         }
       />
       <AlertDetailSheet
