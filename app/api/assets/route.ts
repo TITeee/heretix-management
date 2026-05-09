@@ -32,9 +32,12 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
 
-    // CycloneDX BOM → inventory 変換
+    // Convert CycloneDX BOM to inventory format.
+    // Handles both direct body (future API use) and body.inventory (UI file upload).
     if (body.bomFormat === "CycloneDX") {
       body.inventory = convertCycloneDXToInventory(body)
+    } else if (body.inventory?.bomFormat === "CycloneDX") {
+      body.inventory = convertCycloneDXToInventory(body.inventory)
     }
 
     const { name, inventory, hostname: simpleHostname, assetType: simpleAssetType } = body
@@ -220,19 +223,75 @@ type CycloneDXBom = {
 
 // Maps PURL type strings to OSV canonical ecosystem names
 const PURL_TYPE_MAP: Record<string, string> = {
-  golang: "Go",          // pkg:golang/... → "Go" (inventory JSON と統一)
-  composer: "Packagist", // pkg:composer/... → "Packagist" (OSV 正式名)
+  golang:   "Go",
+  composer: "Packagist",
+  pypi:     "PyPI",
+  maven:    "Maven",
+  nuget:    "NuGet",
+  gem:      "RubyGems",
+}
+
+function distroQualifierToEcosystem(distro: string): string {
+  // distro format: "{id}-{version}" e.g. "almalinux-9", "ubuntu-22.04", "alpine-3.18"
+  const lastDash = distro.lastIndexOf("-")
+  if (lastDash === -1) return ""
+  const id = distro.slice(0, lastDash)
+  const ver = distro.slice(lastDash + 1)
+  switch (id) {
+    case "almalinux":   return `AlmaLinux:${ver}`
+    case "ubuntu":      return `Ubuntu:${ver}:LTS`
+    case "debian":      return `Debian:${ver}`
+    case "alpine":      return `Alpine:v${ver}`
+    case "rocky":       return `Rocky:${ver}`
+    case "oraclelinux": return "oracle-linux"
+    case "rhel":        return `Red Hat:${ver}`
+    case "centos":      return `CentOS:${ver}`
+    default:            return ""
+  }
 }
 
 function parsePURL(purl: string | undefined): { ecosystem: string; name: string | undefined } {
   if (!purl) return { ecosystem: "unknown", name: undefined }
-  const match = purl.match(/^pkg:(\w+)\/(?:([^/?#@]+)\/)?([^/?#@]+)@/)
+  // Capture TYPE, full PATH (may contain '/'), and optional qualifiers after @version
+  const match = purl.match(/^pkg:(\w+)\/([^@?#]+)@[^?#]*(?:\?([^#]*))?/)
   if (!match) return { ecosystem: "unknown", name: undefined }
-  const [, type, namespace, name] = match
+  const [, type, fullPath, qualifierStr] = match
+
+  // Parse qualifiers: "distro=almalinux-9&arch=x86_64" → { distro: "almalinux-9" }
+  const qualifiers: Record<string, string> = {}
+  if (qualifierStr) {
+    for (const kv of qualifierStr.split("&")) {
+      const eq = kv.indexOf("=")
+      if (eq > 0) qualifiers[kv.slice(0, eq)] = kv.slice(eq + 1)
+    }
+  }
+
   const osTypes = ["rpm", "deb", "apk"]
-  const rawEcosystem = osTypes.includes(type) && namespace ? namespace : type
-  const ecosystem = PURL_TYPE_MAP[rawEcosystem] ?? rawEcosystem
-  return { ecosystem, name: decodeURIComponent(name) }
+
+  if (osTypes.includes(type)) {
+    // OS packages: first path segment is distro namespace, remainder is package name
+    // e.g. pkg:apk/alpine/curl?distro=alpine-3.18 → ecosystem="Alpine:v3.18", name="curl"
+    const slashIdx = fullPath.indexOf("/")
+    const name = slashIdx === -1
+      ? decodeURIComponent(fullPath)
+      : decodeURIComponent(fullPath.slice(slashIdx + 1))
+    // Use distro qualifier (set by heretix-cli) for precise OSV ecosystem matching.
+    // Without the qualifier, fall back to empty so heretix-api does a cross-ecosystem search.
+    const ecosystem = qualifiers["distro"] ? distroQualifierToEcosystem(qualifiers["distro"]) : ""
+    return { ecosystem, name }
+  }
+
+  // Non-OS packages: last path segment is name, everything before is namespace.
+  // Handles scoped npm  : pkg:npm/%40auth/core       → @auth/core
+  // Handles Go modules  : pkg:golang/github.com/x/net → github.com/x/net
+  // Handles simple pkgs : pkg:npm/lodash              → lodash
+  const lastSlash = fullPath.lastIndexOf("/")
+  const ecosystem = PURL_TYPE_MAP[type] ?? type
+  if (lastSlash === -1) {
+    return { ecosystem, name: decodeURIComponent(fullPath) }
+  }
+  const name = decodeURIComponent(fullPath.slice(0, lastSlash)) + "/" + decodeURIComponent(fullPath.slice(lastSlash + 1))
+  return { ecosystem, name }
 }
 
 function convertCycloneDXToInventory(bom: CycloneDXBom) {

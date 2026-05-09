@@ -41,10 +41,13 @@ export default function NewAssetPage() {
       const text = await file.text()
       const inventory = JSON.parse(text)
 
+      const isCycloneDX = inventory.bomFormat === "CycloneDX"
+      const displayName = name || (isCycloneDX ? inventory.metadata?.component?.name : inventory.hostname)
+
       const res = await fetch("/api/assets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name || inventory.hostname, inventory }),
+        body: JSON.stringify({ name: displayName, inventory }),
       })
 
       if (!res.ok) {
