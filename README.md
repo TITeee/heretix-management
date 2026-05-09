@@ -23,7 +23,7 @@ A vulnerability management console that imports server package information colle
 - **Dashboard** — Two-tab layout: Overview / Tags
   - **Overview** — Total assets & alerts, severity summary, tag severity donut charts (Production / Development / Staging with color indicators), 8-week alert trend, Top 10 vulnerable assets & packages, KEV (Known Exploited Vulnerabilities) highlights
   - **Tags** — Cards for packages and assets linked to tags, color-coded by severity. Critical Packages cards (click to navigate to alert list), Production / Development / Staging asset cards (with Host / Docker Image icons, click to navigate to alert list)
-- **Asset Management** — Import `inventory.json` or **CycloneDX BOM** (incremental updates), asset list & detail views, edit & delete
+- **Asset Management** — Import `inventory.json` or **CycloneDX BOM** (incremental updates, PURL parsing with scoped npm / Go module / OS package support), asset list & detail views, edit & delete
 - **Manual Asset Registration** — Register network devices and firewalls directly via GUI
 - **Manual Package Management** — Add, edit, and delete software installed outside the package manager. The Advisory tab supports Fortinet, Palo Alto Networks, Sophos, and Oracle products via dropdown selection
 - **Package Change History** — View added/updated/removed package history per asset at import time
