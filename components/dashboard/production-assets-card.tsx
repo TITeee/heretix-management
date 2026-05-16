@@ -36,11 +36,11 @@ function SeverityRow({ label, counts }: { label: string; counts: SeverityCounts 
         {tiers.map((t) => (
           <div key={t} className="rounded flex flex-col items-center py-0.5"
             style={counts[t] === 0
-              ? { border: `1px solid ${PILL_COLORS[t]}` }
+              ? { border: "1px solid #9ca3af" }
               : { backgroundColor: PILL_COLORS[t] }
             }>
-            <span className="text-[10px] font-medium leading-none" style={{ color: counts[t] === 0 ? PILL_COLORS[t] : "white" }}>{PILL_LABELS[t]}</span>
-            <span className="text-[13px] font-bold leading-none mt-0.5" style={{ color: counts[t] === 0 ? PILL_COLORS[t] : "white" }}>{counts[t]}</span>
+            <span className="text-[10px] font-medium leading-none" style={{ color: counts[t] === 0 ? "#9ca3af" : "white" }}>{PILL_LABELS[t]}</span>
+            <span className="text-[13px] font-bold leading-none mt-0.5" style={{ color: counts[t] === 0 ? "#9ca3af" : "white" }}>{counts[t]}</span>
           </div>
         ))}
       </div>
@@ -67,8 +67,8 @@ export function ProductionAssetsCard({ assets }: { assets: AssetItem[] }) {
             <div className="text-center">
               <div className="flex justify-center mb-1.25">
                 {asset.assetType === "docker_image"
-                  ? <FaDocker className="h-7.75 w-7.75 text-muted-foreground" />
-                  : <FaServer className="h-5.5 w-5.5 text-muted-foreground" />
+                  ? <FaDocker className="h-7.75 w-7.75" />
+                  : <FaServer className="h-5.5 w-5.5" />
                 }
               </div>
               <div className="text-[15px] font-semibold truncate mb-2.25">{label}</div>
