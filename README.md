@@ -35,7 +35,7 @@ A vulnerability management console that imports server package information colle
 - **Alert Detail Panel** — Click a row to open a slide-over panel with Overview (basic info, memo, resolution reason), NVD tab (CVSS details, CWE, CISA KEV, reference links), OSV tab (description, affected versions, references), Advisory tab (vendor advisory details; shown only when advisory data exists), and Timeline tab (response history)
 - **Alert Timeline** — Automatically records detection, status changes, memo saves (with author name and memo content), CVSS score changes, severity changes, KEV additions, and VEX justification changes in the Timeline tab
 - **VEX (Vulnerability Exploitability eXchange)** *(Beta)* — CycloneDX VEX support for producer and consumer workflows:
-  - **Export** (`GET /api/vex`, **Export VEX** button): Outputs all actionable alert decisions as CycloneDX 1.6 VEX JSON. Ignored alerts → `not_affected` (with justification), Resolved → `fixed`, In Progress → `under_investigation`. Compatible with `trivy image myapp --vex vex.json`
+  - **Export** (`GET /api/vex`, **Export VEX** button): Outputs ignored alerts with a justification as CycloneDX 1.6 VEX JSON (`not_affected`). Compatible with `trivy image myapp --vex vex.json`
   - **Import** (`POST /api/vex/import`, **Import VEX** button): Ingest a CycloneDX VEX document and auto-apply status changes to matching alerts. Records a `vex_imported` event in the Timeline for audit trail
   - When setting an alert to **Ignored**, select a CycloneDX-standard justification (`code_not_reachable`, `code_not_present`, `requires_configuration`, etc.)
 - **Vulnerability Search** — Search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or **Advisory mode** (Vendor Advisory search for Fortinet, Palo Alto Networks, Sophos, and Oracle products)
@@ -197,7 +197,7 @@ docker compose logs -f app
 5. Track progress by changing status: `Open` → `In Progress` → `Resolved` / `Ignored`
    - When setting **Ignored**, select a **VEX Justification** (e.g., `code_not_reachable`) to record why the vulnerability is not exploitable
 6. Click **Refresh Metadata** to sync the latest data from heretix-api
-7. Click **Export VEX** to download a CycloneDX VEX JSON (ignored → `not_affected`, resolved → `fixed`, in-progress → `under_investigation`) — feed into `trivy --vex vex.json` to suppress false positives
+7. Click **Export VEX** to download a CycloneDX VEX JSON (ignored alerts with justification → `not_affected`) — feed into `trivy --vex vex.json` to suppress false positives
 8. Click **Import VEX** to ingest a vendor-published or externally generated CycloneDX VEX and auto-apply its decisions to matching alerts
 
 > **Run Scan vs. Refresh Metadata:**

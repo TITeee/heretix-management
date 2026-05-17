@@ -36,13 +36,13 @@ export async function GET(req: NextRequest) {
   const assetId = searchParams.get("assetId") ?? undefined
   const download = searchParams.get("download") === "true"
 
+  // Only export not_affected: alerts explicitly judged as non-exploitable with a justification.
+  // resolved (package upgraded) and in_progress do not map cleanly to VEX fixed/under_investigation
+  // because heretix resolved = "we upgraded the package", not "this version was patched".
   const alerts = await prisma.alert.findMany({
     where: {
-      status: { in: ["ignored", "resolved", "in_progress"] },
-      OR: [
-        { status: { not: "ignored" } },
-        { vexJustification: { not: null } },
-      ],
+      status: "ignored",
+      vexJustification: { not: null },
       ...(assetId ? { assetId } : {}),
     },
     select: {
@@ -50,28 +50,13 @@ export async function GET(req: NextRequest) {
       packageName: true,
       packageVersion: true,
       ecosystem: true,
-      status: true,
       vexJustification: true,
       notes: true,
     },
+    orderBy: { externalId: "asc" },
   })
 
-  // Sort by priority: not_affected > fixed > under_investigation
-  const PRIORITY: Record<string, number> = { ignored: 0, resolved: 1, in_progress: 2 }
-  alerts.sort((a, b) => (PRIORITY[a.status] ?? 9) - (PRIORITY[b.status] ?? 9))
-
-  function buildAnalysis(alert: typeof alerts[number]): object {
-    const detail = alert.notes?.trim() ? { detail: alert.notes.trim() } : {}
-    if (alert.status === "ignored") {
-      return { state: "not_affected", justification: alert.vexJustification, ...detail }
-    }
-    if (alert.status === "resolved") {
-      return { state: "fixed", ...detail }
-    }
-    return { state: "under_investigation", ...detail }
-  }
-
-  // Deduplicate by (externalId, PURL) — higher priority wins
+  // Deduplicate by (externalId, PURL)
   const seen = new Set<string>()
   const vulnerabilities: object[] = []
 
@@ -84,7 +69,11 @@ export async function GET(req: NextRequest) {
     vulnerabilities.push({
       id: alert.externalId,
       affects: [{ ref: purl }],
-      analysis: buildAnalysis(alert),
+      analysis: {
+        state: "not_affected",
+        justification: alert.vexJustification,
+        ...(alert.notes?.trim() ? { detail: alert.notes.trim() } : {}),
+      },
     })
   }
 

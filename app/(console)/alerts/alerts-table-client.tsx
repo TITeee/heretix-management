@@ -55,11 +55,7 @@ export function AlertsTableClient({ data, initialPackageName, initialAssetId }: 
     }
   }
 
-  const hasVex = data.some(a =>
-    a.status === "resolved" ||
-    a.status === "in_progress" ||
-    (a.status === "ignored" && a.vexJustification)
-  )
+  const hasVex = data.some(a => a.status === "ignored" && a.vexJustification)
   const vexUrl = `/api/vex?download=true${initialAssetId ? `&assetId=${initialAssetId}` : ""}`
 
   return (

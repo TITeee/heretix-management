@@ -41,14 +41,7 @@ export default async function AssetDetailPage({
   })
 
   const vexCount = await prisma.alert.count({
-    where: {
-      assetId: id,
-      status: { in: ["ignored", "resolved", "in_progress"] },
-      OR: [
-        { status: { not: "ignored" } },
-        { vexJustification: { not: null } },
-      ],
-    },
+    where: { assetId: id, status: "ignored", vexJustification: { not: null } },
   })
 
   const pkgAlertCounts = await prisma.alert.groupBy({
