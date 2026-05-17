@@ -20,7 +20,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Clock, TrendingUp, TrendingDown, AlertTriangle, History } from "lucide-react"
+import { Clock, TrendingUp, TrendingDown, AlertTriangle, History, ShieldCheck } from "lucide-react"
 import { FaTriangleExclamation, FaVirus, FaCircleExclamation, FaClock, FaCircleMinus, FaCircleCheck } from "react-icons/fa6"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -43,9 +43,22 @@ export type SheetAlert = {
   status: string
   notes: string | null
   resolveReason: string | null
+  vexJustification?: string | null
   detectedAt: Date
   resolvedAt: Date | null
   asset: { id: string; name: string; hostname: string }
+}
+
+export const VEX_JUSTIFICATION_LABELS: Record<string, string> = {
+  code_not_present:                              "Vulnerable code not present in this build",
+  code_not_reachable:                            "Code exists but not reachable",
+  requires_configuration:                        "Requires specific configuration to exploit",
+  requires_dependency:                           "Requires another vulnerable component",
+  requires_environment:                          "Requires specific environment to exploit",
+  protected_by_compiler:                         "Protected by compiler (stack canary, ASLR…)",
+  protected_at_runtime:                          "Protected at runtime (WAF, sandbox…)",
+  protected_at_perimeter:                        "Protected at network perimeter",
+  protected_by_mitigating_control:               "Mitigating control in place",
 }
 
 export const STATUS_ICON_MAP: Record<string, { icon: React.ComponentType<{ className?: string }>; className: string }> = {
@@ -117,6 +130,16 @@ const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: str
     iconClass: "text-muted-foreground",
     label: (data) => data.userName ? `Notes saved by ${String(data.userName)}` : "Notes saved",
   },
+  vex_justification_set: {
+    icon: ShieldCheck,
+    iconClass: "text-muted-foreground",
+    label: (data) => data.userName ? `VEX justification set by ${String(data.userName)}` : "VEX justification set",
+  },
+  vex_imported: {
+    icon: ShieldCheck,
+    iconClass: "text-green-600",
+    label: (data) => `VEX imported — ${String(data.state)}`,
+  },
 }
 
 function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open: boolean; refreshKey: number }) {
@@ -180,6 +203,16 @@ function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open
                   {String(event.data.notes)}
                 </p>
               )}
+              {event.type === "vex_justification_set" && !!event.data?.justification && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {VEX_JUSTIFICATION_LABELS[String(event.data.justification)] ?? String(event.data.justification)}
+                </p>
+              )}
+              {event.type === "vex_imported" && !!event.data?.justification && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {VEX_JUSTIFICATION_LABELS[String(event.data.justification)] ?? String(event.data.justification)}
+                </p>
+              )}
             </div>
           </div>
         )
@@ -202,6 +235,7 @@ export function AlertDetailSheet({
   const router = useRouter()
   const [status, setStatus] = useState(alert?.status ?? "open")
   const [notes, setNotes] = useState(alert?.notes ?? "")
+  const [vexJustification, setVexJustification] = useState(alert?.vexJustification ?? "")
   const [savingNotes, setSavingNotes] = useState(false)
   const [savingStatus, setSavingStatus] = useState(false)
   const [vulnDetail, setVulnDetail] = useState<VulnDetail | null>(null)
@@ -213,6 +247,7 @@ export function AlertDetailSheet({
     if (alert) {
       setStatus(alert.status)
       setNotes(alert.notes ?? "")
+      setVexJustification(alert.vexJustification ?? "")
     }
   }, [alert?.id])
 
@@ -240,15 +275,27 @@ export function AlertDetailSheet({
   async function onStatusChange(value: string | null) {
     if (!alert || !value) return
     setStatus(value)
+    if (value !== "ignored") setVexJustification("")
     notifyStatusChange(alert.id, value)
     setSavingStatus(true)
     await fetch(`/api/alerts/${alert.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: value }),
+      body: JSON.stringify({ status: value, vexJustification: value === "ignored" ? vexJustification : null }),
     })
     setSavingStatus(false)
     setTimelineKey((k) => k + 1)
+  }
+
+  async function onSaveVexJustification(value: string | null) {
+    if (!alert) return
+    const v = value || null
+    setVexJustification(v ?? "")
+    await fetch(`/api/alerts/${alert.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vexJustification: v }),
+    })
   }
 
   async function onSaveNotes() {
@@ -415,6 +462,21 @@ export function AlertDetailSheet({
                     </SelectContent>
                   </Select>
                 </div>
+                {status === "ignored" && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 text-sm text-muted-foreground shrink-0">VEX Justification</span>
+                    <Select value={vexJustification} onValueChange={onSaveVexJustification}>
+                      <SelectTrigger className="h-8 text-sm w-1/2">
+                        <SelectValue>{vexJustification ? VEX_JUSTIFICATION_LABELS[vexJustification] : <span className="text-muted-foreground">Select justification...</span>}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(VEX_JUSTIFICATION_LABELS).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <span className="text-sm text-muted-foreground">Notes</span>
                   <Textarea

@@ -11,14 +11,17 @@ export async function PATCH(
 
   const { id } = await params
   const body = await req.json()
-  const { status, notes } = body
+  const { status, notes, vexJustification } = body
 
-  const update: { status?: string; notes?: string; resolvedAt?: Date | null } = {}
+  const update: { status?: string; notes?: string; resolvedAt?: Date | null; vexJustification?: string | null } = {}
   if (status) {
     update.status = status
     update.resolvedAt = status === "resolved" ? new Date() : null
+    // Clear vexJustification when moving away from ignored
+    if (status !== "ignored") update.vexJustification = null
   }
   if (notes !== undefined) update.notes = notes
+  if (vexJustification !== undefined) update.vexJustification = vexJustification || null
 
   // Fetch the previous value before changing status
   let prevStatus: string | undefined
@@ -36,6 +39,20 @@ export async function PATCH(
         alertId: id,
         type: "status_changed",
         data: { from: prevStatus, to: status },
+      },
+    })
+  }
+
+  // Record a vex_justification_set event
+  if (vexJustification !== undefined && vexJustification) {
+    await prisma.alertEvent.create({
+      data: {
+        alertId: id,
+        type: "vex_justification_set",
+        data: {
+          justification: vexJustification,
+          userName: session.user?.name ?? session.user?.email ?? "Unknown",
+        },
       },
     })
   }

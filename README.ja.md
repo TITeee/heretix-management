@@ -31,7 +31,11 @@
 - **アラートメタデータ更新** — open / in_progress の全 Alert に対して heretix-api から最新の CVSS スコア・重要度・EPSS・KEV 情報を再取得して更新（新規 Alert の作成は行わない）
 - **Alert Activity** — 全アセット・全アラートの変更イベント（検知・ステータス変更・メタデータ更新）を1つのテーブルで一覧表示。イベント種別・アセットでフィルタ可能。Alerts ページの **Activity** ボタンからアクセス
 - **アラート詳細** — 行クリックでスライドパネルを表示。Overview（基本情報・メモ・解決理由）・NVD タブ（CVSS 詳細・CWE・KEV・参照リンク）・OSV タブ（詳細説明・影響バージョン・参照リンク）・Advisory タブ（ベンダーアドバイザリ情報・影響製品とバージョン、Advisory データが存在する場合のみ表示）・Timeline タブ（対応履歴）
-- **アラート対応履歴** — 検知・ステータス変更・メモ保存（更新者名とメモ内容を記録）・CVSSスコア変更・重要度変更・KEV追加を自動記録し、Timeline タブで時系列表示
+- **アラート対応履歴** — 検知・ステータス変更・メモ保存（更新者名とメモ内容を記録）・CVSSスコア変更・重要度変更・KEV追加・VEX justification 変更を自動記録し、Timeline タブで時系列表示
+- **VEX（Vulnerability Exploitability eXchange）対応** *（Beta）* — Producer・Consumer 両方のワークフローに対応:
+  - **エクスポート**（`GET /api/vex`・**Export VEX** ボタン）: アラートの判断を CycloneDX 1.6 VEX JSON として出力。Ignored → `not_affected`（justification 付き）、Resolved → `fixed`、In Progress → `under_investigation`。`trivy image myapp --vex vex.json` でスキャン時の誤検知抑制に活用可能
+  - **インポート**（`POST /api/vex/import`・**Import VEX** ボタン）: ベンダー公開 VEX や外部ツール生成の CycloneDX VEX を読み込み、マッチするアラートに自動適用。Timeline に `vex_imported` イベントを記録
+  - Ignored 設定時に CycloneDX 標準の justification（`code_not_reachable`・`code_not_present`・`requires_configuration` 等）を選択して記録
 - **脆弱性検索** — パッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列、または **Advisory モード**（Fortinet / Palo Alto Networks / Sophos / Oracle のベンダーアドバイザリ検索）で直接検索
 - **ユーザー管理** — ユーザーの追加・編集・削除（admin ロールのみ表示・操作可能）
 - **設定** — heretix-api 接続 URL・API Token 設定・疎通確認
@@ -189,7 +193,10 @@ docker compose logs -f app
    - **OSV** タブ — 詳細説明、影響バージョン一覧、参照リンク一覧
    - **Advisory** タブ — ベンダーアドバイザリ ID・重要度・影響製品とバージョン（Advisory データが存在する場合のみ表示）
 5. ステータスを `Open` → `In Progress` → `Resolved` / `Ignored` に変更して追跡
+   - **Ignored** に設定する際は **VEX Justification** を選択（例: `code_not_reachable`）して判断根拠を記録
 6. **Refresh Metadata** ボタンで heretix-api の最新データをアラートに同期
+7. **Export VEX** ボタンで CycloneDX VEX JSON を出力（Ignored → `not_affected`・Resolved → `fixed`・In Progress → `under_investigation`）→ `trivy --vex vex.json` でスキャン時の誤検知を抑制
+8. **Import VEX** ボタンでベンダー公開 VEX や外部生成 VEX を読み込み、マッチするアラートに自動適用
 
 > **Run Scan と Refresh Metadata の違い:**
 > | | Run Scan | Refresh Metadata |
@@ -263,6 +270,8 @@ heretix-management/
 | GET | `/api/alerts/[id]/events` | アラートイベント履歴一覧 |
 | POST | `/api/alerts/refresh` | アラートメタデータを heretix-api から一括更新 |
 | GET | `/api/alerts/events` | 全アラートイベント一覧 |
+| GET | `/api/vex` | CycloneDX VEX JSON エクスポート（`?assetId=`、`?download=true`） |
+| POST | `/api/vex/import` | CycloneDX VEX をインポートしてアラートに自動適用 |
 | GET | `/api/search` | 脆弱性検索（heretix-api プロキシ） |
 | GET | `/api/settings` | 設定取得 |
 | PATCH | `/api/settings` | 設定更新 |

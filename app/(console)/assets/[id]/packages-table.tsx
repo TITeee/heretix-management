@@ -57,6 +57,7 @@ type PackageRow = {
   source: string
   location: string | null
   cpe?: string | null
+  direct?: boolean | null
   alertCount: number
 }
 
@@ -314,12 +315,21 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
     {
       accessorKey: "source",
       header: "Source",
-      cell: ({ row }) =>
-        row.original.source === "manual" ? (
-          <Badge variant="outline" className="text-xs">manual</Badge>
-        ) : (
-          <span className="text-sm">{row.original.source}</span>
-        ),
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1 flex-wrap">
+          {row.original.source === "manual" ? (
+            <Badge variant="outline" className="text-xs">manual</Badge>
+          ) : (
+            <span className="text-sm">{row.original.source}</span>
+          )}
+          {row.original.direct === true && (
+            <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">Direct</Badge>
+          )}
+          {row.original.direct === false && (
+            <Badge variant="outline" className="text-xs text-muted-foreground">Indirect</Badge>
+          )}
+        </div>
+      ),
     },
     {
       accessorKey: "location",

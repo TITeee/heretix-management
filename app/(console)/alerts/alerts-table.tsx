@@ -39,6 +39,7 @@ export type Alert = {
   status: string
   notes: string | null
   resolveReason: string | null
+  vexJustification?: string | null
   detectedAt: Date
   updatedAt: Date
   resolvedAt: Date | null

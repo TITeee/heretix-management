@@ -44,6 +44,8 @@ model Package {
   source      String
   location    String?
   cpe         String?
+  direct      Boolean?
+  deps        String[]
 }
 
 model ScanJob {
@@ -75,9 +77,10 @@ model Alert {
   epssScore      Float?
   epssPercentile Float?
   status         String         @default("open")
-  notes          String?
-  resolveReason  String?
-  detectedAt     DateTime       @default(now())
+  notes             String?
+  resolveReason     String?
+  vexJustification  String?
+  detectedAt        DateTime       @default(now())
   resolvedAt     DateTime?
   updatedAt      DateTime       @updatedAt
   comments       AlertComment[]

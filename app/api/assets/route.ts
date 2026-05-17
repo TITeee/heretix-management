@@ -77,6 +77,8 @@ export async function POST(req: NextRequest) {
       ecosystem: string
       source: string
       location?: string
+      direct?: boolean | null
+      deps?: string[]
     }) => ({
       name: p.name,
       version: p.version,
@@ -84,6 +86,8 @@ export async function POST(req: NextRequest) {
       ecosystem: PURL_TYPE_MAP[p.ecosystem] ?? p.ecosystem,
       source: p.source,
       location: p.location ?? null,
+      direct: p.direct ?? null,
+      deps: p.deps ?? [],
     }))
 
     const existing = await prisma.asset.findFirst({ where: { hostname } })
@@ -95,13 +99,13 @@ export async function POST(req: NextRequest) {
       })
 
       const existingMap = new Map(existingPkgs.map(p => [`${p.name}::${p.ecosystem}`, p]))
-      type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null }
+      type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[] }
       const incomingMap = new Map<string, IncomingPkg>(
         incomingPackages.map((p: IncomingPkg) => [`${p.name}::${p.ecosystem}`, p])
       )
 
       const toCreate: typeof incomingPackages = []
-      const toUpdate: { id: string; version: string; rawVersion: string; location: string | null }[] = []
+      const toUpdate: { id: string; version: string; rawVersion: string; location: string | null; direct: boolean | null; deps: string[] }[] = []
       const toDelete: string[] = []
       const historyEntries: {
         packageName: string
@@ -117,7 +121,7 @@ export async function POST(req: NextRequest) {
           toCreate.push(incoming)
           historyEntries.push({ packageName: incoming.name, ecosystem: incoming.ecosystem, action: "added", newVersion: incoming.version })
         } else if (exPkg.version !== incoming.version) {
-          toUpdate.push({ id: exPkg.id, version: incoming.version, rawVersion: incoming.rawVersion, location: incoming.location })
+          toUpdate.push({ id: exPkg.id, version: incoming.version, rawVersion: incoming.rawVersion, location: incoming.location, direct: incoming.direct, deps: incoming.deps })
           historyEntries.push({ packageName: incoming.name, ecosystem: incoming.ecosystem, action: "updated", oldVersion: exPkg.version, newVersion: incoming.version })
         }
         // unchanged: skip
@@ -136,8 +140,8 @@ export async function POST(req: NextRequest) {
         ...toCreate.map((p: { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null }) =>
           prisma.package.create({ data: { assetId: existing.id, ...p } })
         ),
-        ...toUpdate.map(({ id, version, rawVersion, location }) =>
-          prisma.package.update({ where: { id }, data: { version, rawVersion, location } })
+        ...toUpdate.map(({ id, version, rawVersion, location, direct, deps }) =>
+          prisma.package.update({ where: { id }, data: { version, rawVersion, location, direct, deps } })
         ),
         ...(historyEntries.length > 0
           ? [prisma.packageHistory.createMany({
@@ -214,6 +218,7 @@ type CycloneDXComponent = {
   name?: string
   version?: string
   purl?: string
+  properties?: { name: string; value: string }[]
 }
 
 type CycloneDXBom = {
@@ -299,6 +304,8 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
   const osName = bom.metadata?.component?.version ?? ""
   const packages = (bom.components ?? []).map((c: CycloneDXComponent) => {
     const { ecosystem, name } = parsePURL(c.purl)
+    const directProp = c.properties?.find(p => p.name === "cdx:direct")
+    const direct = directProp ? directProp.value === "true" : null
     return {
       name: name ?? c.name ?? "",
       version: c.version ?? "",
@@ -306,6 +313,8 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
       ecosystem,
       source: "sbom",
       location: null,
+      direct,
+      deps: [],
     }
   }).filter(p => p.name !== "")
 

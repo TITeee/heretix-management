@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db"
 import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Bell } from "lucide-react"
+import { Bell, FileDown } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { ScanButton } from "./scan-button"
@@ -40,6 +40,17 @@ export default async function AssetDetailPage({
     where: { assetId: id, status: { not: "resolved" } },
   })
 
+  const vexCount = await prisma.alert.count({
+    where: {
+      assetId: id,
+      status: { in: ["ignored", "resolved", "in_progress"] },
+      OR: [
+        { status: { not: "ignored" } },
+        { vexJustification: { not: null } },
+      ],
+    },
+  })
+
   const pkgAlertCounts = await prisma.alert.groupBy({
     by: ["packageName"],
     where: { assetId: id },
@@ -73,6 +84,15 @@ export default async function AssetDetailPage({
         </div>
         <div className="flex items-center gap-2">
           <EditAssetDialog asset={{ id: asset.id, name: asset.name, hostname: asset.hostname, osName: asset.osName, osVersionId: asset.osVersionId }} />
+          {vexCount > 0 && (
+            <a
+              href={`/api/vex?assetId=${id}&download=true`}
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-input bg-transparent px-3 text-sm font-medium shadow-sm hover:bg-accent"
+            >
+              <FileDown className="h-4 w-4" />
+              Export VEX
+            </a>
+          )}
           <Link href={`/alerts?assetId=${id}`}>
             <Button variant="destructive" size="sm">
               <Bell className="h-4 w-4" />
