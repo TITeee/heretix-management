@@ -222,7 +222,7 @@ type CycloneDXComponent = {
 }
 
 type CycloneDXBom = {
-  metadata?: { component?: { name?: string; version?: string }; timestamp?: string }
+  metadata?: { component?: { name?: string; version?: string; type?: string }; timestamp?: string }
   components?: CycloneDXComponent[]
 }
 
@@ -318,9 +318,12 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
     }
   }).filter(p => p.name !== "")
 
+  const type = bom.metadata?.component?.type === "container" ? "docker_image" : "host"
+
   return {
     version: "1.0",
     hostname,
+    type,
     scannedAt: bom.metadata?.timestamp ?? new Date().toISOString(),
     os: { id: "", versionId: "", name: osName },
     packages,
