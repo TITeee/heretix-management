@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import bcrypt from "bcryptjs"
+import { createAuditLog } from "@/lib/audit"
 
 export async function GET() {
   const session = await auth()
@@ -38,6 +39,11 @@ export async function POST(req: NextRequest) {
   const user = await prisma.user.create({
     data: { email, password: hash, name: name || null, role: role || "operator" },
     select: { id: true, email: true, name: true, role: true, createdAt: true },
+  })
+  await createAuditLog({
+    userId: session.user.id, userEmail: session.user.email,
+    action: "user_created", target: email,
+    detail: `role: ${role || "operator"}`,
   })
   return NextResponse.json(user, { status: 201 })
 }

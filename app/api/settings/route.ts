@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
+import { createAuditLog } from "@/lib/audit"
 
 export async function GET() {
   const session = await auth()
@@ -27,6 +28,12 @@ export async function PATCH(req: NextRequest) {
       })
     )
   )
+
+  await createAuditLog({
+    userId: session.user.id, userEmail: session.user.email,
+    action: "settings_updated",
+    detail: updates.map(([k]) => k).join(", "),
+  })
 
   return NextResponse.json({ ok: true })
 }

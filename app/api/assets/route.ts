@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { logger } from "@/lib/logger"
+import { createAuditLog } from "@/lib/audit"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -60,6 +61,11 @@ export async function POST(req: NextRequest) {
           osVersionId: "manual",
           osName: "Manual Asset",
         },
+      })
+      await createAuditLog({
+        userId: session.user.id, userEmail: session.user.email,
+        action: "asset_created", target: asset.name || asset.hostname,
+        detail: `hostname: ${asset.hostname}`,
       })
       return NextResponse.json(asset, { status: 201 })
     }
@@ -190,6 +196,11 @@ export async function POST(req: NextRequest) {
           scannedAt: inventory.scannedAt ? new Date(inventory.scannedAt) : null,
         },
       })
+      await createAuditLog({
+        userId: session.user.id, userEmail: session.user.email,
+        action: "asset_imported", target: asset.name || hostname,
+        detail: `packages: ${incomingPackages.length} (added: ${toCreate.length}, updated: ${toUpdate.length}, removed: ${toDelete.length})`,
+      })
       return NextResponse.json({ ...asset, updated: true }, { status: 200 })
     }
 
@@ -207,6 +218,11 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    await createAuditLog({
+      userId: session.user.id, userEmail: session.user.email,
+      action: "asset_imported", target: asset.name || hostname,
+      detail: `packages: ${incomingPackages.length}`,
+    })
     return NextResponse.json(asset, { status: 201 })
   } catch (err) {
     logger.warn("failed to create asset", { error: err instanceof Error ? err.message : String(err) })

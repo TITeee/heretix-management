@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import bcrypt from "bcryptjs"
+import { createAuditLog } from "@/lib/audit"
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -42,6 +43,14 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     data,
     select: { id: true, email: true, name: true, role: true, createdAt: true },
   })
+  const isPasswordReset = !!password && Object.keys(data).length === 1
+  const changedFields = Object.keys(data).filter(k => k !== "password")
+  await createAuditLog({
+    userId: session.user.id, userEmail: session.user.email,
+    action: isPasswordReset ? "user_password_reset" : "user_updated",
+    target: user.email,
+    detail: isPasswordReset ? undefined : changedFields.join(", "),
+  })
   return NextResponse.json(user)
 }
 
@@ -56,6 +65,11 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "Cannot delete yourself" }, { status: 400 })
   }
 
+  const target = await prisma.user.findUnique({ where: { id }, select: { email: true } })
   await prisma.user.delete({ where: { id } })
+  await createAuditLog({
+    userId: session.user.id, userEmail: session.user.email,
+    action: "user_deleted", target: target?.email,
+  })
   return NextResponse.json({ ok: true })
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
+import { createAuditLog } from "@/lib/audit"
 
 export async function GET(
   _req: NextRequest,
@@ -53,6 +54,11 @@ export async function DELETE(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
+  const target = await prisma.asset.findUnique({ where: { id }, select: { name: true, hostname: true } })
   await prisma.asset.delete({ where: { id } })
+  await createAuditLog({
+    userId: session.user.id, userEmail: session.user.email,
+    action: "asset_deleted", target: target?.name || target?.hostname,
+  })
   return new NextResponse(null, { status: 204 })
 }

@@ -11,6 +11,7 @@ import {
   Settings,
   Tag,
   Users,
+  ClipboardList,
 } from "lucide-react"
 import {
   Sidebar,
@@ -71,6 +72,18 @@ export function AppSidebar({ userRole }: { userRole?: string }) {
               >
                 <Users />
                 <span>Users</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+          {isAdmin && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                render={<Link href="/audit" />}
+                isActive={pathname.startsWith("/audit")}
+                tooltip={mounted ? "Audit Log" : undefined}
+              >
+                <ClipboardList />
+                <span>Audit Log</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
