@@ -237,9 +237,16 @@ type CycloneDXComponent = {
   properties?: { name: string; value: string }[]
 }
 
+type CycloneDXDependency = {
+  ref: string
+  dependsOn?: string[]    // CycloneDX 1.6 field name
+  dependencies?: string[] // fallback for older format
+}
+
 type CycloneDXBom = {
   metadata?: { component?: { name?: string; version?: string; type?: string }; timestamp?: string }
   components?: CycloneDXComponent[]
+  dependencies?: CycloneDXDependency[]
 }
 
 // Maps PURL type strings to OSV canonical ecosystem names
@@ -318,10 +325,22 @@ function parsePURL(purl: string | undefined): { ecosystem: string; name: string 
 function convertCycloneDXToInventory(bom: CycloneDXBom) {
   const hostname = bom.metadata?.component?.name ?? "unknown"
   const osName = bom.metadata?.component?.version ?? ""
+
+  // Build a PURL → deps map from the bom.dependencies section.
+  // CycloneDX 1.6 uses "dependsOn"; older tooling may use "dependencies".
+  const depsMap = new Map<string, string[]>()
+  for (const dep of bom.dependencies ?? []) {
+    const depList = dep.dependsOn ?? dep.dependencies ?? []
+    if (dep.ref && depList.length) {
+      depsMap.set(dep.ref, depList)
+    }
+  }
+
   const packages = (bom.components ?? []).map((c: CycloneDXComponent) => {
     const { ecosystem, name } = parsePURL(c.purl)
     const directProp = c.properties?.find(p => p.name === "cdx:direct")
     const direct = directProp ? directProp.value === "true" : null
+    const deps = c.purl ? (depsMap.get(c.purl) ?? []) : []
     return {
       name: name ?? c.name ?? "",
       version: c.version ?? "",
@@ -330,7 +349,7 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
       source: "sbom",
       location: null,
       direct,
-      deps: [],
+      deps,
     }
   }).filter(p => p.name !== "")
 

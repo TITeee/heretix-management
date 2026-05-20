@@ -20,7 +20,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Clock, TrendingUp, TrendingDown, AlertTriangle, History, ShieldCheck } from "lucide-react"
+import { Clock, TrendingUp, TrendingDown, AlertTriangle, History, ShieldCheck, GitBranch } from "lucide-react"
+import { ReactFlow, Node, Edge, Background, Controls, MarkerType, useNodesState, useEdgesState } from "@xyflow/react"
+import "@xyflow/react/dist/style.css"
+import { applyDagreLayout } from "@/lib/dagre-layout"
 import { FaTriangleExclamation, FaVirus, FaCircleExclamation, FaClock, FaCircleMinus, FaCircleCheck } from "react-icons/fa6"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -140,6 +143,147 @@ const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: str
     iconClass: "text-green-600",
     label: (data) => `VEX imported — ${String(data.state)}`,
   },
+}
+
+type ChainItem = { name: string; version: string; direct: boolean | null }
+type DependentPath = { chain: ChainItem[] }
+
+function buildDependentsGraph(
+  dependents: DependentPath[],
+  vulnName: string,
+  vulnVersion: string,
+): { nodes: Node[]; edges: Edge[] } {
+  const vulnKey = `${vulnName}@${vulnVersion}`
+  const nodeMap = new Map<string, { name: string; version: string; direct: boolean | null; vulnerable: boolean }>()
+  nodeMap.set(vulnKey, { name: vulnName, version: vulnVersion, direct: null, vulnerable: true })
+
+  for (const dep of dependents) {
+    for (const item of dep.chain) {
+      const key = `${item.name}@${item.version}`
+      if (!nodeMap.has(key)) nodeMap.set(key, { ...item, vulnerable: false })
+    }
+  }
+
+  const nodes: Node[] = []
+  for (const [key, n] of nodeMap) {
+    nodes.push({
+      id: key,
+      position: { x: 0, y: 0 },
+      data: {
+        label: (
+          <div className="text-left px-1">
+            <div className="font-semibold text-xs truncate max-w-40">{n.name}</div>
+            <div className="text-[10px] text-muted-foreground font-mono">{n.version}</div>
+            {n.direct && <div className="text-[10px] text-blue-600 font-medium">Direct</div>}
+            {n.vulnerable && <div className="text-[10px] text-red-600 font-medium">Vulnerable</div>}
+          </div>
+        ),
+      },
+      style: {
+        background: n.vulnerable ? "#fee2e2" : n.direct ? "#dbeafe" : "#f9fafb",
+        border: n.vulnerable ? "2px solid #dc2626" : n.direct ? "2px solid #2563eb" : "1px solid #e5e7eb",
+        borderRadius: 8,
+        width: 180,
+        fontSize: 12,
+        color: "#111827",
+      },
+    })
+  }
+
+  const seenEdges = new Set<string>()
+  const edges: Edge[] = []
+  for (const dep of dependents) {
+    const extended = [...dep.chain.map(c => `${c.name}@${c.version}`), vulnKey]
+    for (let i = 0; i < extended.length - 1; i++) {
+      const eKey = `${extended[i]}>>${extended[i + 1]}`
+      if (seenEdges.has(eKey)) continue
+      seenEdges.add(eKey)
+      edges.push({
+        id: eKey,
+        source: extended[i],
+        target: extended[i + 1],
+        type: "smoothstep",
+        markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
+        style: { stroke: "#9ca3af", strokeWidth: 1.5 },
+      })
+    }
+  }
+
+  return applyDagreLayout(nodes, edges)
+}
+
+function AlertDependentsTab({ alertId, open, packageName, packageVersion }: {
+  alertId: string; open: boolean; packageName: string; packageVersion: string
+}) {
+  const [data, setData] = useState<{ hasDepsData: boolean; dependents: DependentPath[] } | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+
+  useEffect(() => {
+    if (!open) return
+    setLoading(true)
+    fetch(`/api/alerts/${alertId}/dependents`)
+      .then(r => r.json())
+      .then((d: { hasDepsData: boolean; dependents: DependentPath[] }) => {
+        setData(d)
+        if (d.hasDepsData && d.dependents.length > 0) {
+          const { nodes: n, edges: e } = buildDependentsGraph(d.dependents, packageName, packageVersion)
+          setNodes(n)
+          setEdges(e)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [open, alertId, packageName, packageVersion, setNodes, setEdges])
+
+  if (loading) return <DetailSkeleton />
+
+  if (!data?.hasDepsData) {
+    return (
+      <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground">
+        <GitBranch className="h-6 w-6" />
+        <p className="text-sm">No dependency graph data available for this package type.</p>
+        <p className="text-xs opacity-70">Dependency data is available for npm and pnpm packages.</p>
+      </div>
+    )
+  }
+
+  if (data.dependents.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground">
+        <GitBranch className="h-6 w-6" />
+        <p className="text-sm">No packages in this asset depend on the vulnerable package.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-red-100 border-2 border-red-600" /> Vulnerable</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-blue-100 border-2 border-blue-600" /> Direct dep</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gray-100 border border-gray-300" /> Indirect dep</span>
+      </div>
+      <div style={{ height: Math.max(320, nodes.length * 50) }} className="rounded-md border overflow-hidden">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          minZoom={0.3}
+          nodesDraggable
+          nodesConnectable={false}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background gap={16} size={1} color="#f0f0f0" />
+          <Controls />
+        </ReactFlow>
+      </div>
+    </div>
+  )
 }
 
 function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open: boolean; refreshKey: number }) {
@@ -334,6 +478,7 @@ export function AlertDetailSheet({
             {(vulnDetail?.advisoryVulnerabilities?.length ?? 0) > 0 && (
               <TabsTrigger value="advisory">Advisory</TabsTrigger>
             )}
+            <TabsTrigger value="dependents">Dependents</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
           </TabsList>
 
@@ -505,6 +650,10 @@ export function AlertDetailSheet({
 
           <TabsContent value="advisory" className="flex-1 overflow-y-auto px-6 py-4">
             <AdvisoryTab detail={vulnDetail} loading={loadingDetail} />
+          </TabsContent>
+
+          <TabsContent value="dependents" className="flex-1 overflow-y-auto px-6 py-4">
+            <AlertDependentsTab alertId={alert.id} open={open} packageName={alert.packageName} packageVersion={alert.packageVersion} />
           </TabsContent>
 
           <TabsContent value="timeline" className="flex-1 overflow-y-auto px-6 py-4">

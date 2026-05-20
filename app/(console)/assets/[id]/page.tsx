@@ -10,6 +10,8 @@ import { AddPackageDialog } from "./add-package-dialog"
 import { PackagesTable } from "./packages-table"
 import { ScanHistoryModal } from "./scan-history-modal"
 import { PackageHistoryModal } from "./package-history-modal"
+import { DependencyGraph } from "./dependency-graph"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -123,10 +125,13 @@ export default async function AssetDetailPage({
         </Card>
       </div>
 
-      {/* Packages table */}
-      <div>
+      {/* Packages / Dependency Graph tabs */}
+      <Tabs defaultValue="packages">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Packages</h2>
+          <TabsList>
+            <TabsTrigger value="packages">Packages</TabsTrigger>
+            <TabsTrigger value="graph">Dependency Graph</TabsTrigger>
+          </TabsList>
           <div className="flex items-center gap-2">
             {asset.packageHistories.length > 0 && (
               <PackageHistoryModal entries={asset.packageHistories} />
@@ -134,8 +139,13 @@ export default async function AssetDetailPage({
             <AddPackageDialog assetId={id} />
           </div>
         </div>
-        <PackagesTable data={packagesWithAlerts} assetId={id} />
-      </div>
+        <TabsContent value="packages">
+          <PackagesTable data={packagesWithAlerts} assetId={id} />
+        </TabsContent>
+        <TabsContent value="graph">
+          <DependencyGraph assetId={id} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

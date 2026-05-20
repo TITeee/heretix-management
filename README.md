@@ -21,18 +21,19 @@ A vulnerability management console that imports server package information colle
 ## Features
 
 - **Dashboard** — Two-tab layout: Overview / Tags
-  - **Overview** — Total assets & alerts, severity summary, tag severity donut charts (Production / Development / Staging with color indicators), 8-week alert trend, Top 10 vulnerable assets & packages, KEV (Known Exploited Vulnerabilities) highlights
-  - **Tags** — Cards for packages and assets linked to tags, color-coded by severity. Critical Packages cards (click to navigate to alert list), Production / Development / Staging asset cards (with Host / Docker Image icons, click to navigate to alert list)
+  - **Overview** — Total assets & alerts, severity summary (with direct/indirect dependency breakdown), tag severity donut charts (Production / Development / Staging), 8-week alert trend, Top 10 vulnerable assets & packages, KEV highlights
+  - **Tags** — Cards for packages and assets linked to tags, color-coded by severity
 - **Asset Management** — Import `inventory.json` or **CycloneDX BOM** (incremental updates, PURL parsing with scoped npm / Go module / OS package support), asset list & detail views, edit & delete
+- **Dependency Graph** *(Beta)* — Visual dependency graph on the Asset detail page (Dependency Graph tab). Shows vulnerable packages (red) and their upstream dependents (up to 2 hops), with automatic layout via dagre. Available for npm/pnpm packages imported via SBOM or inventory.json
 - **Manual Asset Registration** — Register network devices and firewalls directly via GUI
 - **Manual Package Management** — Add, edit, and delete software installed outside the package manager. The Advisory tab supports Fortinet, Palo Alto Networks, Sophos, and Oracle products via dropdown selection
 - **Package Change History** — View added/updated/removed package history per asset at import time
 - **Vulnerability Scanning** — Detect vulnerabilities via heretix-api batch search and record alerts (creates new Alerts only; does not update or auto-resolve existing Alerts). Malicious package detection (`MAL-` alerts) is also supported via [ossf/malicious-packages](https://github.com/ossf/malicious-packages)
-- **Alert Management** — Status tracking (Open / In Progress / Resolved / Ignored), filters (Asset / Status / Severity / Tags, multi-value), Tags column display, bulk status update via checkbox selection, **export to CSV / JSON** (reflects active filters)
+- **Alert Management** — Status tracking (Open / In Progress / Resolved / Ignored), filters (Asset / Status / Severity / Tags / **Dependency** (Direct/Indirect), multi-value), bulk status update, **export to CSV / JSON** (reflects active filters)
 - **Auto-resolve Alerts** — Automatically marks old-version alerts as resolved when a package is upgraded during import
 - **Alert Metadata Refresh** — Re-fetches the latest CVSS score, severity, EPSS, and KEV data from heretix-api for all open/in-progress Alerts (does not create new Alerts)
 - **Alert Activity** — View all alert events (detections, status changes, metadata updates) across all assets in a single table. Filter by event type or asset. Accessible via the **Activity** button on the Alerts page
-- **Alert Detail Panel** — Click a row to open a slide-over panel with Overview (basic info, memo, resolution reason), NVD tab (CVSS details, CWE, CISA KEV, reference links), OSV tab (description, affected versions, references), Advisory tab (vendor advisory details; shown only when advisory data exists), and Timeline tab (response history)
+- **Alert Detail Panel** — Click a row to open a slide-over panel with Overview (basic info, memo, resolution reason), NVD, OSV, Advisory, **Dependents** *(Beta)* (interactive graph showing packages that depend on the vulnerable package, with dependency paths), and Timeline tabs
 - **Alert Timeline** — Automatically records detection, status changes, memo saves (with author name and memo content), CVSS score changes, severity changes, KEV additions, and VEX justification changes in the Timeline tab
 - **VEX (Vulnerability Exploitability eXchange)** *(Beta)* — CycloneDX VEX support for producer and consumer workflows:
   - **Export** (`GET /api/vex`, **Export VEX** button): Outputs ignored alerts with a justification as CycloneDX 1.6 VEX JSON (`not_affected`). Compatible with `trivy image myapp --vex vex.json`
@@ -40,6 +41,7 @@ A vulnerability management console that imports server package information colle
   - When setting an alert to **Ignored**, select a CycloneDX-standard justification (`code_not_reachable`, `code_not_present`, `requires_configuration`, etc.)
 - **Vulnerability Search** — Search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or **Advisory mode** (Vendor Advisory search for Fortinet, Palo Alto Networks, Sophos, and Oracle products)
 - **User Management** — Add, edit, and delete users (admin role only)
+- **Audit Log** — Admin-only page showing the last 500 events: login, user management, settings changes, asset operations. Accessible from the sidebar (admin only)
 - **Settings** — Configure heretix-api URL and API token, connection test
 - **Scheduled Jobs** — On server start, node-cron registers daily jobs: Refresh Metadata (default 12:00 UTC) → Run Scan for all assets (default 13:00 UTC). Override with `CRON_REFRESH` / `CRON_SCAN` environment variables
 - **Structured Logging** — Scan progress (started, completed, failed) and auth events (login success/failure) are logged as JSON to stdout. Collect with `docker logs` in Docker deployments
@@ -272,6 +274,8 @@ heretix-management/
 | GET | `/api/alerts/[id]/events` | List alert event history |
 | POST | `/api/alerts/refresh` | Bulk refresh alert metadata from heretix-api |
 | GET | `/api/alerts/events` | List all alert events across all alerts |
+| GET | `/api/alerts/[id]/dependents` | Dependency paths to the vulnerable package (npm/pnpm) |
+| GET | `/api/assets/[id]/dependency-graph` | Dependency graph nodes and edges for visualization |
 | GET | `/api/vex` | Export CycloneDX VEX JSON (`?assetId=`, `?download=true`) |
 | POST | `/api/vex/import` | Import CycloneDX VEX and apply to matching alerts |
 | GET | `/api/search` | Vulnerability search (heretix-api proxy) |

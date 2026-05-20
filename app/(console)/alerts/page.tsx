@@ -35,6 +35,15 @@ export default async function AlertsPage({
     packageTagMap.get(pt.packageName)!.push(pt.tag)
   }
 
+  // Fetch direct/indirect flag from Package table for each alert
+  const packages = await prisma.package.findMany({
+    where: {
+      OR: alerts.map(a => ({ assetId: a.assetId, name: a.packageName, version: a.packageVersion })),
+    },
+    select: { assetId: true, name: true, version: true, direct: true },
+  })
+  const directMap = new Map(packages.map(p => [`${p.assetId}::${p.name}::${p.version}`, p.direct]))
+
   const alertsWithTags = alerts.map(alert => {
     const assetTagsList = alert.asset.assetTags.map(at => at.tag)
     const pkgTagsList = packageTagMap.get(alert.packageName) ?? []
@@ -45,7 +54,8 @@ export default async function AlertsPage({
       return true
     })
     const { assetTags: _, ...asset } = alert.asset
-    return { ...alert, asset, tags }
+    const packageDirect = directMap.get(`${alert.assetId}::${alert.packageName}::${alert.packageVersion}`) ?? null
+    return { ...alert, asset, tags, packageDirect }
   })
 
   return (

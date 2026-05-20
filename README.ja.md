@@ -19,18 +19,19 @@
 ## 機能
 
 - **ダッシュボード** — Overview / Tags の2タブ構成
-  - **Overview** — 総アセット数・アラート数・重要度別サマリー、タグ別重要度ドーナツチャート（Production / Development / Staging、各タグカラーのインジケーター付き）、アラートトレンド（8週）、脆弱アセット Top 10・脆弱パッケージ Top 10、KEV（既知悪用脆弱性）ハイライト
-  - **Tags** — タグに紐づくパッケージ・アセットを重要度カラーのカードで一覧表示。Critical Packages タグに属するパッケージカード（クリックでアラート一覧へ遷移）、Production / Development / Staging タグのアセットカード（ホスト / Docker Image アイコン付き、クリックでアラート一覧へ遷移）
+  - **Overview** — 総アセット数・アラート数（直接/間接依存の内訳付き）・重要度別サマリー、タグ別重要度ドーナツチャート、アラートトレンド（8週）、脆弱アセット Top 10・脆弱パッケージ Top 10、KEV ハイライト
+  - **Tags** — タグに紐づくパッケージ・アセットを重要度カラーのカードで一覧表示
 - **アセット管理** — `inventory.json` または **CycloneDX BOM** インポート（差分更新、スコープ付き npm / Go モジュール / OS パッケージの PURL パース対応）、ホスト一覧・詳細表示、アセット編集・削除
+- **依存グラフ** *（Beta）* — アセット詳細の **Dependency Graph** タブで脆弱パッケージとその依存元パッケージを可視化（2ホップ）。dagre による自動レイアウト。脆弱=赤、直接依存=青。npm/pnpm パッケージが対象
 - **手動アセット登録** — ネットワーク機器・FW を GUI から直接登録
 - **手動パッケージ管理** — パッケージマネージャ外でインストールしたソフトウェアを手動で追加・編集・削除。Advisory タブで Fortinet / Palo Alto Networks / Sophos / Oracle 製品をドロップダウン選択して登録可能
 - **パッケージ更新履歴** — インポート時の追加・更新・削除の変更履歴をアセット詳細で参照
 - **脆弱性スキャン** — heretix-api のバッチ検索でアセットの脆弱性を検出・アラート記録（新規 Alert の作成のみ。既存 Alert の更新・自動解決は行わない）。[ossf/malicious-packages](https://github.com/ossf/malicious-packages) によるマルウェアパッケージ検知（`MAL-` アラート）にも対応
-- **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度 / Tags）・Tagsカラム表示・複数選択による一括ステータス変更・**CSV / JSON エクスポート**（現在のフィルター状態を反映）
+- **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度 / Tags / **Dependency**（Direct/Indirect））・一括ステータス変更・**CSV / JSON エクスポート**
 - **アラート自動解決** — インポート時にパッケージがアップグレードされた場合、旧バージョンのアラートを自動で解決済みに変更
 - **アラートメタデータ更新** — open / in_progress の全 Alert に対して heretix-api から最新の CVSS スコア・重要度・EPSS・KEV 情報を再取得して更新（新規 Alert の作成は行わない）
 - **Alert Activity** — 全アセット・全アラートの変更イベント（検知・ステータス変更・メタデータ更新）を1つのテーブルで一覧表示。イベント種別・アセットでフィルタ可能。Alerts ページの **Activity** ボタンからアクセス
-- **アラート詳細** — 行クリックでスライドパネルを表示。Overview（基本情報・メモ・解決理由）・NVD タブ（CVSS 詳細・CWE・KEV・参照リンク）・OSV タブ（詳細説明・影響バージョン・参照リンク）・Advisory タブ（ベンダーアドバイザリ情報・影響製品とバージョン、Advisory データが存在する場合のみ表示）・Timeline タブ（対応履歴）
+- **アラート詳細** — 行クリックでスライドパネルを表示。Overview・NVD・OSV・Advisory・**Dependents** *（Beta）*（脆弱パッケージへの依存パスをインタラクティブグラフで表示）・Timeline タブ
 - **アラート対応履歴** — 検知・ステータス変更・メモ保存（更新者名とメモ内容を記録）・CVSSスコア変更・重要度変更・KEV追加・VEX justification 変更を自動記録し、Timeline タブで時系列表示
 - **VEX（Vulnerability Exploitability eXchange）対応** *（Beta）* — Producer・Consumer 両方のワークフローに対応:
   - **エクスポート**（`GET /api/vex`・**Export VEX** ボタン）: justification 付きの Ignored アラートを CycloneDX 1.6 VEX JSON（`not_affected`）として出力。`trivy image myapp --vex vex.json` でスキャン時の誤検知抑制に活用可能
@@ -38,6 +39,7 @@
   - Ignored 設定時に CycloneDX 標準の justification（`code_not_reachable`・`code_not_present`・`requires_configuration` 等）を選択して記録
 - **脆弱性検索** — パッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列、または **Advisory モード**（Fortinet / Palo Alto Networks / Sophos / Oracle のベンダーアドバイザリ検索）で直接検索
 - **ユーザー管理** — ユーザーの追加・編集・削除（admin ロールのみ表示・操作可能）
+- **監査ログ** — admin 専用ページ。ログイン・ユーザー管理・設定変更・アセット操作を最新 500 件表示。サイドバーの **Audit Log** からアクセス（admin のみ）
 - **設定** — heretix-api 接続 URL・API Token 設定・疎通確認
 - **定期実行** — サーバー起動時に node-cron でスケジューラを起動。Refresh Metadata（デフォルト 12:00 UTC）→ Run Scan 全アセット（デフォルト 13:00 UTC）を毎日自動実行。`CRON_REFRESH` / `CRON_SCAN` 環境変数で時刻変更可能
 - **構造化ログ** — スキャン進捗（開始・完了・失敗）および認証イベント（ログイン成功・失敗）を JSON 形式で標準出力に記録。Docker 運用時は `docker logs` で収集可能
@@ -270,6 +272,8 @@ heretix-management/
 | GET | `/api/alerts/[id]/events` | アラートイベント履歴一覧 |
 | POST | `/api/alerts/refresh` | アラートメタデータを heretix-api から一括更新 |
 | GET | `/api/alerts/events` | 全アラートイベント一覧 |
+| GET | `/api/alerts/[id]/dependents` | 脆弱パッケージへの依存パス一覧（npm/pnpm） |
+| GET | `/api/assets/[id]/dependency-graph` | 依存グラフのノード・エッジデータ |
 | GET | `/api/vex` | CycloneDX VEX JSON エクスポート（`?assetId=`、`?download=true`） |
 | POST | `/api/vex/import` | CycloneDX VEX をインポートしてアラートに自動適用 |
 | GET | `/api/search` | 脆弱性検索（heretix-api プロキシ） |

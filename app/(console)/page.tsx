@@ -320,11 +320,28 @@ async function getDashboardData() {
     packages: tag.type === "package" ? buildPackageItems([...new Set(pkgNamesByTagId.get(tag.id) ?? [])]) : undefined,
   }))
 
+  // Count open/in_progress alerts by direct/indirect dependency
+  const openAlertPkgs = await prisma.alert.findMany({
+    where: { status: { in: ["open", "in_progress"] } },
+    select: { assetId: true, packageName: true, packageVersion: true },
+  })
+  const depPkgs = await prisma.package.findMany({
+    where: {
+      OR: openAlertPkgs.map(a => ({ assetId: a.assetId, name: a.packageName, version: a.packageVersion })),
+    },
+    select: { assetId: true, name: true, version: true, direct: true },
+  })
+  const depMap = new Map(depPkgs.map(p => [`${p.assetId}::${p.name}::${p.version}`, p.direct]))
+  const directAlerts = openAlertPkgs.filter(a => depMap.get(`${a.assetId}::${a.packageName}::${a.packageVersion}`) === true).length
+  const indirectAlerts = openAlertPkgs.filter(a => depMap.get(`${a.assetId}::${a.packageName}::${a.packageVersion}`) === false).length
+
   return {
     totalAssets,
     totalAlerts,
     openAlerts,
     criticalAlerts,
+    directAlerts,
+    indirectAlerts,
     recentAlerts,
     trendData,
     topAssetsData,
@@ -347,6 +364,8 @@ export default async function DashboardPage() {
     totalAlerts,
     openAlerts,
     criticalAlerts,
+    directAlerts,
+    indirectAlerts,
     recentAlerts,
     trendData,
     topAssetsData,
@@ -426,6 +445,12 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{openAlerts}</div>
+            {(directAlerts > 0 || indirectAlerts > 0) && (
+              <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                <span className="text-destructive font-medium">{directAlerts} direct</span>
+                <span>{indirectAlerts} indirect</span>
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>

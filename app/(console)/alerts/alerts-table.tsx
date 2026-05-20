@@ -40,6 +40,7 @@ export type Alert = {
   notes: string | null
   resolveReason: string | null
   vexJustification?: string | null
+  packageDirect?: boolean | null
   detectedAt: Date
   updatedAt: Date
   resolvedAt: Date | null
@@ -283,6 +284,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
   const [ecosystemFilter, setEcosystemFilter] = useState<Set<string>>(new Set())
   const [sourcesFilter, setSourcesFilter] = useState<Set<string>>(new Set())
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set())
+  const [dependencyFilter, setDependencyFilter] = useState<Set<string>>(new Set())
   const [selectedAlerts, setSelectedAlerts] = useState<Alert[]>([])
   const [bulkStatus, setBulkStatus] = useState("")
   const [bulkLoading, setBulkLoading] = useState(false)
@@ -336,10 +338,14 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
     if (ecosystemFilter.size > 0 && !ecosystemFilter.has(alert.ecosystem)) return false
     if (sourcesFilter.size > 0 && !alert.sources.some(s => sourcesFilter.has(s))) return false
     if (tagFilter.size > 0 && !alert.tags.some(t => tagFilter.has(t.id))) return false
+    if (dependencyFilter.size > 0) {
+      if (dependencyFilter.has("direct") && alert.packageDirect !== true) return false
+      if (dependencyFilter.has("indirect") && alert.packageDirect !== false) return false
+    }
     return true
-  }), [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter])
+  }), [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter])
 
-  const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0
+  const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0 || dependencyFilter.size > 0
 
   function handleStatusChange(alertId: string, newStatus: string) {
     setData(prev => prev.map(a => a.id === alertId ? { ...a, status: newStatus } : a))
@@ -498,6 +504,15 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
           selected={tagFilter}
           onSelectedChange={setTagFilter}
           searchable
+        />
+        <DataTableFacetedFilter
+          title="Dependency"
+          options={[
+            { value: "direct", label: "Direct" },
+            { value: "indirect", label: "Indirect" },
+          ]}
+          selected={dependencyFilter}
+          onSelectedChange={setDependencyFilter}
         />
         {hasFilter && (
           <Button
