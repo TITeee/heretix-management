@@ -46,7 +46,6 @@ function buildLayout(data: DependencyGraphData): { nodes: Node[]; edges: Edge[] 
     id: `e${i}`,
     source: e.source,
     target: e.target,
-    type: "smoothstep",
     markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
     style: { stroke: "#9ca3af", strokeWidth: 1.5 },
   }))
@@ -57,12 +56,13 @@ function buildLayout(data: DependencyGraphData): { nodes: Node[]; edges: Edge[] 
 export function DependencyGraph({ assetId }: { assetId: string }) {
   const [data, setData] = useState<DependencyGraphData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [hops, setHops] = useState(2)
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (h: number) => {
     setLoading(true)
-    const res = await fetch(`/api/assets/${assetId}/dependency-graph`)
+    const res = await fetch(`/api/assets/${assetId}/dependency-graph?hops=${h}`)
     const json: DependencyGraphData = await res.json()
     setData(json)
     if (json.hasDepsData && json.nodes.length > 0) {
@@ -73,7 +73,7 @@ export function DependencyGraph({ assetId }: { assetId: string }) {
     setLoading(false)
   }, [assetId, setNodes, setEdges])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load(hops) }, [load, hops])
 
   if (loading) return <div className="flex items-center justify-center h-96 text-muted-foreground text-sm">Loading dependency graph…</div>
 
@@ -100,9 +100,20 @@ export function DependencyGraph({ assetId }: { assetId: string }) {
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-red-100 border-2 border-red-600" /> Vulnerable</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-blue-100 border-2 border-blue-600" /> Direct dep</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gray-100 border border-gray-300" /> Indirect dep</span>
-        <span className="ml-auto opacity-70">Showing up to 2 hops from vulnerable packages</span>
+        <div className="ml-auto flex items-center gap-2">
+          <span>Hops:</span>
+          <select
+            value={hops}
+            onChange={e => setHops(Number(e.target.value))}
+            className="h-6 rounded border border-input bg-background px-1.5 text-xs"
+          >
+            {[1,2,3,4,5,6,7,8].map(n => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
       </div>
-      <div style={{ height: Math.max(480, data.nodes.length * 40) }} className="rounded-md border overflow-hidden">
+      <div style={{ height: Math.max(480, data.nodes.length * 60) }} className="rounded-md border overflow-hidden">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -117,10 +128,13 @@ export function DependencyGraph({ assetId }: { assetId: string }) {
           proOptions={{ hideAttribution: true }}
         >
           <Background gap={16} size={1} color="#f0f0f0" />
-          <Controls />
+          <Controls style={{ backgroundColor: "white", color: "#374151", borderColor: "#e5e7eb" }} />
           <MiniMap nodeStrokeWidth={3} />
         </ReactFlow>
       </div>
+      <p className="text-[10px] text-muted-foreground mt-1 opacity-60">
+        * Known issue: after changing hop count, newly added nodes may not appear. Reload the page to reset the view.
+      </p>
     </div>
   )
 }

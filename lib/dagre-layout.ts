@@ -7,7 +7,7 @@ const NODE_HEIGHT = 60
 export function applyDagreLayout(
   nodes: Node[],
   edges: Edge[],
-  direction: "LR" | "TB" = "LR",
+  direction: "LR" | "TB" = "TB",
 ): { nodes: Node[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph()
   g.setDefaultEdgeLabel(() => ({}))

@@ -202,7 +202,6 @@ function buildDependentsGraph(
         id: eKey,
         source: extended[i],
         target: extended[i + 1],
-        type: "smoothstep",
         markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
         style: { stroke: "#9ca3af", strokeWidth: 1.5 },
       })
@@ -265,7 +264,7 @@ function AlertDependentsTab({ alertId, open, packageName, packageVersion }: {
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-blue-100 border-2 border-blue-600" /> Direct dep</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gray-100 border border-gray-300" /> Indirect dep</span>
       </div>
-      <div style={{ height: Math.max(320, nodes.length * 50) }} className="rounded-md border overflow-hidden">
+      <div style={{ height: Math.max(640, nodes.length * 120) }} className="rounded-md border overflow-hidden">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -279,7 +278,7 @@ function AlertDependentsTab({ alertId, open, packageName, packageVersion }: {
           proOptions={{ hideAttribution: true }}
         >
           <Background gap={16} size={1} color="#f0f0f0" />
-          <Controls />
+          <Controls style={{ backgroundColor: "white", color: "#374151", borderColor: "#e5e7eb" }} />
         </ReactFlow>
       </div>
     </div>

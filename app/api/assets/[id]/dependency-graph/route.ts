@@ -46,13 +46,14 @@ function buildPURL(name: string, version: string, ecosystem: string): string {
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id: assetId } = await params
+  const hops = Math.min(8, Math.max(1, parseInt(new URL(req.url).searchParams.get("hops") ?? "2", 10) || 2))
 
   const [pkgs, alerts] = await Promise.all([
     prisma.package.findMany({
@@ -96,13 +97,13 @@ export async function GET(
     return NextResponse.json({ hasDepsData: true, nodes: [], edges: [] })
   }
 
-  // BFS: find packages that depend on vulnerable (and their parents) up to 2 hops
+  // BFS: find packages that depend on vulnerable (and their parents) up to `hops` hops
   const includedPurls = new Map<string, number>() // purl → hop
   const includedEdges: GraphEdge[] = []
 
   for (const vPurl of vulnerablePurls) includedPurls.set(vPurl, 0)
 
-  for (let hop = 1; hop <= 2; hop++) {
+  for (let hop = 1; hop <= hops; hop++) {
     const targetPurls = [...includedPurls.entries()].filter(([, h]) => h === hop - 1).map(([p]) => p)
     for (const [purl, pkg] of pkgMap) {
       if (includedPurls.has(purl)) continue

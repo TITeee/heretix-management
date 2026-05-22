@@ -112,6 +112,7 @@ export async function POST(req: NextRequest) {
 
       const toCreate: typeof incomingPackages = []
       const toUpdate: { id: string; version: string; rawVersion: string; location: string | null; direct: boolean | null; deps: string[] }[] = []
+      const toUpdateMeta: { id: string; direct: boolean | null; deps: string[] }[] = []
       const toDelete: string[] = []
       const historyEntries: {
         packageName: string
@@ -129,8 +130,13 @@ export async function POST(req: NextRequest) {
         } else if (exPkg.version !== incoming.version) {
           toUpdate.push({ id: exPkg.id, version: incoming.version, rawVersion: incoming.rawVersion, location: incoming.location, direct: incoming.direct, deps: incoming.deps })
           historyEntries.push({ packageName: incoming.name, ecosystem: incoming.ecosystem, action: "updated", oldVersion: exPkg.version, newVersion: incoming.version })
+        } else {
+          // Same version: update direct/deps if they changed (e.g. re-import after parser fix)
+          const depsChanged = JSON.stringify(exPkg.deps) !== JSON.stringify(incoming.deps ?? [])
+          if (exPkg.direct !== incoming.direct || depsChanged) {
+            toUpdateMeta.push({ id: exPkg.id, direct: incoming.direct, deps: incoming.deps ?? [] })
+          }
         }
-        // unchanged: skip
       }
 
       for (const [key, exPkg] of existingMap) {
@@ -148,6 +154,9 @@ export async function POST(req: NextRequest) {
         ),
         ...toUpdate.map(({ id, version, rawVersion, location, direct, deps }) =>
           prisma.package.update({ where: { id }, data: { version, rawVersion, location, direct, deps } })
+        ),
+        ...toUpdateMeta.map(({ id, direct, deps }) =>
+          prisma.package.update({ where: { id }, data: { direct, deps } })
         ),
         ...(historyEntries.length > 0
           ? [prisma.packageHistory.createMany({
