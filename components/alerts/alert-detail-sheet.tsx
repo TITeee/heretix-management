@@ -47,6 +47,7 @@ export type SheetAlert = {
   notes: string | null
   resolveReason: string | null
   vexJustification?: string | null
+  fixedVersion?: string | null
   detectedAt: Date
   resolvedAt: Date | null
   asset: { id: string; name: string; hostname: string }
@@ -553,6 +554,12 @@ export function AlertDetailSheet({
                   <span className="w-28 text-muted-foreground shrink-0">Ecosystem</span>
                   <span>{alert.ecosystem}</span>
                 </div>
+                {alert.fixedVersion && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 text-muted-foreground shrink-0">Fixed in</span>
+                    <span className="font-mono text-xs font-semibold text-green-700 dark:text-green-400">{alert.fixedVersion}</span>
+                  </div>
+                )}
               </div>
             </section>
 

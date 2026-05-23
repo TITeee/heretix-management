@@ -7,7 +7,7 @@ export async function refreshMetadata(): Promise<{ updated: number }> {
     where: { status: { notIn: ["resolved", "ignored"] } },
     select: {
       id: true, externalId: true, cvssScore: true, cvssVector: true, severity: true, isKev: true,
-      epssScore: true, epssPercentile: true,
+      epssScore: true, epssPercentile: true, fixedVersion: true,
       assetId: true, packageName: true, packageVersion: true,
     },
   })

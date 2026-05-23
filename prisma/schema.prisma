@@ -76,6 +76,7 @@ model Alert {
   isKev          Boolean        @default(false)
   epssScore      Float?
   epssPercentile Float?
+  fixedVersion   String?
   status         String         @default("open")
   notes             String?
   resolveReason     String?

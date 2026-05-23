@@ -31,6 +31,7 @@ export type VulnSearchResult = {
   isKev: boolean
   epssScore: number | null
   epssPercentile: number | null
+  fixedVersion: string | null
 }
 
 export type BatchPackage = {
