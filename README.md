@@ -25,7 +25,6 @@ A vulnerability management console that imports server package information colle
   - **Tags** — Cards for packages and assets linked to tags, color-coded by severity
 - **Asset Management** — Import `inventory.json` or **CycloneDX BOM** (incremental updates, PURL parsing with scoped npm / Go module / OS package support), asset list & detail views, edit & delete
 - **Dependency Graph** *(Beta)* — Visual dependency graph on the Asset detail page (Dependency Graph tab). Shows vulnerable packages (red) and their upstream dependents (configurable 1–8 hops), with automatic layout via dagre. Available for npm/pnpm packages imported via SBOM or inventory.json
-  - **Known issue:** After changing the hop count, newly added nodes may not appear even when zooming out. This is a known limitation and will be addressed in a future update
 - **Manual Asset Registration** — Register network devices and firewalls directly via GUI
 - **Manual Package Management** — Add, edit, and delete software installed outside the package manager. The Advisory tab supports Fortinet, Palo Alto Networks, Sophos, and Oracle products via dropdown selection
 - **Package Change History** — View added/updated/removed package history per asset at import time

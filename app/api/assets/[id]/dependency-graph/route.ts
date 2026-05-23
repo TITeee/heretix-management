@@ -53,7 +53,7 @@ export async function GET(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id: assetId } = await params
-  const hops = Math.min(8, Math.max(1, parseInt(new URL(req.url).searchParams.get("hops") ?? "2", 10) || 2))
+  const hops = Math.min(8, Math.max(1, parseInt(new URL(req.url).searchParams.get("hops") ?? "4", 10) || 4))
 
   const [pkgs, alerts] = await Promise.all([
     prisma.package.findMany({
@@ -100,17 +100,24 @@ export async function GET(
   // BFS: find packages that depend on vulnerable (and their parents) up to `hops` hops
   const includedPurls = new Map<string, number>() // purl → hop
   const includedEdges: GraphEdge[] = []
+  const seenEdges = new Set<string>()
 
   for (const vPurl of vulnerablePurls) includedPurls.set(vPurl, 0)
 
   for (let hop = 1; hop <= hops; hop++) {
     const targetPurls = [...includedPurls.entries()].filter(([, h]) => h === hop - 1).map(([p]) => p)
     for (const [purl, pkg] of pkgMap) {
-      if (includedPurls.has(purl)) continue
       const depsHit = pkg.deps.filter(d => targetPurls.includes(d))
-      if (depsHit.length > 0) {
+      if (depsHit.length === 0) continue
+      if (!includedPurls.has(purl)) {
         includedPurls.set(purl, hop)
-        for (const d of depsHit) {
+      }
+      // Add edges even for already-included packages: a node reachable via multiple
+      // paths (e.g. both a direct dep and a transitive dep) needs all its edges.
+      for (const d of depsHit) {
+        const eKey = `${purl}→${d}`
+        if (!seenEdges.has(eKey)) {
+          seenEdges.add(eKey)
           includedEdges.push({ source: purl, target: d })
         }
       }

@@ -23,7 +23,7 @@ function buildLayout(data: DependencyGraphData): { nodes: Node[]; edges: Edge[] 
     data: {
       label: (
         <div className="text-left px-1">
-          <div className="font-semibold text-xs truncate max-w-40">{n.name}</div>
+          <div className="font-semibold text-xs break-all">{n.name}</div>
           <div className="text-[10px] text-muted-foreground font-mono">{n.version}</div>
           {n.direct && <div className="text-[10px] text-blue-600 font-medium">Direct</div>}
           {n.vulnerable && n.alertCount > 0 && (
@@ -56,7 +56,7 @@ function buildLayout(data: DependencyGraphData): { nodes: Node[]; edges: Edge[] 
 export function DependencyGraph({ assetId }: { assetId: string }) {
   const [data, setData] = useState<DependencyGraphData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [hops, setHops] = useState(2)
+  const [hops, setHops] = useState(4)
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
@@ -132,9 +132,6 @@ export function DependencyGraph({ assetId }: { assetId: string }) {
           <MiniMap nodeStrokeWidth={3} />
         </ReactFlow>
       </div>
-      <p className="text-[10px] text-muted-foreground mt-1 opacity-60">
-        * Known issue: after changing hop count, newly added nodes may not appear. Reload the page to reset the view.
-      </p>
     </div>
   )
 }

@@ -53,19 +53,18 @@ function findPaths(
 
     const node: ChainItem = { name: pkg.name, version: pkg.version, direct: pkg.direct }
 
-    if (pkg.direct === true) {
-      results.push({ chain: [node] })
-    } else {
-      const newVisited = new Set([...visited, targetPurl])
-      const parentPaths = findPaths(purl, pkgByPurl, newVisited, maxDepth - 1)
-      if (parentPaths.length > 0) {
-        for (const pp of parentPaths) {
-          results.push({ chain: [...pp.chain, node] })
-        }
-      } else {
-        // No direct ancestor found within depth; show as standalone dependent
-        results.push({ chain: [node] })
+    const newVisited = new Set([...visited, targetPurl])
+    const parentPaths = findPaths(purl, pkgByPurl, newVisited, maxDepth - 1)
+    if (parentPaths.length > 0) {
+      for (const pp of parentPaths) {
+        results.push({ chain: [...pp.chain, node] })
       }
+    }
+    if (pkg.direct === true || parentPaths.length === 0) {
+      // Also emit as a top-level path: direct deps that are themselves reachable
+      // from a higher direct dep (e.g. mermaid-cli is both direct and a child of
+      // prisma-erd-generator) still appear as standalone roots.
+      results.push({ chain: [node] })
     }
   }
 

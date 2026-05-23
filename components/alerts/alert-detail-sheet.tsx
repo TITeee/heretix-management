@@ -172,7 +172,7 @@ function buildDependentsGraph(
       data: {
         label: (
           <div className="text-left px-1">
-            <div className="font-semibold text-xs truncate max-w-40">{n.name}</div>
+            <div className="font-semibold text-xs break-all">{n.name}</div>
             <div className="text-[10px] text-muted-foreground font-mono">{n.version}</div>
             {n.direct && <div className="text-[10px] text-blue-600 font-medium">Direct</div>}
             {n.vulnerable && <div className="text-[10px] text-red-600 font-medium">Vulnerable</div>}
