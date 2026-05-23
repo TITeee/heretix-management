@@ -113,7 +113,7 @@ export function DependencyGraph({ assetId }: { assetId: string }) {
           </select>
         </div>
       </div>
-      <div style={{ height: Math.max(480, data.nodes.length * 60) }} className="rounded-md border overflow-hidden">
+      <div style={{ height: 800 }} className="rounded-md border overflow-hidden">
         <ReactFlow
           nodes={nodes}
           edges={edges}
