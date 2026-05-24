@@ -15,21 +15,21 @@ export type AuditRow = {
   createdAt: Date
 }
 
-const ACTION_COLORS: Record<string, string> = {
-  login:                "bg-green-600",
-  login_failed:         "bg-red-600",
-  user_created:         "bg-blue-600",
-  user_updated:         "bg-blue-400",
-  user_deleted:         "bg-red-500",
-  user_password_reset:  "bg-orange-500",
-  settings_updated:     "bg-purple-600",
-  asset_created:        "bg-teal-600",
-  asset_imported:       "bg-teal-500",
-  asset_deleted:        "bg-red-400",
-  asset_scanned:        "bg-gray-500",
+const ACTION_LABELS: Record<string, string> = {
+  login:                "Login",
+  login_failed:         "Login Failed",
+  user_created:         "User Created",
+  user_updated:         "User Updated",
+  user_deleted:         "User Deleted",
+  user_password_reset:  "Password Reset",
+  settings_updated:     "Settings Updated",
+  asset_created:        "Asset Created",
+  asset_imported:       "Asset Imported",
+  asset_deleted:        "Asset Deleted",
+  asset_scanned:        "Asset Scanned",
 }
 
-const ACTION_OPTIONS = Object.keys(ACTION_COLORS).map(a => ({ label: a, value: a }))
+const ACTION_OPTIONS = Object.entries(ACTION_LABELS).map(([value, label]) => ({ label, value }))
 
 const columns: ColumnDef<AuditRow>[] = [
   {
@@ -50,8 +50,8 @@ const columns: ColumnDef<AuditRow>[] = [
     accessorKey: "action",
     header: "Action",
     cell: ({ row }) => (
-      <Badge className={`${ACTION_COLORS[row.original.action] ?? "bg-gray-600"} text-white text-xs`}>
-        {row.original.action}
+      <Badge variant="outline" className="text-xs">
+        {ACTION_LABELS[row.original.action] ?? row.original.action}
       </Badge>
     ),
   },

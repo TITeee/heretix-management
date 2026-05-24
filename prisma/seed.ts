@@ -21,10 +21,8 @@ async function main() {
   }
 
   const defaultTags = [
-    { name: "Production",        type: "asset",   color: "#16a34a", description: "Production environment assets. (Default tag)" },
-    { name: "Development",       type: "asset",   color: "#3b82f6", description: "Development environment assets. (Default tag)" },
-    { name: "Staging",           type: "asset",   color: "#f59e0b", description: "Staging environment assets. (Default tag)" },
-    { name: "Critical Packages", type: "package", color: "#ef4444", description: "Packages that require priority attention. (Default tag)" },
+    { name: "Internet Facing", type: "asset",   color: "#dc2626", description: "Assets directly exposed to the internet. (Default tag)" },
+    { name: "Public Endpoint", type: "package", color: "#ea580c", description: "Packages directly accessible from the internet, e.g. Apache, Tomcat, Nginx. (Default tag)" },
   ]
   for (const tag of defaultTags) {
     await prisma.tag.upsert({
@@ -34,6 +32,13 @@ async function main() {
     })
     console.log(`Upserted default tag: ${tag.name}`)
   }
+
+  const defaultTagNames = defaultTags.map(t => t.name)
+  const removed = await prisma.tag.updateMany({
+    where: { isDefault: true, name: { notIn: defaultTagNames } },
+    data: { isDefault: false },
+  })
+  if (removed.count > 0) console.log(`Removed isDefault from ${removed.count} old tag(s)`)
 }
 
 main()

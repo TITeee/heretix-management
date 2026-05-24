@@ -19,7 +19,7 @@
 ## 機能
 
 - **ダッシュボード** — Overview / Tags の2タブ構成
-  - **Overview** — 総アセット数・アラート数（直接/間接依存の内訳付き）・重要度別サマリー、タグ別重要度ドーナツチャート、アラートトレンド（8週）、脆弱アセット Top 10・脆弱パッケージ Top 10、KEV ハイライト
+  - **Overview** — 総アセット数・アラート数（直接/間接依存の内訳付き）・重要度別サマリー、タグ別重要度ドーナツチャート（Internet Facing / Public Endpoint）、アラートトレンド（8週）、脆弱アセット Top 10・脆弱パッケージ Top 10、KEV ハイライト
   - **Tags** — タグに紐づくパッケージ・アセットを重要度カラーのカードで一覧表示
 - **アセット管理** — `inventory.json` または **CycloneDX BOM** インポート（差分更新、スコープ付き npm / Go モジュール / OS パッケージの PURL パース対応）、ホスト一覧・詳細表示、アセット編集・削除
 - **依存グラフ** *（Beta）* — アセット詳細の **Dependency Graph** タブで脆弱パッケージとその依存元パッケージを可視化（1〜8ホップ選択可）。dagre による自動レイアウト。脆弱=赤、直接依存=青。npm/pnpm パッケージが対象
@@ -81,10 +81,11 @@ pnpm exec prisma generate
 # DBスキーマ反映
 pnpm exec prisma db push
 
-# 管理ユーザーの作成（初回のみ）
+# 管理ユーザーとデフォルトタグの作成（初回のみ）
 pnpm seed
 # デフォルト: admin@example.com / changeme
 # カスタム: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass pnpm seed
+# 作成されるデフォルトタグ: "Internet Facing"（asset）、"Public Endpoint"（package）
 
 # 開発サーバー起動
 pnpm dev
@@ -131,10 +132,11 @@ docker compose logs -f app
 ### 初回セットアップ
 
 ```bash
-# 管理ユーザーの作成
+# 管理ユーザーとデフォルトタグの作成
 docker compose exec app node_modules/.bin/tsx prisma/seed.ts
 # デフォルト: admin@example.com / changeme
 # カスタム: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass docker compose exec app node_modules/.bin/tsx prisma/seed.ts
+# 作成されるデフォルトタグ: "Internet Facing"（asset）、"Public Endpoint"（package）
 ```
 
 ### よく使うコマンド
@@ -149,6 +151,32 @@ docker compose down -v
 # ログ確認
 docker compose logs -f app
 ```
+
+## アップグレード（オンプレ環境）
+
+スキーマ変更やデフォルトタグ更新を含むアップデートを取り込む場合:
+
+```bash
+# 1. 最新コードを取得
+git pull
+
+# 2. 依存パッケージのインストール（変更がある場合）
+pnpm install
+
+# 3. Prisma クライアントの再生成
+pnpm exec prisma generate
+
+# 4. DBスキーマの反映
+pnpm exec prisma db push
+
+# 5. デフォルトタグの更新（新規作成・旧タグの isDefault 解除）
+pnpm seed
+
+# 6. 開発サーバーの再起動
+pnpm dev
+```
+
+> **注意:** Docker 環境ではコンテナ起動時に `prisma migrate deploy` が自動でスキーマとタグを更新するため、seed の再実行は不要です。
 
 ## 使い方
 
@@ -190,7 +218,7 @@ docker compose logs -f app
 2. **フィルタ**（Asset / Status / Severity）で絞り込み（複数値の同時選択可）
 3. チェックボックスで複数選択 → ステータスを一括変更可
 4. アラート行をクリックすると詳細パネルが開く
-   - **Overview** タブ — 基本情報、ステータス変更、メモ記入、自動解決理由
+   - **Overview** タブ — 基本情報（修正バージョン（**Fixed in**）が存在する場合は表示）、ステータス変更、メモ記入、自動解決理由
    - **NVD** タブ — CVSS 詳細スコア、CWE、CISA KEV 情報、参照リンク一覧
    - **OSV** タブ — 詳細説明、影響バージョン一覧、参照リンク一覧
    - **Advisory** タブ — ベンダーアドバイザリ ID・重要度・影響製品とバージョン（Advisory データが存在する場合のみ表示）

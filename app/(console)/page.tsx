@@ -110,9 +110,7 @@ async function getDashboardData() {
     topAssetAlerts,
     topPkgGroups,
     kevAlerts,
-    productionAlertRaw,
-    developmentAlertRaw,
-    stagingAlertRaw,
+    internetFacingAlertRaw,
     totalPackages,
     kevCount,
     allTags,
@@ -155,20 +153,10 @@ async function getDashboardData() {
       orderBy: { cvssScore: "desc" },
       take: 10,
     }),
-    // C1 Production tag severity
+    // C1 Internet Facing tag severity
     prisma.alert.findMany({
       select: { cvssScore: true },
-      where: { status: { in: ["open", "in_progress"] }, asset: { assetTags: { some: { tag: { name: "Production" } } } } },
-    }),
-    // C2 Development tag severity
-    prisma.alert.findMany({
-      select: { cvssScore: true },
-      where: { status: { in: ["open", "in_progress"] }, asset: { assetTags: { some: { tag: { name: "Development" } } } } },
-    }),
-    // C3 Staging tag severity
-    prisma.alert.findMany({
-      select: { cvssScore: true },
-      where: { status: { in: ["open", "in_progress"] }, asset: { assetTags: { some: { tag: { name: "Staging" } } } } },
+      where: { status: { in: ["open", "in_progress"] }, asset: { assetTags: { some: { tag: { name: "Internet Facing" } } } } },
     }),
     // stats
     prisma.package.count(),
@@ -213,6 +201,15 @@ async function getDashboardData() {
 
   const allTaggedAssetIds = [...new Set(assetTagRecords.map((r) => r.asset.id))]
   const allTaggedPkgNames = [...new Set(packageTagRecords.map((r) => r.packageName))]
+
+  const publicEndpointTag = allTags.find((t) => t.name === "Public Endpoint")
+  const publicEndpointPkgNames = publicEndpointTag
+    ? packageTagRecords.filter((r) => r.tagId === publicEndpointTag.id).map((r) => r.packageName)
+    : []
+  const publicEndpointAlertRaw = await prisma.alert.findMany({
+    select: { cvssScore: true },
+    where: { status: { in: ["open", "in_progress"] }, packageName: { in: publicEndpointPkgNames } },
+  })
 
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
   const activeStatus = ["open", "in_progress"]
@@ -347,9 +344,8 @@ async function getDashboardData() {
     topAssetsData,
     topPackagesData,
     kevAlerts,
-    productionSeverity: buildTagSeverity(productionAlertRaw),
-    developmentSeverity: buildTagSeverity(developmentAlertRaw),
-    stagingSeverity: buildTagSeverity(stagingAlertRaw),
+    internetFacingSeverity: buildTagSeverity(internetFacingAlertRaw),
+    publicEndpointSeverity: buildTagSeverity(publicEndpointAlertRaw),
     totalPackages,
     kevCount,
     tagData,
@@ -371,9 +367,8 @@ export default async function DashboardPage() {
     topAssetsData,
     topPackagesData,
     kevAlerts,
-    productionSeverity,
-    developmentSeverity,
-    stagingSeverity,
+    internetFacingSeverity,
+    publicEndpointSeverity,
     totalPackages,
     kevCount,
     tagData,
@@ -473,39 +468,28 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* Charts row 1: C1 + C2 + C3 — Tag severity */}
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* Charts row 1: C1 + C2 — Tag severity */}
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
-              <span className="inline-block h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: "#16a34a" }} />
-              Production Severity
+              <span className="inline-block h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: "#dc2626" }} />
+              Internet Facing Severity
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <TagSeverityDonut {...productionSeverity} />
+            <TagSeverityDonut {...internetFacingSeverity} />
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
-              <span className="inline-block h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: "#3b82f6" }} />
-              Development Severity
+              <span className="inline-block h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: "#ea580c" }} />
+              Public Endpoint Severity
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <TagSeverityDonut {...developmentSeverity} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium">
-              <span className="inline-block h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: "#f59e0b" }} />
-              Staging Severity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TagSeverityDonut {...stagingSeverity} />
+            <TagSeverityDonut {...publicEndpointSeverity} />
           </CardContent>
         </Card>
       </div>

@@ -21,7 +21,7 @@ A vulnerability management console that imports server package information colle
 ## Features
 
 - **Dashboard** — Two-tab layout: Overview / Tags
-  - **Overview** — Total assets & alerts, severity summary (with direct/indirect dependency breakdown), tag severity donut charts (Production / Development / Staging), 8-week alert trend, Top 10 vulnerable assets & packages, KEV highlights
+  - **Overview** — Total assets & alerts, severity summary (with direct/indirect dependency breakdown), tag severity donut charts (Internet Facing / Public Endpoint), 8-week alert trend, Top 10 vulnerable assets & packages, KEV highlights
   - **Tags** — Cards for packages and assets linked to tags, color-coded by severity
 - **Asset Management** — Import `inventory.json` or **CycloneDX BOM** (incremental updates, PURL parsing with scoped npm / Go module / OS package support), asset list & detail views, edit & delete
 - **Dependency Graph** *(Beta)* — Visual dependency graph on the Asset detail page (Dependency Graph tab). Shows vulnerable packages (red) and their upstream dependents (configurable 1–8 hops), with automatic layout via dagre. Available for npm/pnpm packages imported via SBOM or inventory.json
@@ -83,10 +83,11 @@ pnpm exec prisma generate
 # Apply DB schema
 pnpm exec prisma db push
 
-# Create admin user (first time only)
+# Create admin user and default tags (first time only)
 pnpm seed
 # Default: admin@example.com / changeme
 # Custom: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass pnpm seed
+# Default tags created: "Internet Facing" (asset), "Public Endpoint" (package)
 
 # Start development server
 pnpm dev
@@ -133,10 +134,11 @@ Database migrations are applied automatically on container start.
 ### Initial Setup (first time only)
 
 ```bash
-# Create admin user
+# Create admin user and default tags
 docker compose exec app node_modules/.bin/tsx prisma/seed.ts
 # Default: admin@example.com / changeme
 # Custom: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass docker compose exec app node_modules/.bin/tsx prisma/seed.ts
+# Default tags created: "Internet Facing" (asset), "Public Endpoint" (package)
 ```
 
 ### Useful Commands
@@ -151,6 +153,32 @@ docker compose down -v
 # View logs
 docker compose logs -f app
 ```
+
+## Upgrading (On-Premises)
+
+When pulling updates that include schema changes or default tag updates:
+
+```bash
+# 1. Pull latest code
+git pull
+
+# 2. Install dependencies (if changed)
+pnpm install
+
+# 3. Regenerate Prisma client
+pnpm exec prisma generate
+
+# 4. Apply schema changes to DB
+pnpm exec prisma db push
+
+# 5. Update default tags (creates new defaults, removes isDefault from old ones)
+pnpm seed
+
+# 6. Restart dev server
+pnpm dev
+```
+
+> **Note:** Docker deployments handle steps 3–5 automatically on container start via `prisma migrate deploy` and do not require re-running the seed script.
 
 ## Usage
 
@@ -192,7 +220,7 @@ docker compose logs -f app
 2. Use **filters** (Asset / Status / Severity) to narrow down results (multiple values supported)
 3. Select multiple alerts via checkboxes → bulk status update available
 4. Click an alert row to open the detail panel:
-   - **Overview** tab — Basic info, status change, memo, auto-resolution reason
+   - **Overview** tab — Basic info (including **Fixed in** version when available), status change, memo, auto-resolution reason
    - **NVD** tab — CVSS detailed scores, CWE, CISA KEV info, reference links
    - **OSV** tab — Description, affected versions, reference links
    - **Advisory** tab — Vendor advisory ID, severity, affected products and versions (shown only when advisory data exists)
