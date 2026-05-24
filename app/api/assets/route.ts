@@ -253,7 +253,7 @@ type CycloneDXDependency = {
 }
 
 type CycloneDXBom = {
-  metadata?: { component?: { name?: string; version?: string; type?: string }; timestamp?: string }
+  metadata?: { component?: { name?: string; version?: string; type?: string; purl?: string }; timestamp?: string }
   components?: CycloneDXComponent[]
   dependencies?: CycloneDXDependency[]
 }
@@ -345,10 +345,22 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
     }
   }
 
+  // Build set of direct dependency PURLs from the root component entry in dependencies.
+  // Used as fallback when cdx:direct property is absent (SBOMs from Syft, trivy, cdxgen, etc.)
+  const rootPurl = bom.metadata?.component?.purl
+  const rootDirectPurls = new Set<string>(rootPurl ? (depsMap.get(rootPurl) ?? []) : [])
+
   const packages = (bom.components ?? []).map((c: CycloneDXComponent) => {
     const { ecosystem, name } = parsePURL(c.purl)
     const directProp = c.properties?.find(p => p.name === "cdx:direct")
-    const direct = directProp ? directProp.value === "true" : null
+    let direct: boolean | null
+    if (directProp) {
+      direct = directProp.value === "true"
+    } else if (rootDirectPurls.size > 0 && c.purl) {
+      direct = rootDirectPurls.has(c.purl)
+    } else {
+      direct = null
+    }
     const deps = c.purl ? (depsMap.get(c.purl) ?? []) : []
     return {
       name: name ?? c.name ?? "",

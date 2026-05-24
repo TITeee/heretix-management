@@ -22,12 +22,12 @@
   - **Overview** — 総アセット数・アラート数（直接/間接依存の内訳付き）・重要度別サマリー、タグ別重要度ドーナツチャート（Internet Facing / Public Endpoint）、アラートトレンド（8週）、脆弱アセット Top 10・脆弱パッケージ Top 10、KEV ハイライト
   - **Tags** — タグに紐づくパッケージ・アセットを重要度カラーのカードで一覧表示
 - **アセット管理** — `inventory.json` または **CycloneDX BOM** インポート（差分更新、スコープ付き npm / Go モジュール / OS パッケージの PURL パース対応）、ホスト一覧・詳細表示、アセット編集・削除
-- **依存グラフ** *（Beta）* — アセット詳細の **Dependency Graph** タブで脆弱パッケージとその依存元パッケージを可視化（1〜8ホップ選択可）。dagre による自動レイアウト。脆弱=赤、直接依存=青。npm/pnpm パッケージが対象
+- **依存グラフ** *（Beta）* — アセット詳細の **Dependency Graph** タブで脆弱パッケージとその依存元パッケージを可視化（1〜8ホップ選択可）。dagre による自動レイアウト。脆弱=赤、直接依存=青。lockfile ベースの依存データが必要（npm/pnpm は完全対応、Go・PyPI は部分対応）。heretix-cli の SBOM・inventory.json に加え、Syft・trivy・cdxgen 等の標準 CycloneDX SBOM にも対応
 - **手動アセット登録** — ネットワーク機器・FW を GUI から直接登録
 - **手動パッケージ管理** — パッケージマネージャ外でインストールしたソフトウェアを手動で追加・編集・削除。Advisory タブで Fortinet / Palo Alto Networks / Sophos / Oracle 製品をドロップダウン選択して登録可能
 - **パッケージ更新履歴** — インポート時の追加・更新・削除の変更履歴をアセット詳細で参照
 - **脆弱性スキャン** — heretix-api のバッチ検索でアセットの脆弱性を検出・アラート記録（新規 Alert の作成のみ。既存 Alert の更新・自動解決は行わない）。[ossf/malicious-packages](https://github.com/ossf/malicious-packages) によるマルウェアパッケージ検知（`MAL-` アラート）にも対応
-- **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度 / Tags / **Dependency**（Direct/Indirect））・一括ステータス変更・**CSV / JSON エクスポート**
+- **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度 / Tags / **Dependency**（Direct/Indirect））・一括ステータス変更・**CSV / JSON エクスポート**。Direct/Indirect 分類は lockfile ベースの依存データがある場合のみ有効（主に npm/pnpm）。OS パッケージや手動追加パッケージは未分類
 - **アラート自動解決** — インポート時にパッケージがアップグレードされた場合、旧バージョンのアラートを自動で解決済みに変更
 - **アラートメタデータ更新** — open / in_progress の全 Alert に対して heretix-api から最新の CVSS スコア・重要度・EPSS・KEV 情報を再取得して更新（新規 Alert の作成は行わない）
 - **Alert Activity** — 全アセット・全アラートの変更イベント（検知・ステータス変更・メタデータ更新）を1つのテーブルで一覧表示。イベント種別・アセットでフィルタ可能。Alerts ページの **Activity** ボタンからアクセス
