@@ -142,7 +142,7 @@ function PackageFormDialog({
     if (isCpePkg) {
       if (!form.name || !form.version || !form.cpe) return
     } else {
-      if (!form.name || !form.version || !form.ecosystem) return
+      if (!form.name || !form.version || !ecosystemSelect) return
     }
     if (versionChanged) {
       setConfirming(true)
