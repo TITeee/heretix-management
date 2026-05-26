@@ -37,7 +37,6 @@ export async function PATCH(
         assetId: pkg.assetId,
         packageName: pkg.name,
         packageVersion: oldVersion,
-        ecosystem: pkg.ecosystem,
         status: { in: ["open", "in_progress"] },
       },
     })
