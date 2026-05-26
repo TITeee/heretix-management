@@ -70,6 +70,9 @@ export async function DELETE(
   const pkg = await prisma.package.findUnique({ where: { id: pkgId } })
   if (!pkg) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
+  await prisma.alert.deleteMany({
+    where: { assetId: pkg.assetId, packageName: pkg.name, packageVersion: pkg.version },
+  })
   await prisma.package.delete({ where: { id: pkgId } })
   return new NextResponse(null, { status: 204 })
 }
