@@ -53,8 +53,10 @@ export async function scanAsset(assetId: string): Promise<{ newAlerts: number }>
         for (const v of r.vulnerabilities) {
           const externalId = v.externalId || v.id
           const ecosystem = r.ecosystem ?? ""
+          // Dedup without ecosystem: heretix-api may return a different ecosystem or version
+          // between scans; matching on name+version+externalId is sufficient to identify the same finding.
           const existing = await prisma.alert.findFirst({
-            where: { assetId, packageName: r.package, packageVersion: r.version, ecosystem, externalId },
+            where: { assetId, packageName: r.package, packageVersion: r.version, externalId },
             select: { id: true },
           })
           if (existing) continue
