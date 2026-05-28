@@ -22,7 +22,8 @@ export async function scanAsset(assetId: string): Promise<{ newAlerts: number }>
     (p) => p.name.trim().length > 0 && p.version.trim().length > 0
   )
   const cpePkgs = pkgs.filter((p) => p.cpe && p.cpe.trim().length > 0)
-  const normalPkgs = pkgs.filter((p) => !p.cpe || p.cpe.trim().length === 0)
+  // Exclude ecosystem="" packages from batch search: UI specifies CPE/advisory-only for "Other" ecosystem.
+  const normalPkgs = pkgs.filter((p) => (!p.cpe || p.cpe.trim().length === 0) && p.ecosystem.trim().length > 0)
 
   logger.info("scan started", {
     assetId,
