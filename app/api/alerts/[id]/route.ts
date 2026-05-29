@@ -38,7 +38,11 @@ export async function PATCH(
       data: {
         alertId: id,
         type: "status_changed",
-        data: { from: prevStatus, to: status },
+        data: {
+          from: prevStatus,
+          to: status,
+          userName: session.user?.name ?? session.user?.email ?? "Unknown",
+        },
       },
     })
   }

@@ -132,12 +132,12 @@ const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: str
   notes_saved: {
     icon: Clock,
     iconClass: "text-muted-foreground",
-    label: (data) => data.userName ? `Notes saved by ${String(data.userName)}` : "Notes saved",
+    label: () => "Notes saved",
   },
   vex_justification_set: {
     icon: ShieldCheck,
     iconClass: "text-muted-foreground",
-    label: (data) => data.userName ? `VEX justification set by ${String(data.userName)}` : "VEX justification set",
+    label: () => "VEX justification set",
   },
   vex_imported: {
     icon: ShieldCheck,
@@ -332,25 +332,47 @@ function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open
               <p className="text-xs text-muted-foreground mt-0.5" suppressHydrationWarning>
                 {new Date(event.createdAt).toLocaleString()}
               </p>
-              {event.type === "detected" && !!event.data?.severity && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {String(event.data?.severity)}{event.data?.cvssScore != null ? ` · CVSS ${String(event.data?.cvssScore)}` : ""}
-                </p>
+              {event.type === "detected" && (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <SeverityBadge score={event.data?.cvssScore != null ? event.data.cvssScore as number : null} />
+                  {!!event.data?.severity && (
+                    <span className="text-xs text-muted-foreground capitalize">{String(event.data.severity)}</span>
+                  )}
+                </div>
               )}
-              {event.type === "status_changed" && !!event.data?.reason && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {String(event.data.reason)}
-                </p>
+              {event.type === "status_changed" && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                  {!!event.data?.userName && (
+                    <Badge className="text-xs px-1.5 py-0">{String(event.data.userName)}</Badge>
+                  )}
+                  {!!event.data?.reason && (
+                    <p className="text-xs text-muted-foreground">{String(event.data.reason)}</p>
+                  )}
+                </div>
               )}
-              {event.type === "notes_saved" && !!event.data?.notes && (
-                <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap line-clamp-3">
-                  {String(event.data.notes)}
-                </p>
+              {event.type === "notes_saved" && (
+                <div className="mt-1 space-y-1">
+                  {!!event.data?.userName && (
+                    <Badge className="text-xs px-1.5 py-0">{String(event.data.userName)}</Badge>
+                  )}
+                  {!!event.data?.notes && (
+                    <div className="border-l-2 border-border pl-2 py-0.5 bg-muted/40 rounded-sm">
+                      <p className="text-xs whitespace-pre-wrap line-clamp-3">{String(event.data.notes)}</p>
+                    </div>
+                  )}
+                </div>
               )}
-              {event.type === "vex_justification_set" && !!event.data?.justification && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {VEX_JUSTIFICATION_LABELS[String(event.data.justification)] ?? String(event.data.justification)}
-                </p>
+              {event.type === "vex_justification_set" && (
+                <div className="mt-1 space-y-1">
+                  {!!event.data?.userName && (
+                    <Badge className="text-xs px-1.5 py-0">{String(event.data.userName)}</Badge>
+                  )}
+                  {!!event.data?.justification && (
+                    <div className="border-l-2 border-border pl-2 py-0.5 bg-muted/40 rounded-sm">
+                      <p className="text-xs">{VEX_JUSTIFICATION_LABELS[String(event.data.justification)] ?? String(event.data.justification)}</p>
+                    </div>
+                  )}
+                </div>
               )}
               {event.type === "vex_imported" && !!event.data?.justification && (
                 <p className="text-xs text-muted-foreground mt-0.5">
