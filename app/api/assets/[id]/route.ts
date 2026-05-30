@@ -16,7 +16,7 @@ export async function GET(
     include: {
       packages: { orderBy: [{ ecosystem: "asc" }, { name: "asc" }] },
       scanJobs: { orderBy: { createdAt: "desc" }, take: 10 },
-      _count: { select: { alerts: { where: { status: { not: "resolved" } } } } },
+      _count: { select: { alerts: { where: { status: { in: ["open", "in_progress"] } } } } },
     },
   })
   if (!asset) return NextResponse.json({ error: "Not found" }, { status: 404 })

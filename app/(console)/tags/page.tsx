@@ -32,13 +32,13 @@ export default async function TagsPage() {
   const [assetAlerts, pkgAlerts] = await Promise.all([
     allAssetIds.length > 0
       ? prisma.alert.findMany({
-          where: { assetId: { in: allAssetIds }, status: { not: "resolved" } },
+          where: { assetId: { in: allAssetIds }, status: { in: ["open", "in_progress"] } },
           select: { assetId: true, cvssScore: true },
         })
       : [],
     allPkgNames.length > 0
       ? prisma.alert.findMany({
-          where: { packageName: { in: allPkgNames }, status: { not: "resolved" } },
+          where: { packageName: { in: allPkgNames }, status: { in: ["open", "in_progress"] } },
           select: { packageName: true, cvssScore: true },
         })
       : [],

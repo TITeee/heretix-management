@@ -20,7 +20,7 @@ async function getAssets() {
   })
 
   const openAlertRows = await prisma.alert.findMany({
-    where: { status: { not: "resolved" } },
+    where: { status: { in: ["open", "in_progress"] } },
     select: { assetId: true, cvssScore: true },
   })
 

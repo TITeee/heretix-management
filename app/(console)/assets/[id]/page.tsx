@@ -39,7 +39,7 @@ export default async function AssetDetailPage({
   if (!asset) notFound()
 
   const openAlerts = await prisma.alert.count({
-    where: { assetId: id, status: { not: "resolved" } },
+    where: { assetId: id, status: { in: ["open", "in_progress"] } },
   })
 
   const vexCount = await prisma.alert.count({
