@@ -227,7 +227,7 @@ function AlertDependentsTab({ alertId, open, packageName, packageVersion }: {
       .then(r => r.json())
       .then((d: { hasDepsData: boolean; dependents: DependentPath[] }) => {
         setData(d)
-        if (d.hasDepsData && d.dependents.length > 0) {
+        if (d.hasDepsData) {
           const { nodes: n, edges: e } = buildDependentsGraph(d.dependents, packageName, packageVersion)
           setNodes(n)
           setEdges(e)
@@ -249,15 +249,6 @@ function AlertDependentsTab({ alertId, open, packageName, packageVersion }: {
     )
   }
 
-  if (data.dependents.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground">
-        <GitBranch className="h-6 w-6" />
-        <p className="text-sm">No packages in this asset depend on the vulnerable package.</p>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -265,6 +256,9 @@ function AlertDependentsTab({ alertId, open, packageName, packageVersion }: {
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-blue-100 border-2 border-blue-600" /> Direct dep</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gray-100 border border-gray-300" /> Indirect dep</span>
       </div>
+      {data.dependents.length === 0 && (
+        <p className="text-xs text-muted-foreground">No other packages in this asset depend on this package.</p>
+      )}
       <div style={{ height: Math.max(640, nodes.length * 120) }} className="rounded-md border overflow-hidden">
         <ReactFlow
           nodes={nodes}
