@@ -368,6 +368,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
 
   const [ecosystemFilter, setEcosystemFilter] = useState<Set<string>>(new Set())
   const [sourceFilter, setSourceFilter] = useState<Set<string>>(new Set())
+  const [directFilter, setDirectFilter] = useState<Set<string>>(new Set())
 
   const ecosystemOptions = useMemo(() =>
     [...new Set(data.map(p => p.ecosystem))].sort().map(v => ({ value: v, label: v || "Other" })),
@@ -377,14 +378,19 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
     [...new Set(data.map(p => p.source))].sort().map(v => ({ value: v, label: v })),
     [data]
   )
+  const directOptions = [
+    { value: "true", label: "Direct" },
+    { value: "false", label: "Indirect" },
+  ]
 
   const filteredData = useMemo(() => data.filter(p => {
     if (ecosystemFilter.size > 0 && !ecosystemFilter.has(p.ecosystem)) return false
     if (sourceFilter.size > 0 && !sourceFilter.has(p.source)) return false
+    if (directFilter.size > 0 && !directFilter.has(String(p.direct))) return false
     return true
-  }), [data, ecosystemFilter, sourceFilter])
+  }), [data, ecosystemFilter, sourceFilter, directFilter])
 
-  const hasFilter = ecosystemFilter.size > 0 || sourceFilter.size > 0
+  const hasFilter = ecosystemFilter.size > 0 || sourceFilter.size > 0 || directFilter.size > 0
 
   return (
     <div className="space-y-3">
@@ -401,9 +407,15 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
           selected={sourceFilter}
           onSelectedChange={setSourceFilter}
         />
+        <DataTableFacetedFilter
+          title="Dependency"
+          options={directOptions}
+          selected={directFilter}
+          onSelectedChange={setDirectFilter}
+        />
         {hasFilter && (
           <Button variant="ghost" size="sm"
-            onClick={() => { setEcosystemFilter(new Set()); setSourceFilter(new Set()) }}>
+            onClick={() => { setEcosystemFilter(new Set()); setSourceFilter(new Set()); setDirectFilter(new Set()) }}>
             Reset <X className="ml-1 size-4" />
           </Button>
         )}
