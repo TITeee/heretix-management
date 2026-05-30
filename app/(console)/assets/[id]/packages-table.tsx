@@ -316,20 +316,19 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
       accessorKey: "source",
       header: "Source",
       cell: ({ row }) => (
-        <div className="flex items-center gap-1 flex-wrap">
-          {row.original.source === "manual" ? (
-            <Badge variant="outline" className="text-xs">manual</Badge>
-          ) : (
-            <span className="text-sm">{row.original.source}</span>
-          )}
-          {row.original.direct === true && (
-            <Badge className="text-xs">Direct</Badge>
-          )}
-          {row.original.direct === false && (
-            <Badge variant="outline" className="text-xs text-muted-foreground">Indirect</Badge>
-          )}
-        </div>
+        row.original.source === "manual"
+          ? <Badge variant="outline" className="text-xs">manual</Badge>
+          : <span className="text-sm">{row.original.source}</span>
       ),
+    },
+    {
+      accessorKey: "direct",
+      header: "Dependency",
+      cell: ({ row }) => {
+        if (row.original.direct === true) return <Badge className="text-xs">Direct</Badge>
+        if (row.original.direct === false) return <Badge variant="outline" className="text-xs text-muted-foreground">Indirect</Badge>
+        return null
+      },
     },
     {
       accessorKey: "location",
