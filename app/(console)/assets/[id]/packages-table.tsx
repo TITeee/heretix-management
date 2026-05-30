@@ -323,7 +323,7 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
             <span className="text-sm">{row.original.source}</span>
           )}
           {row.original.direct === true && (
-            <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">Direct</Badge>
+            <Badge className="text-xs">Direct</Badge>
           )}
           {row.original.direct === false && (
             <Badge variant="outline" className="text-xs text-muted-foreground">Indirect</Badge>
