@@ -1,6 +1,10 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { Maximize2, Minimize2, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { SeverityBadge } from "@/components/alerts/vuln-detail-tabs"
+import { AlertDetailSheet, type SheetAlert } from "@/components/alerts/alert-detail-sheet"
 import {
   ReactFlow,
   Node,
@@ -53,12 +57,31 @@ function buildLayout(data: DependencyGraphData): { nodes: Node[]; edges: Edge[] 
   return applyDagreLayout(nodes, edges)
 }
 
+
 export function DependencyGraph({ assetId }: { assetId: string }) {
   const [data, setData] = useState<DependencyGraphData | null>(null)
   const [loading, setLoading] = useState(true)
   const [hops, setHops] = useState(4)
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [selectedNode, setSelectedNode] = useState<{ name: string; version: string } | null>(null)
+  const [nodeAlerts, setNodeAlerts] = useState<SheetAlert[]>([])
+  const [alertsLoading, setAlertsLoading] = useState(false)
+  const [selectedAlert, setSelectedAlert] = useState<SheetAlert | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
+
+  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+    const graphNode = data?.nodes.find(n => n.id === node.id)
+    if (!graphNode?.vulnerable || graphNode.alertCount === 0) return
+    setSelectedNode({ name: graphNode.name, version: graphNode.version })
+    setAlertsLoading(true)
+    fetch(`/api/alerts?assetId=${assetId}&packageName=${encodeURIComponent(graphNode.name)}&packageVersion=${encodeURIComponent(graphNode.version)}`)
+      .then(r => r.json())
+      .then(d => setNodeAlerts(Array.isArray(d) ? d : (d.alerts ?? [])))
+      .catch(() => setNodeAlerts([]))
+      .finally(() => setAlertsLoading(false))
+  }, [data, assetId])
 
   const load = useCallback(async (h: number) => {
     setLoading(true)
@@ -73,7 +96,7 @@ export function DependencyGraph({ assetId }: { assetId: string }) {
     setLoading(false)
   }, [assetId, setNodes, setEdges])
 
-  useEffect(() => { load(hops) }, [load, hops])
+  useEffect(() => { load(hops); setSelectedNode(null) }, [load, hops])
 
   if (loading) return <div className="flex items-center justify-center h-96 text-muted-foreground text-sm">Loading dependency graph…</div>
 
@@ -94,44 +117,118 @@ export function DependencyGraph({ assetId }: { assetId: string }) {
     )
   }
 
-  return (
-    <div>
-      <div className="flex items-center gap-4 mb-3 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-red-100 border-2 border-red-600" /> Vulnerable</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-blue-100 border-2 border-blue-600" /> Direct dep</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gray-100 border border-gray-300" /> Indirect dep</span>
-        <div className="ml-auto flex items-center gap-2">
-          <span>Hops:</span>
-          <select
-            value={hops}
-            onChange={e => setHops(Number(e.target.value))}
-            className="h-6 rounded border border-input bg-background px-1.5 text-xs"
-          >
-            {[1,2,3,4,5,6,7,8].map(n => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div style={{ height: 800 }} className="rounded-md border overflow-hidden">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
-          minZoom={0.3}
-          nodesDraggable
-          nodesConnectable={false}
-          elementsSelectable
-          proOptions={{ hideAttribution: true }}
+  const toolbar = (
+    <div className="flex items-center gap-4 mb-3 text-xs text-muted-foreground">
+      <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-red-100 border-2 border-red-600" /> Vulnerable</span>
+      <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-blue-100 border-2 border-blue-600" /> Direct dep</span>
+      <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gray-100 border border-gray-300" /> Indirect dep</span>
+      <div className="ml-auto flex items-center gap-2">
+        <span>Hops:</span>
+        <select
+          value={hops}
+          onChange={e => setHops(Number(e.target.value))}
+          className="h-6 rounded border border-input bg-background px-1.5 text-xs"
         >
-          <Background gap={16} size={1} color="#f0f0f0" />
-          <Controls style={{ backgroundColor: "white", color: "#374151", borderColor: "#e5e7eb" }} />
-          <MiniMap nodeStrokeWidth={3} />
-        </ReactFlow>
+          {[1,2,3,4,5,6,7,8].map(n => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsFullscreen(f => !f)}>
+          {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+        </Button>
       </div>
     </div>
+  )
+
+  const alertPanel = selectedNode && (
+    <div className="fixed left-0 top-0 z-50 h-full w-80 border-r bg-background shadow-xl flex flex-col">
+      <div className="flex items-center justify-between p-4 border-b">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold truncate">{selectedNode.name}</p>
+          <p className="text-xs text-muted-foreground font-mono">{selectedNode.version}</p>
+        </div>
+        <button onClick={() => setSelectedNode(null)} className="ml-2 shrink-0 text-muted-foreground hover:text-foreground">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-1.5">
+        {alertsLoading ? (
+          <p className="text-xs text-muted-foreground">Loading...</p>
+        ) : nodeAlerts.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No alerts found.</p>
+        ) : (
+          nodeAlerts.map(a => (
+            <button
+              key={a.id}
+              className="flex items-center gap-2 text-xs w-full text-left hover:bg-accent rounded px-1 py-0.5"
+              onClick={() => { setSelectedAlert(a); setSheetOpen(true) }}
+            >
+              <SeverityBadge score={a.cvssScore} />
+              <span className="font-mono break-all">{a.externalId}</span>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  )
+
+  const graph = (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onNodeClick={onNodeClick}
+      fitView
+      fitViewOptions={{ padding: 0.2 }}
+      minZoom={0.3}
+      nodesDraggable
+      nodesConnectable={false}
+      elementsSelectable
+      proOptions={{ hideAttribution: true }}
+    >
+      <Background gap={16} size={1} color="#f0f0f0" />
+      <Controls style={{ backgroundColor: "white", color: "#374151", borderColor: "#e5e7eb" }} />
+      <MiniMap nodeStrokeWidth={3} />
+    </ReactFlow>
+  )
+
+  const detailSheet = (
+    <AlertDetailSheet
+      alert={selectedAlert}
+      open={sheetOpen}
+      onOpenChange={setSheetOpen}
+      onStatusChange={(alertId, status) => {
+        setNodeAlerts(prev => prev.map(a => a.id === alertId ? { ...a, status } : a))
+      }}
+    />
+  )
+
+  if (isFullscreen) {
+    return (
+      <>
+        {detailSheet}
+        {alertPanel}
+        <div className="fixed inset-0 z-50 bg-background flex flex-col p-4">
+          {toolbar}
+          <div className="flex-1 rounded-md border overflow-hidden">
+            {graph}
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <>
+      {detailSheet}
+      {alertPanel}
+      <div>
+        {toolbar}
+        <div style={{ height: 800 }} className="rounded-md border overflow-hidden">
+          {graph}
+        </div>
+      </div>
+    </>
   )
 }
