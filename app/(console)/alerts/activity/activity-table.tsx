@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X } from "lucide-react"
 import { FaCircleExclamation, FaClock, FaCircleCheck, FaCircleMinus } from "react-icons/fa6"
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter"
+import { AlertDetailSheet, type SheetAlert } from "@/components/alerts/alert-detail-sheet"
 
 const STATUS_LABELS: Record<string, string> = {
   open: "Open",
@@ -53,12 +54,7 @@ type AlertEvent = {
   type: string
   data: Record<string, unknown> | null
   createdAt: string
-  alert: {
-    externalId: string
-    packageName: string
-    packageVersion: string
-    asset: { id: string; name: string; hostname: string }
-  }
+  alert: SheetAlert
 }
 
 function To() {
@@ -115,6 +111,8 @@ export function ActivityTable({ events: allEvents }: { events: AlertEvent[] }) {
   const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set())
   const [assetFilter, setAssetFilter] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(0)
+  const [selectedAlert, setSelectedAlert] = useState<SheetAlert | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   const assetOptions = useMemo(() => {
     const seen = new Map<string, string>()
@@ -225,7 +223,11 @@ export function ActivityTable({ events: allEvents }: { events: AlertEvent[] }) {
                 const config = EVENT_TYPE_CONFIG[e.type]
                 const assetLabel = e.alert.asset.name || e.alert.asset.hostname
                 return (
-                  <tr key={e.id} className="border-b last:border-0 hover:bg-muted/30">
+                  <tr
+                    key={e.id}
+                    className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
+                    onClick={() => { setSelectedAlert(e.alert); setSheetOpen(true) }}
+                  >
                     <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap" suppressHydrationWarning>
                       {new Date(e.createdAt).toLocaleString()}
                     </td>
@@ -245,7 +247,11 @@ export function ActivityTable({ events: allEvents }: { events: AlertEvent[] }) {
                       <span className="text-muted-foreground">{e.alert.packageVersion}</span>
                     </td>
                     <td className="px-3 py-2 text-xs">
-                      <Link href={`/assets/${e.alert.asset.id}`} className="hover:underline text-primary">
+                      <Link
+                        href={`/assets/${e.alert.asset.id}`}
+                        className="hover:underline text-primary"
+                        onClick={(ev) => ev.stopPropagation()}
+                      >
                         {assetLabel}
                       </Link>
                     </td>
@@ -276,6 +282,16 @@ export function ActivityTable({ events: allEvents }: { events: AlertEvent[] }) {
           </Button>
         </div>
       </div>
+
+      <AlertDetailSheet
+        key={selectedAlert?.id}
+        alert={selectedAlert}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        onStatusChange={(alertId, status) => {
+          setSelectedAlert(prev => prev && prev.id === alertId ? { ...prev, status } : prev)
+        }}
+      />
     </div>
   )
 }

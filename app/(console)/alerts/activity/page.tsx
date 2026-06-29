@@ -15,9 +15,13 @@ export default async function AlertActivityPage() {
     include: {
       alert: {
         select: {
-          externalId: true,
-          packageName: true,
-          packageVersion: true,
+          id: true, assetId: true, packageName: true, packageVersion: true,
+          ecosystem: true, externalId: true, sources: true,
+          cvssScore: true, cvssVector: true, summary: true,
+          isKev: true, epssScore: true, epssPercentile: true,
+          status: true, notes: true, resolveReason: true,
+          vexJustification: true, fixedVersion: true,
+          detectedAt: true, resolvedAt: true,
           asset: { select: { id: true, name: true, hostname: true } },
         },
       },
