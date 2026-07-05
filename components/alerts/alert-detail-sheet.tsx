@@ -27,6 +27,7 @@ import { applyDagreLayout } from "@/lib/dagre-layout"
 import { FaTriangleExclamation, FaVirus, FaCircleExclamation, FaClock, FaCircleMinus, FaCircleCheck } from "react-icons/fa6"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { getSlaStatus, formatDaysUntilDue } from "@/lib/sla"
 
 // Minimum Alert fields required by the detail sheet
 export type SheetAlert = {
@@ -49,6 +50,7 @@ export type SheetAlert = {
   vexJustification?: string | null
   fixedVersion?: string | null
   detectedAt: Date
+  dueDate: Date | null
   resolvedAt: Date | null
   asset: { id: string; name: string; hostname: string }
 }
@@ -603,6 +605,22 @@ export function AlertDetailSheet({
                   <div className="flex items-start gap-2">
                     <span className="w-28 text-muted-foreground shrink-0">Resolve Reason</span>
                     <span className="text-sm">{alert.resolveReason}</span>
+                  </div>
+                )}
+                {alert.dueDate && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 text-muted-foreground shrink-0">Due Date</span>
+                    <div className="flex items-center gap-2">
+                      <span suppressHydrationWarning>{new Date(alert.dueDate).toLocaleDateString()}</span>
+                      <Badge variant="outline" className={`text-xs ${
+                        getSlaStatus(new Date(alert.dueDate)) === 'overdue' ? 'bg-red-50 text-red-700 border-red-200' :
+                        getSlaStatus(new Date(alert.dueDate)) === 'urgent' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                        getSlaStatus(new Date(alert.dueDate)) === 'warning' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                        'bg-green-50 text-green-700 border-green-200'
+                      }`}>
+                        {formatDaysUntilDue(new Date(alert.dueDate))}
+                      </Badge>
+                    </div>
                   </div>
                 )}
               </div>
