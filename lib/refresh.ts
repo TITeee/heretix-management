@@ -1,13 +1,27 @@
 import { prisma } from "@/lib/db"
 import { getVulnerabilityById } from "@/lib/heretix-api"
 import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
+import { calculateDueDate, DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
 
 export async function refreshMetadata(): Promise<{ updated: number }> {
+  // Load SLA configuration
+  const slaSetting = await prisma.setting.findUnique({
+    where: { key: "sla_config" },
+  })
+  let slaConfig = DEFAULT_SLA_CONFIG
+  if (slaSetting) {
+    try {
+      slaConfig = JSON.parse(slaSetting.value) as SlaConfig
+    } catch {
+      // Use default if parsing fails
+    }
+  }
+
   const alerts = await prisma.alert.findMany({
     where: { status: { notIn: ["resolved", "ignored"] } },
     select: {
       id: true, externalId: true, cvssScore: true, cvssVector: true, severity: true, isKev: true,
-      epssScore: true, epssPercentile: true, fixedVersion: true,
+      epssScore: true, epssPercentile: true, fixedVersion: true, detectedAt: true,
       assetId: true, packageName: true, packageVersion: true,
     },
   })
@@ -70,6 +84,14 @@ export async function refreshMetadata(): Promise<{ updated: number }> {
           (vuln.epssScore ?? null) !== alert.epssScore
 
         if (hasChange) {
+          // Recalculate dueDate if CVSS or isKev changed
+          const cvssOrKevChanged =
+            (vuln.cvssScore ?? null) !== alert.cvssScore ||
+            (vuln.isKev ?? false) !== alert.isKev
+          const newDueDate = cvssOrKevChanged
+            ? calculateDueDate(vuln.cvssScore ?? null, vuln.isKev ?? false, alert.detectedAt, slaConfig)
+            : undefined
+
           await prisma.alert.update({
             where: { id: alert.id },
             data: {
@@ -80,6 +102,7 @@ export async function refreshMetadata(): Promise<{ updated: number }> {
               isKev: vuln.isKev ?? false,
               epssScore: vuln.epssScore ?? null,
               epssPercentile: vuln.epssPercentile ?? null,
+              ...(newDueDate !== undefined && { dueDate: newDueDate }),
             },
           })
           updated++

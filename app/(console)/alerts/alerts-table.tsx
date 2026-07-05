@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { SeverityBadge } from "@/components/alerts/vuln-detail-tabs"
 import { AlertDetailSheet, STATUS_ICON_MAP, StatusIcon } from "@/components/alerts/alert-detail-sheet"
+import { formatDaysUntilDue, getSlaStatus } from "@/lib/sla"
 import {
   Select,
   SelectContent,
@@ -43,6 +44,7 @@ export type Alert = {
   fixedVersion?: string | null
   packageDirect?: boolean | null
   detectedAt: Date
+  dueDate: Date | null
   updatedAt: Date
   resolvedAt: Date | null
   asset: { id: string; name: string; hostname: string }
@@ -238,6 +240,23 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
     ),
   },
   {
+    accessorKey: "dueDate",
+    header: ({ column }) => (
+      <Button variant="ghost" size="sm" onClick={() => column.toggleSorting()}>
+        Due <ArrowUpDown className="ml-1 h-3 w-3" />
+      </Button>
+    ),
+    cell: ({ row }) => {
+      const status = getSlaStatus(row.original.dueDate ? new Date(row.original.dueDate) : null)
+      const colorClass = status === "overdue" ? "text-red-600 font-medium" : status === "urgent" ? "text-orange-600 font-medium" : status === "warning" ? "text-yellow-600" : "text-muted-foreground"
+      return (
+        <span className={`text-xs ${colorClass}`} suppressHydrationWarning>
+          {formatDaysUntilDue(row.original.dueDate ? new Date(row.original.dueDate) : null)}
+        </span>
+      )
+    },
+  },
+  {
     accessorKey: "updatedAt",
     header: ({ column }) => (
       <Button variant="ghost" size="sm" onClick={() => column.toggleSorting()}>
@@ -401,7 +420,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
       "EPSS Score", "EPSS Percentile", "KEV",
       "Summary", "Package", "Version", "Ecosystem", "Sources",
       "Asset", "Hostname", "Tags", "Status", "Notes",
-      "Detected At", "Resolved At", "Updated At",
+      "Detected At", "Due Date", "Resolved At", "Updated At",
     ]
     const lines = [
       headers.map(escapeCSV).join(","),
@@ -424,6 +443,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
         a.status,
         a.notes ?? "",
         new Date(a.detectedAt).toISOString(),
+        a.dueDate ? new Date(a.dueDate).toISOString() : "",
         a.resolvedAt ? new Date(a.resolvedAt).toISOString() : "",
         new Date(a.updatedAt).toISOString(),
       ].map(escapeCSV).join(",")),
@@ -452,6 +472,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
       status: a.status,
       notes: a.notes,
       detectedAt: new Date(a.detectedAt).toISOString(),
+      dueDate: a.dueDate ? new Date(a.dueDate).toISOString() : null,
       resolvedAt: a.resolvedAt ? new Date(a.resolvedAt).toISOString() : null,
       updatedAt: new Date(a.updatedAt).toISOString(),
     }))

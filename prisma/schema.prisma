@@ -82,6 +82,7 @@ model Alert {
   resolveReason     String?
   vexJustification  String?
   detectedAt        DateTime       @default(now())
+  dueDate           DateTime?
   resolvedAt     DateTime?
   updatedAt      DateTime       @updatedAt
   comments       AlertComment[]
@@ -90,6 +91,7 @@ model Alert {
   @@unique([assetId, packageName, packageVersion, ecosystem, externalId])
   @@index([isKev])
   @@index([epssScore])
+  @@index([dueDate])
 }
 
 model AlertEvent {

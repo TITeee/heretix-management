@@ -12,6 +12,8 @@ import { TagSeverityDonut } from "@/components/dashboard/tag-severity-donut"
 import { CriticalPackagesCard } from "@/components/dashboard/critical-packages-card"
 import { ProductionAssetsCard } from "@/components/dashboard/production-assets-card"
 import { DashboardTabs } from "@/components/dashboard/dashboard-tabs"
+import { SlaStatusCard } from "@/components/dashboard/sla-status-card"
+import { getSlaStatus } from "@/lib/sla"
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -60,6 +62,18 @@ function buildTagSeverity(alerts: { cvssScore: number | null }[]) {
     else low++
   }
   return { critical, high, medium, low, na }
+}
+
+function buildSlaStatusCounts(alerts: { dueDate: Date | null }[]) {
+  let overdue = 0, urgent = 0, warning = 0, ok = 0
+  for (const alert of alerts) {
+    const status = getSlaStatus(alert.dueDate)
+    if (status === "overdue") overdue++
+    else if (status === "urgent") urgent++
+    else if (status === "warning") warning++
+    else ok++
+  }
+  return { overdue, urgent, warning, ok }
 }
 
 function buildTopAssets(
@@ -114,6 +128,7 @@ async function getDashboardData() {
     totalPackages,
     kevCount,
     allTags,
+    slaDueAlerts,
   ] = await Promise.all([
     prisma.asset.count(),
     prisma.alert.count(),
@@ -166,11 +181,17 @@ async function getDashboardData() {
       orderBy: [{ isDefault: "desc" }, { name: "asc" }],
       select: { id: true, name: true, type: true, color: true },
     }),
+    // SLA status for open/in_progress alerts
+    prisma.alert.findMany({
+      where: { status: { in: ["open", "in_progress"] } },
+      select: { dueDate: true },
+    }),
   ])
 
   const trendData = buildWeeklyTrend(trendAlerts)
   const topAssetsData = buildTopAssets(topAssetAlerts)
   const topPackagesData = topPkgGroups.map((g) => ({ name: g.packageName, count: g._count.id }))
+  const slaStatusCounts = buildSlaStatusCounts(slaDueAlerts)
 
   // ── Tags tab: fetch all asset/package relationships for every tag ─────────
   const assetTagIds = allTags.filter((t) => t.type === "asset").map((t) => t.id)
@@ -349,6 +370,7 @@ async function getDashboardData() {
     totalPackages,
     kevCount,
     tagData,
+    slaStatusCounts,
   }
 }
 
@@ -372,6 +394,7 @@ export default async function DashboardPage() {
     totalPackages,
     kevCount,
     tagData,
+    slaStatusCounts,
   } = await getDashboardData()
 
   return (
@@ -466,6 +489,7 @@ export default async function DashboardPage() {
             <div className="text-3xl font-bold text-destructive">{kevCount}</div>
           </CardContent>
         </Card>
+        <SlaStatusCard {...slaStatusCounts} />
       </div>
 
       {/* Charts row 1: C1 + C2 — Tag severity */}

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db"
 import { batchSearch, searchByCPE } from "@/lib/heretix-api"
 import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
 import { logger } from "@/lib/logger"
+import { calculateDueDate, DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
 
 const BATCH_SIZE = 1000
 
@@ -11,6 +12,19 @@ export async function scanAsset(assetId: string): Promise<{ newAlerts: number }>
     include: { packages: true, assetTags: true },
   })
   if (!asset) throw new Error(`Asset not found: ${assetId}`)
+
+  // Load SLA configuration
+  const slaSetting = await prisma.setting.findUnique({
+    where: { key: "sla_config" },
+  })
+  let slaConfig = DEFAULT_SLA_CONFIG
+  if (slaSetting) {
+    try {
+      slaConfig = JSON.parse(slaSetting.value) as SlaConfig
+    } catch {
+      // Use default if parsing fails
+    }
+  }
 
   const job = await prisma.scanJob.create({
     data: { assetId, status: "running", startedAt: new Date() },
@@ -62,6 +76,14 @@ export async function scanAsset(assetId: string): Promise<{ newAlerts: number }>
           })
           if (existing) continue
 
+          const detectedAt = new Date()
+          const dueDate = calculateDueDate(
+            v.cvssScore ?? null,
+            v.isKev ?? false,
+            detectedAt,
+            slaConfig
+          )
+
           const alert = await prisma.alert.create({
             data: {
               assetId,
@@ -78,6 +100,8 @@ export async function scanAsset(assetId: string): Promise<{ newAlerts: number }>
               epssScore: v.epssScore ?? null,
               epssPercentile: v.epssPercentile ?? null,
               fixedVersion: v.fixedVersion ?? null,
+              detectedAt,
+              dueDate,
             },
           })
           await prisma.alertEvent.create({
