@@ -29,6 +29,7 @@ export async function POST(
       source: source ?? "manual",
       location: location ?? null,
       cpe: cpe ?? null,
+      deps: [],
     },
   })
 

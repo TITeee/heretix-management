@@ -149,8 +149,8 @@ export async function POST(req: NextRequest) {
       // Execute all package changes + history in one transaction
       await prisma.$transaction([
         prisma.package.deleteMany({ where: { id: { in: toDelete } } }),
-        ...toCreate.map((p: { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null }) =>
-          prisma.package.create({ data: { assetId: existing.id, ...p } })
+        ...toCreate.map((p: { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct?: boolean | null; deps?: string[] }) =>
+          prisma.package.create({ data: { assetId: existing.id, ...p, deps: p.deps ?? [] } })
         ),
         ...toUpdate.map(({ id, version, rawVersion, location, direct, deps }) =>
           prisma.package.update({ where: { id }, data: { version, rawVersion, location, direct, deps } })
