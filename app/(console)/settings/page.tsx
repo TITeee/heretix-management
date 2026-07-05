@@ -13,6 +13,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
+import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbList,
@@ -157,7 +163,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-4xl">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -167,6 +173,15 @@ export default function SettingsPage() {
       </Breadcrumb>
       <h1 className="text-2xl font-bold">Settings</h1>
 
+      <Tabs defaultValue="api" className="w-full">
+        <TabsList>
+          <TabsTrigger value="api">API</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="sla">SLA</TabsTrigger>
+          <TabsTrigger value="about">About</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="api" className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Vulnerability API</CardTitle>
@@ -213,7 +228,9 @@ export default function SettingsPage() {
           </form>
         </CardContent>
       </Card>
+        </TabsContent>
 
+        <TabsContent value="notifications" className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Slack Notifications</CardTitle>
@@ -347,7 +364,9 @@ export default function SettingsPage() {
           </form>
         </CardContent>
       </Card>
+        </TabsContent>
 
+        <TabsContent value="sla" className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>SLA Configuration</CardTitle>
@@ -433,7 +452,9 @@ export default function SettingsPage() {
           </form>
         </CardContent>
       </Card>
+        </TabsContent>
 
+        <TabsContent value="about" className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>About</CardTitle>
@@ -449,6 +470,8 @@ export default function SettingsPage() {
           <p className="text-xs">Licensed under the Apache License 2.0</p>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
