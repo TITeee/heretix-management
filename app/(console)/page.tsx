@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Server, Bell, ShieldAlert, CheckCircle2, Package, Info } from "lucide-react"
+import { Server, Bell, ShieldAlert, CheckCircle2, Package, Info, Tag as TagIcon } from "lucide-react"
 import { FaTriangleExclamation } from "react-icons/fa6"
 import Link from "next/link"
 import { AlertsTrend } from "@/components/dashboard/alerts-trend"
@@ -413,7 +413,7 @@ export default async function DashboardPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-lg font-medium">
                   {color && (
-                    <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                    <TagIcon className="h-5 w-5 shrink-0" style={{ color }} />
                   )}
                   {name}
                 </CardTitle>
@@ -497,7 +497,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
-              <span className="inline-block h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: "#dc2626" }} />
+              <TagIcon className="h-4 w-4 shrink-0" style={{ color: "#dc2626" }} />
               Internet Facing Severity
             </CardTitle>
           </CardHeader>
@@ -508,7 +508,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
-              <span className="inline-block h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: "#ea580c" }} />
+              <TagIcon className="h-4 w-4 shrink-0" style={{ color: "#ea580c" }} />
               Public Endpoint Severity
             </CardTitle>
           </CardHeader>

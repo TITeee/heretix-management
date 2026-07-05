@@ -11,7 +11,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import { Pencil, Trash2, Plus } from "lucide-react"
+import { Pencil, Trash2, Plus, Tag as TagIcon } from "lucide-react"
 import { SEVERITY_COLORS } from "@/lib/severity"
 
 type Tag = {
@@ -198,7 +198,7 @@ export function TagsClient({ tags: initialTags }: { tags: Tag[] }) {
               >
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    {tag.color && <span className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: tag.color }} />}
+                    {tag.color && <TagIcon className="h-4 w-4 flex-shrink-0" style={{ color: tag.color }} />}
                     <span className="font-medium">{tag.name}</span>
                   </div>
                 </td>
