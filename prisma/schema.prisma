@@ -151,7 +151,6 @@ model Tag {
   name        String       @unique
   type        String
   color       String?
-  icon        String?
   description String?
   isDefault   Boolean      @default(false)
   createdAt   DateTime     @default(now())
