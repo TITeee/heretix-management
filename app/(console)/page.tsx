@@ -489,7 +489,7 @@ export default async function DashboardPage() {
             <div className="text-3xl font-bold text-destructive">{kevCount}</div>
           </CardContent>
         </Card>
-        <SlaStatusCard {...slaStatusCounts} />
+        {/* SLA Status card hidden - will redesign later */}
       </div>
 
       {/* Charts row 1: C1 + C2 — Tag severity */}
