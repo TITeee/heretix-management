@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db"
 import { AlertsTableClient } from "./alerts-table-client"
+import { DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
 
 export default async function AlertsPage({
   searchParams,
@@ -22,6 +23,16 @@ export default async function AlertsPage({
       }
     },
   })
+
+  const slaSetting = await prisma.setting.findUnique({ where: { key: "sla_config" } })
+  let slaConfig = DEFAULT_SLA_CONFIG
+  if (slaSetting) {
+    try {
+      slaConfig = { ...DEFAULT_SLA_CONFIG, ...(JSON.parse(slaSetting.value) as Partial<SlaConfig>) }
+    } catch {
+      // Use default if parsing fails
+    }
+  }
 
   const packageNames = [...new Set(alerts.map(a => a.packageName))]
   const packageTags = await prisma.packageTag.findMany({
@@ -61,7 +72,7 @@ export default async function AlertsPage({
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Alerts</h1>
-      <AlertsTableClient data={alertsWithTags} initialPackageName={params.packageName} initialAssetId={params.assetId} />
+      <AlertsTableClient data={alertsWithTags} initialPackageName={params.packageName} initialAssetId={params.assetId} slaEnabled={slaConfig.slaEnabled} />
     </div>
   )
 }

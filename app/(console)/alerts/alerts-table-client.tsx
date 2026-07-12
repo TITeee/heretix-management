@@ -8,7 +8,7 @@ import { toast } from "sonner"
 import { AlertsTable } from "./alerts-table"
 import type { Alert } from "./alerts-table"
 
-export function AlertsTableClient({ data, initialPackageName, initialAssetId }: { data: Alert[]; initialPackageName?: string; initialAssetId?: string }) {
+export function AlertsTableClient({ data, initialPackageName, initialAssetId, slaEnabled }: { data: Alert[]; initialPackageName?: string; initialAssetId?: string; slaEnabled?: boolean }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const importRef = useRef<HTMLInputElement>(null)
@@ -93,7 +93,7 @@ export function AlertsTableClient({ data, initialPackageName, initialAssetId }: 
           Import VEX
         </button>
       </div>
-      <AlertsTable data={data} initialPackageName={initialPackageName} initialAssetId={initialAssetId} />
+      <AlertsTable data={data} initialPackageName={initialPackageName} initialAssetId={initialAssetId} slaEnabled={slaEnabled} />
     </div>
   )
 }

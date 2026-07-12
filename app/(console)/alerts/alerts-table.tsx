@@ -291,7 +291,14 @@ const KEV_OPTIONS = [
   { value: "malware", label: "Malware" },
 ]
 
-export function AlertsTable({ data: initialData, initialPackageName, initialAssetId }: { data: Alert[]; initialPackageName?: string; initialAssetId?: string }) {
+const DUE_OPTIONS = [
+  { value: "overdue", label: "Overdue" },
+  { value: "urgent", label: "Urgent" },
+  { value: "warning", label: "Warning" },
+  { value: "ok", label: "OK" },
+]
+
+export function AlertsTable({ data: initialData, initialPackageName, initialAssetId, slaEnabled = true }: { data: Alert[]; initialPackageName?: string; initialAssetId?: string; slaEnabled?: boolean }) {
   const router = useRouter()
   const [data, setData] = useState(initialData)
   useEffect(() => { setData(initialData) }, [initialData])
@@ -305,6 +312,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
   const [sourcesFilter, setSourcesFilter] = useState<Set<string>>(new Set())
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set())
   const [dependencyFilter, setDependencyFilter] = useState<Set<string>>(new Set())
+  const [dueFilter, setDueFilter] = useState<Set<string>>(new Set())
   const [selectedAlerts, setSelectedAlerts] = useState<Alert[]>([])
   const [bulkStatus, setBulkStatus] = useState("")
   const [bulkLoading, setBulkLoading] = useState(false)
@@ -362,10 +370,14 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
       if (dependencyFilter.has("direct") && alert.packageDirect !== true) return false
       if (dependencyFilter.has("indirect") && alert.packageDirect !== false) return false
     }
+    if (dueFilter.size > 0) {
+      const status = getSlaStatus(alert.dueDate ? new Date(alert.dueDate) : null)
+      if (!dueFilter.has(status)) return false
+    }
     return true
-  }), [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter])
+  }), [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter, dueFilter])
 
-  const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0 || dependencyFilter.size > 0
+  const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0 || dependencyFilter.size > 0 || dueFilter.size > 0
 
   function handleStatusChange(alertId: string, newStatus: string) {
     setData(prev => prev.map(a => a.id === alertId ? { ...a, status: newStatus } : a))
@@ -536,13 +548,21 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
           selected={dependencyFilter}
           onSelectedChange={setDependencyFilter}
         />
+        {slaEnabled && (
+          <DataTableFacetedFilter
+            title="Due"
+            options={DUE_OPTIONS}
+            selected={dueFilter}
+            onSelectedChange={setDueFilter}
+          />
+        )}
         {hasFilter && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
               if (initialAssetId) { window.location.href = "/alerts"; return }
-              setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set())
+              setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set()); setDependencyFilter(new Set()); setDueFilter(new Set())
             }}
           >
             Reset <X className="ml-1 size-4" />
@@ -565,7 +585,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
         getRowId={(row) => row.id}
         onRowSelectionChange={setSelectedAlerts}
         initialSorting={[{ id: "detectedAt", desc: true }]}
-        initialColumnVisibility={{ updatedAt: false, sources: false }}
+        initialColumnVisibility={{ updatedAt: false, sources: false, ...(!slaEnabled && { dueDate: false }) }}
         exportRef={exportRef}
         headerActions={
           <div className="flex items-center gap-2">

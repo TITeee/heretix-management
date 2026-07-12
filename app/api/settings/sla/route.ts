@@ -16,8 +16,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const config = JSON.parse(setting.value) as SlaConfig
-    return NextResponse.json(config)
+    const config = JSON.parse(setting.value) as Partial<SlaConfig>
+    return NextResponse.json({ ...DEFAULT_SLA_CONFIG, ...config })
   } catch {
     // If parsing fails, return defaults
     return NextResponse.json(DEFAULT_SLA_CONFIG)
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
 
   // Validate config
   const validated = {
+    slaEnabled: config.slaEnabled ?? DEFAULT_SLA_CONFIG.slaEnabled,
     slaCriticalHours: Math.max(1, config.slaCriticalHours ?? DEFAULT_SLA_CONFIG.slaCriticalHours),
     slaHighHours: Math.max(1, config.slaHighHours ?? DEFAULT_SLA_CONFIG.slaHighHours),
     slaMediumDays: Math.max(1, config.slaMediumDays ?? DEFAULT_SLA_CONFIG.slaMediumDays),

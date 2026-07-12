@@ -376,73 +376,88 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSlaSave} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Critical (CVSS 9.0-10)</label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min="1"
-                    value={slaConfig.slaCriticalHours}
-                    onChange={(e) => setSlaConfig({ ...slaConfig, slaCriticalHours: Math.max(1, parseInt(e.target.value) || 1) })}
-                    className="w-20"
-                  />
-                  <span className="text-sm text-muted-foreground">hours</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">High (CVSS 7.0-8.9)</label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min="1"
-                    value={slaConfig.slaHighHours}
-                    onChange={(e) => setSlaConfig({ ...slaConfig, slaHighHours: Math.max(1, parseInt(e.target.value) || 1) })}
-                    className="w-20"
-                  />
-                  <span className="text-sm text-muted-foreground">hours</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Medium (CVSS 4.0-6.9)</label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min="1"
-                    value={slaConfig.slaMediumDays}
-                    onChange={(e) => setSlaConfig({ ...slaConfig, slaMediumDays: Math.max(1, parseInt(e.target.value) || 1) })}
-                    className="w-20"
-                  />
-                  <span className="text-sm text-muted-foreground">days</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Low (CVSS 0-3.9)</label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min="1"
-                    value={slaConfig.slaLowDays}
-                    onChange={(e) => setSlaConfig({ ...slaConfig, slaLowDays: Math.max(1, parseInt(e.target.value) || 1) })}
-                    className="w-20"
-                  />
-                  <span className="text-sm text-muted-foreground">days</span>
-                </div>
-              </div>
+            <div className="flex items-center gap-3">
+              <input
+                id="sla-enabled"
+                type="checkbox"
+                checked={slaConfig.slaEnabled}
+                onChange={(e) => setSlaConfig({ ...slaConfig, slaEnabled: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300 accent-black"
+              />
+              <label htmlFor="sla-enabled" className="text-sm font-medium">Enable SLA Tracking</label>
             </div>
-            <div className="space-y-2 pt-2">
-              <label className="text-sm font-medium">KEV (Known Exploited Vulnerabilities)</label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min="1"
-                  value={slaConfig.kevSlaHours}
-                  onChange={(e) => setSlaConfig({ ...slaConfig, kevSlaHours: Math.max(1, parseInt(e.target.value) || 1) })}
-                  className="w-20"
-                />
-                <span className="text-sm text-muted-foreground">hours (override for any CVSS)</span>
+
+            {slaConfig.slaEnabled && (
+              <div className="space-y-4 pl-7">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Critical (CVSS 9.0-10)</label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        value={slaConfig.slaCriticalHours}
+                        onChange={(e) => setSlaConfig({ ...slaConfig, slaCriticalHours: Math.max(1, parseInt(e.target.value) || 1) })}
+                        className="w-20"
+                      />
+                      <span className="text-sm text-muted-foreground">hours</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">High (CVSS 7.0-8.9)</label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        value={slaConfig.slaHighHours}
+                        onChange={(e) => setSlaConfig({ ...slaConfig, slaHighHours: Math.max(1, parseInt(e.target.value) || 1) })}
+                        className="w-20"
+                      />
+                      <span className="text-sm text-muted-foreground">hours</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Medium (CVSS 4.0-6.9)</label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        value={slaConfig.slaMediumDays}
+                        onChange={(e) => setSlaConfig({ ...slaConfig, slaMediumDays: Math.max(1, parseInt(e.target.value) || 1) })}
+                        className="w-20"
+                      />
+                      <span className="text-sm text-muted-foreground">days</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Low (CVSS 0-3.9)</label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        value={slaConfig.slaLowDays}
+                        onChange={(e) => setSlaConfig({ ...slaConfig, slaLowDays: Math.max(1, parseInt(e.target.value) || 1) })}
+                        className="w-20"
+                      />
+                      <span className="text-sm text-muted-foreground">days</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2 pt-2">
+                  <label className="text-sm font-medium">KEV (Known Exploited Vulnerabilities)</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      value={slaConfig.kevSlaHours}
+                      onChange={(e) => setSlaConfig({ ...slaConfig, kevSlaHours: Math.max(1, parseInt(e.target.value) || 1) })}
+                      className="w-20"
+                    />
+                    <span className="text-sm text-muted-foreground">hours (override for any CVSS)</span>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="flex items-center gap-3 pt-4">
               <Button type="submit" disabled={slaSaving || slaSaved}>

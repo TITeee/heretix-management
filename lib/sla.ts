@@ -3,6 +3,7 @@
  */
 
 export interface SlaConfig {
+  slaEnabled: boolean
   slaCriticalHours: number  // CVSS 9.0-10
   slaHighHours: number      // CVSS 7.0-8.9
   slaMediumDays: number     // CVSS 4.0-6.9
@@ -11,6 +12,7 @@ export interface SlaConfig {
 }
 
 export const DEFAULT_SLA_CONFIG: SlaConfig = {
+  slaEnabled: true,
   slaCriticalHours: 24,
   slaHighHours: 168,    // 7 days
   slaMediumDays: 30,
