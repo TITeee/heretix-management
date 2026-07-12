@@ -16,7 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { HelpCircle } from "lucide-react"
-import { ADVISORY_VENDORS, FORTINET_PRODUCTS, PALOALTO_PRODUCTS, type AdvisoryVendor } from "@/lib/advisory-products"
+import { ADVISORY_VENDORS, getProductsByVendor, type AdvisoryVendor } from "@/lib/advisory-products"
 
 const ECOSYSTEMS = [
   "Ubuntu:20.04:LTS",
@@ -55,7 +55,7 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
 
   // Advisory tab state
   const [vendor, setVendor] = useState<AdvisoryVendor>("fortinet")
-  const [product, setProduct] = useState(FORTINET_PRODUCTS[0])
+  const [product, setProduct] = useState(getProductsByVendor("fortinet")[0])
   const [advVersion, setAdvVersion] = useState("")
   const [vulnCount, setVulnCount] = useState<number | "error" | null>(null)
   const [searching, setSearching] = useState(false)
@@ -72,7 +72,7 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
 
   function handleOpen() {
     setGenName(""); setGenVersion(""); setGenEcosystemSelect("")
-    setVendor("fortinet"); setProduct(FORTINET_PRODUCTS[0]); setAdvVersion("")
+    setVendor("fortinet"); setProduct(getProductsByVendor("fortinet")[0]); setAdvVersion("")
     setVulnCount(null)
     setCpeProduct(""); setCpeVersion(""); setCpeString("")
     setError("")
@@ -250,15 +250,16 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
               <Select value={vendor} onValueChange={(v) => {
                 const next = v as AdvisoryVendor
                 setVendor(next)
-                setProduct(next === "paloalto" ? PALOALTO_PRODUCTS[0] : FORTINET_PRODUCTS[0])
+                setProduct(getProductsByVendor(next)[0])
                 setVulnCount(null)
               }}>
                 <SelectTrigger className="w-full">
                   <SelectValue>{ADVISORY_VENDORS.find((v) => v.value === vendor)?.label}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="fortinet">Fortinet</SelectItem>
-                  <SelectItem value="paloalto">Palo Alto Networks</SelectItem>
+                  {ADVISORY_VENDORS.map((v) => (
+                    <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -267,7 +268,7 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
               <Select value={product} onValueChange={(v) => { setProduct(v ?? product); setVulnCount(null) }}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {(vendor === "paloalto" ? PALOALTO_PRODUCTS : FORTINET_PRODUCTS).map((p) => (
+                  {getProductsByVendor(vendor).map((p) => (
                     <SelectItem key={p} value={p}>{p}</SelectItem>
                   ))}
                 </SelectContent>

@@ -54,6 +54,17 @@ export const SOPHOS_PRODUCTS = [
   "Sophos Email Gateway",
 ]
 
+export const SPLUNK_PRODUCTS = [
+  "Splunk Enterprise",
+  "Splunk Cloud Platform",
+  "Splunk Secure Gateway",
+  "Splunk Universal Forwarder",
+  "Splunk AI Toolkit",
+  "Splunk Enterprise Security",
+  "Splunk SOAR",
+  "Splunk App for Lookup File Editing",
+]
+
 export const ORACLE_CPU_PRODUCTS = [
   "Database",
   "Java SE",
@@ -71,18 +82,20 @@ export const ORACLE_CPU_PRODUCTS = [
   "Financial Services",
 ]
 
-export type AdvisoryVendor = "fortinet" | "paloalto" | "sophos" | "oracle"
+export type AdvisoryVendor = "fortinet" | "paloalto" | "sophos" | "oracle" | "splunk"
 
 export const ADVISORY_VENDORS: { value: AdvisoryVendor; label: string }[] = [
   { value: "fortinet", label: "Fortinet" },
   { value: "paloalto", label: "Palo Alto Networks" },
   { value: "sophos", label: "Sophos" },
   { value: "oracle", label: "Oracle" },
+  { value: "splunk", label: "Splunk" },
 ]
 
 export function getProductsByVendor(vendor: AdvisoryVendor): string[] {
   if (vendor === "paloalto") return PALOALTO_PRODUCTS
   if (vendor === "sophos") return SOPHOS_PRODUCTS
   if (vendor === "oracle") return ORACLE_CPU_PRODUCTS
+  if (vendor === "splunk") return SPLUNK_PRODUCTS
   return FORTINET_PRODUCTS
 }
