@@ -4,19 +4,7 @@ A vulnerability management console that imports server package information colle
 
 [日本語版 README](./README.ja.md)
 
-## Tech Stack
-
-| Role | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript |
-| UI | Tailwind CSS + shadcn/ui (base-ui) |
-| Charts | Recharts |
-| Table | TanStack Table |
-| Auth | Auth.js v5 (NextAuth) — Credentials Provider |
-| ORM | Prisma 7 |
-| DB | PostgreSQL |
-| Package Manager | pnpm |
+![Alert Management](docs/alerts.png)
 
 ## Features
 
@@ -26,11 +14,13 @@ A vulnerability management console that imports server package information colle
 - **Asset Management** — Import `inventory.json` or **CycloneDX BOM** (incremental updates, PURL parsing with scoped npm / Go module / OS package support), asset list & detail views, edit & delete
 - **Dependency Graph** *(Beta)* — Visual dependency graph on the Asset detail page (Dependency Graph tab). Shows vulnerable packages (red) and their upstream dependents (configurable 1–8 hops), with automatic layout via dagre. Available for packages with lockfile-based dependency data (npm/pnpm fully supported; Go and PyPI partially). Works with SBOM or inventory.json from heretix-cli, and with standard CycloneDX SBOMs from tools such as Syft, trivy, and cdxgen
 - **Manual Asset Registration** — Register network devices and firewalls directly via GUI
-- **Manual Package Management** — Add, edit, and delete software installed outside the package manager. The Advisory tab supports Fortinet, Palo Alto Networks, Sophos, and Oracle products via dropdown selection
+- **Tags** — Create color-coded tags for assets or packages (e.g. "Internet Facing", "Public Endpoint"), assign them from the asset/package detail pages, and view aggregated severity counts per tag on the Tags page and Dashboard
+- **Manual Package Management** — Add, edit, and delete software installed outside the package manager. The Advisory tab supports Fortinet, Palo Alto Networks, Sophos, Oracle, and Splunk products via dropdown selection
 - **Package Change History** — View added/updated/removed package history per asset at import time
 - **Vulnerability Scanning** — Detect vulnerabilities via heretix-api batch search and record alerts (creates new Alerts only; does not update or auto-resolve existing Alerts). Malicious package detection (`MAL-` alerts) is also supported via [ossf/malicious-packages](https://github.com/ossf/malicious-packages)
 - **Alert Management** — Status tracking (Open / In Progress / Resolved / Ignored), filters (Asset / Status / Severity / Tags / **Dependency** (Direct/Indirect), multi-value), bulk status update, **export to CSV / JSON** (reflects active filters). Note: Direct/Indirect classification requires lockfile-based dependency data (npm/pnpm primarily); OS packages and manually added packages are unclassified
 - **Auto-resolve Alerts** — Automatically marks old-version alerts as resolved when a package is upgraded during import
+- **SLA / Due Date** — Configurable SLA thresholds by CVSS severity (Critical / High / Medium / Low), with a fixed override for CISA KEV alerts. Each Alert's due date is calculated automatically on detection and recalculated when CVSS or KEV status changes. The Alerts table shows a **Due** column and filter (Overdue / Urgent / Warning / OK), and the Alert Detail panel shows the due date with status coloring. SLA tracking can be disabled entirely in Settings, which hides the Due column and filter
 - **Alert Metadata Refresh** — Re-fetches the latest CVSS score, severity, EPSS, and KEV data from heretix-api for all open/in-progress Alerts (does not create new Alerts)
 - **Alert Activity** — View all alert events (detections, status changes, metadata updates) across all assets in a single table. Filter by event type or asset. Accessible via the **Activity** button on the Alerts page
 - **Alert Detail Panel** — Click a row to open a slide-over panel with Overview (basic info, memo, resolution reason), NVD, OSV, Advisory, **Dependents** *(Beta)* (interactive graph showing packages that depend on the vulnerable package, with dependency paths), and Timeline tabs
@@ -39,120 +29,109 @@ A vulnerability management console that imports server package information colle
   - **Export** (`GET /api/vex`, **Export VEX** button): Outputs ignored alerts with a justification as CycloneDX 1.6 VEX JSON (`not_affected`). Compatible with `trivy image myapp --vex vex.json`
   - **Import** (`POST /api/vex/import`, **Import VEX** button): Ingest a CycloneDX VEX document and auto-apply status changes to matching alerts. Records a `vex_imported` event in the Timeline for audit trail
   - When setting an alert to **Ignored**, select a CycloneDX-standard justification (`code_not_reachable`, `code_not_present`, `requires_configuration`, etc.)
-- **Vulnerability Search** — Search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or **Advisory mode** (Vendor Advisory search for Fortinet, Palo Alto Networks, Sophos, and Oracle products)
+- **Vulnerability Search** — Search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or **Advisory mode** (Vendor Advisory search for Fortinet, Palo Alto Networks, Sophos, Oracle, and Splunk products)
 - **User Management** — Add, edit, and delete users (admin role only)
 - **Audit Log** — Admin-only page showing the last 500 events: login, user management, settings changes, asset operations. Accessible from the sidebar (admin only)
-- **Settings** — Configure heretix-api URL and API token, connection test
+- **Settings** — Tabbed configuration: **API** (heretix-api URL/token, connection test), **Notifications** (Slack webhook — notify on new detections, severity changes, or new KEV alerts, filterable by minimum severity and asset tags, with a test-send button), **SLA** (enable/disable and configure thresholds), **About** (version info)
 - **Scheduled Jobs** — On server start, node-cron registers daily jobs: Refresh Metadata (default 12:00 UTC) → Run Scan for all assets (default 13:00 UTC). Override with `CRON_REFRESH` / `CRON_SCAN` environment variables
 - **Structured Logging** — Scan progress (started, completed, failed) and auth events (login success/failure) are logged as JSON to stdout. Collect with `docker logs` in Docker deployments
 
 ## Setup
 
-### Prerequisites
+### Option A: Docker (recommended)
 
-- Node.js 20+
-- pnpm
-- PostgreSQL (with `heretix_management` database created)
-- [heretix-api](../heretix-api) running (default: `http://localhost:5000`)
+**Prerequisites:** Docker, Docker Compose
 
-### Environment Variables
+1. Create `.env` in the project root:
+   ```env
+   # Required
+   AUTH_SECRET="your-secret-key"   # Generate with: openssl rand -base64 32
+   AUTH_URL="http://your-server-ip:3000"  # Set to the actual server IP/domain
+   POSTGRES_PASSWORD="changeme"
 
-Create `.env.local`:
+   # Optional (can also be set via Settings page)
+   HERETIX_API_URL="http://localhost:5000"
+   HERETIX_API_KEY=""
 
-```env
-DATABASE_URL="postgresql://postgres:password@localhost:5432/heretix_management?schema=public"
-AUTH_SECRET="your-secret-key"
-AUTH_URL="http://localhost:3000"
-# heretix-api URL and token can also be configured via the Settings page in the UI
-HERETIX_API_URL="http://localhost:5000"
-HERETIX_API_KEY="your-api-token"
-# Scheduled job times (cron syntax, UTC). Defaults: refresh 12:00, scan 13:00
-CRON_REFRESH="0 12 * * *"
-CRON_SCAN="0 13 * * *"
-```
+   # Scheduled job times (cron syntax, UTC — minute hour day month weekday):
+   #   CRON_REFRESH — re-fetches CVSS/severity/EPSS/KEV for existing Alerts (default 12:00)
+   #   CRON_SCAN    — scans all assets for new vulnerabilities, runs after refresh (default 13:00)
+   CRON_REFRESH="0 12 * * *"
+   CRON_SCAN="0 13 * * *"
+   ```
 
-### Install and Run
+2. Build and run:
+   ```bash
+   docker compose build
+   docker compose up -d
+   docker compose logs -f app
+   ```
+   Database migrations are applied automatically on container start.
 
-```bash
-# Install dependencies
-pnpm install
-
-# Generate Prisma client
-pnpm exec prisma generate
-
-# Apply DB schema
-pnpm exec prisma db push
-
-# Create admin user and default tags (first time only)
-pnpm seed
-# Default: admin@example.com / changeme
-# Custom: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass pnpm seed
-# Default tags created: "Internet Facing" (asset), "Public Endpoint" (package)
-
-# Start development server
-pnpm dev
-```
+3. Initial setup (first time only) — create admin user and default tags:
+   ```bash
+   docker compose exec app node_modules/.bin/tsx prisma/seed.ts
+   # Default: admin@example.com / changeme
+   # Custom: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass docker compose exec app node_modules/.bin/tsx prisma/seed.ts
+   # Default tags created: "Internet Facing" (asset), "Public Endpoint" (package)
+   ```
 
 Open `http://localhost:3000` and log in.
 
-## Docker Deployment
-
-### Prerequisites
-
-- Docker
-- Docker Compose
-
-### Setup
-
-Create `.env` in the project root:
-
-```env
-# Required
-AUTH_SECRET="your-secret-key"   # Generate with: openssl rand -base64 32
-AUTH_URL="http://your-server-ip:3000"  # Set to the actual server IP/domain
-POSTGRES_PASSWORD="changeme"
-
-# Optional (can also be set via Settings page)
-HERETIX_API_URL="http://localhost:5000"
-HERETIX_API_KEY=""
-
-# Scheduled jobs (cron syntax, UTC). Defaults: refresh 12:00, scan 13:00
-CRON_REFRESH="0 12 * * *"
-CRON_SCAN="0 13 * * *"
-```
-
-### Build and Run
-
+**Useful commands:**
 ```bash
-docker compose build
-docker compose up -d
-docker compose logs -f app
+docker compose down       # Stop
+docker compose down -v    # Stop and delete database volume (full reset)
+docker compose logs -f app  # View logs
 ```
 
-Database migrations are applied automatically on container start.
+### Option B: Manual (native PostgreSQL)
 
-### Initial Setup (first time only)
+**Prerequisites:** Node.js 20+, pnpm, PostgreSQL (with `heretix_management` database created), [heretix-api](../heretix-api) running (default: `http://localhost:5000`)
 
-```bash
-# Create admin user and default tags
-docker compose exec app node_modules/.bin/tsx prisma/seed.ts
-# Default: admin@example.com / changeme
-# Custom: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass docker compose exec app node_modules/.bin/tsx prisma/seed.ts
-# Default tags created: "Internet Facing" (asset), "Public Endpoint" (package)
-```
+1. **Install dependencies**
+   ```bash
+   pnpm install
+   ```
 
-### Useful Commands
+2. **Configure environment variables** — create `.env.local`:
+   ```env
+   DATABASE_URL="postgresql://postgres:password@localhost:5432/heretix_management?schema=public"
+   AUTH_SECRET="your-secret-key"
+   AUTH_URL="http://localhost:3000"
+   # heretix-api URL and token can also be configured via the Settings page in the UI
+   HERETIX_API_URL="http://localhost:5000"
+   HERETIX_API_KEY="your-api-token"
+   # Scheduled job times (cron syntax, UTC — minute hour day month weekday):
+   #   CRON_REFRESH — re-fetches CVSS/severity/EPSS/KEV for existing Alerts (default 12:00)
+   #   CRON_SCAN    — scans all assets for new vulnerabilities, runs after refresh (default 13:00)
+   CRON_REFRESH="0 12 * * *"
+   CRON_SCAN="0 13 * * *"
+   ```
 
-```bash
-# Stop
-docker compose down
+3. **Generate Prisma client**
+   ```bash
+   pnpm exec prisma generate
+   ```
 
-# Stop and delete database volume (full reset)
-docker compose down -v
+4. **Apply DB schema**
+   ```bash
+   pnpm exec prisma db push
+   ```
 
-# View logs
-docker compose logs -f app
-```
+5. **Create admin user and default tags** (first time only)
+   ```bash
+   pnpm seed
+   # Default: admin@example.com / changeme
+   # Custom: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass pnpm seed
+   # Default tags created: "Internet Facing" (asset), "Public Endpoint" (package)
+   ```
+
+6. **Start the server**
+   ```bash
+   pnpm dev
+   ```
+   The server starts at `http://localhost:3000`.
 
 ## Upgrading (On-Premises)
 
@@ -194,7 +173,7 @@ pnpm dev
 1. Go to **Assets** → **Add Manually** in the sidebar
 2. Enter Name, Hostname, and Type, then click **Create Asset**
 3. On the asset detail page, click **Add Package** → **Advisory tab**
-   - Select Vendor (Fortinet / Palo Alto Networks / Sophos / Oracle) and product from the dropdown, then enter the version
+   - Select Vendor (Fortinet / Palo Alto Networks / Sophos / Oracle / Splunk) and product from the dropdown, then enter the version
 4. Click **Run Scan** to detect vulnerabilities (uses heretix-api Vendor Advisory data)
 5. After a firmware update, click **Edit** on the package to change the version and re-scan
 
@@ -203,7 +182,7 @@ pnpm dev
 1. Click **Add Package** in the top-right of the package table on the asset detail page
 2. Select a tab and fill in the details:
    - **General** — Package name, version, and ecosystem (Linux, npm, PyPI, Go, Packagist, etc.)
-   - **Advisory** — Select Vendor (Fortinet / Palo Alto Networks / Sophos / Oracle) and product from the dropdown, enter version (for network devices and firewalls)
+   - **Advisory** — Select Vendor (Fortinet / Palo Alto Networks / Sophos / Oracle / Splunk) and product from the dropdown, enter version (for network devices and firewalls)
    - **CPE** — Enter a CPE 2.3 string directly
 3. Packages with a `manual` badge can be edited or deleted
 4. Click the badge in the Alerts column to navigate to the alert list for that package
@@ -217,7 +196,7 @@ pnpm dev
 ### 4. Managing Alerts
 
 1. Check the alert list under **Alerts** in the sidebar
-2. Use **filters** (Asset / Status / Severity) to narrow down results (multiple values supported)
+2. Use **filters** (Asset / Status / Severity / Tags / Dependency / Due) to narrow down results (multiple values supported)
 3. Select multiple alerts via checkboxes → bulk status update available
 4. Click an alert row to open the detail panel:
    - **Overview** tab — Basic info (including **Fixed in** version when available), status change, memo, auto-resolution reason
@@ -240,7 +219,7 @@ pnpm dev
 
 ### 5. Vulnerability Search
 
-Use **Search** in the sidebar to search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or vendor advisory (**Advisory** mode: select Vendor and product to search Fortinet, Palo Alto Networks, Sophos, and Oracle advisories).
+Use **Search** in the sidebar to search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or vendor advisory (**Advisory** mode: select Vendor and product to search Fortinet, Palo Alto Networks, Sophos, Oracle, and Splunk advisories).
 
 ## Directory Structure
 
@@ -254,12 +233,14 @@ heretix-management/
 │   │   ├── alerts/             # Alert list
 │   │   ├── users/              # User management (admin only)
 │   │   ├── search/             # Vulnerability search
-│   │   └── settings/           # Settings
+│   │   ├── tags/               # Tag management (list, create, edit, delete)
+│   │   └── settings/           # Settings (API / Notifications / SLA / About tabs)
 │   ├── api/                    # API routes
 │   │   ├── assets/
 │   │   ├── alerts/
 │   │   ├── users/
 │   │   ├── search/
+│   │   ├── tags/
 │   │   └── settings/
 │   └── login/                  # Login page
 ├── components/
@@ -277,6 +258,8 @@ heretix-management/
 │   ├── logger.ts               # Structured JSON log utility
 │   ├── scan.ts                 # Scan logic (shared by route handler & scheduler)
 │   ├── refresh.ts              # Metadata refresh logic (shared)
+│   ├── sla.ts                  # SLA due-date calculation and status helpers
+│   ├── advisory-products.ts    # Vendor/product lists for the Advisory tab dropdowns
 │   └── scheduler.ts            # node-cron schedule definitions
 ├── prisma/
 │   ├── schema.prisma
@@ -307,10 +290,24 @@ heretix-management/
 | GET | `/api/vex` | Export CycloneDX VEX JSON (`?assetId=`, `?download=true`) |
 | POST | `/api/vex/import` | Import CycloneDX VEX and apply to matching alerts |
 | GET | `/api/search` | Vulnerability search (heretix-api proxy) |
+| GET | `/api/tags` | List tags |
+| POST | `/api/tags` | Create tag |
+| GET | `/api/tags/[id]` | Tag detail (with tagged assets/packages) |
+| PATCH | `/api/tags/[id]` | Update tag |
+| DELETE | `/api/tags/[id]` | Delete tag |
+| POST | `/api/tags/[id]/assets` | Assign tag to an asset |
+| POST | `/api/tags/[id]/packages` | Assign tag to a package |
 | GET | `/api/settings` | Get settings |
 | PATCH | `/api/settings` | Update settings |
 | POST | `/api/settings/test` | Test heretix-api connectivity |
+| POST | `/api/settings/slack-test` | Send a test Slack notification |
+| GET | `/api/settings/sla` | Get SLA configuration |
+| POST | `/api/settings/sla` | Update SLA configuration |
 | GET | `/api/users` | List users (admin only) |
 | POST | `/api/users` | Create user (admin only) |
 | PATCH | `/api/users/[id]` | Update user (admin only) |
 | DELETE | `/api/users/[id]` | Delete user (admin only) |
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE) for details.

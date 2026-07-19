@@ -2,19 +2,7 @@
 
 脆弱性管理コンソール。[heretix-cli](../heretix-cli) で収集したサーバのパッケージ情報をインポートし、heretix-api を使って脆弱性を検出・追跡・対応管理する Web アプリケーション。
 
-## 技術スタック
-
-| 役割 | 採用技術 |
-|---|---|
-| フレームワーク | Next.js 16 (App Router) |
-| 言語 | TypeScript |
-| UI | Tailwind CSS + shadcn/ui (base-ui) |
-| チャート | Recharts |
-| テーブル | TanStack Table |
-| 認証 | Auth.js v5 (NextAuth) — Credentials Provider |
-| ORM | Prisma 7 |
-| DB | PostgreSQL |
-| パッケージマネージャ | pnpm |
+![Alert Management](docs/alerts.png)
 
 ## 機能
 
@@ -24,11 +12,13 @@
 - **アセット管理** — `inventory.json` または **CycloneDX BOM** インポート（差分更新、スコープ付き npm / Go モジュール / OS パッケージの PURL パース対応）、ホスト一覧・詳細表示、アセット編集・削除
 - **依存グラフ** *（Beta）* — アセット詳細の **Dependency Graph** タブで脆弱パッケージとその依存元パッケージを可視化（1〜8ホップ選択可）。dagre による自動レイアウト。脆弱=赤、直接依存=青。lockfile ベースの依存データが必要（npm/pnpm は完全対応、Go・PyPI は部分対応）。heretix-cli の SBOM・inventory.json に加え、Syft・trivy・cdxgen 等の標準 CycloneDX SBOM にも対応
 - **手動アセット登録** — ネットワーク機器・FW を GUI から直接登録
-- **手動パッケージ管理** — パッケージマネージャ外でインストールしたソフトウェアを手動で追加・編集・削除。Advisory タブで Fortinet / Palo Alto Networks / Sophos / Oracle 製品をドロップダウン選択して登録可能
+- **タグ** — アセット・パッケージ向けにカラーコード付きタグを作成（例: "Internet Facing"、"Public Endpoint"）。アセット・パッケージ詳細ページから割り当て、Tags ページとダッシュボードでタグごとの重要度集計を確認可能
+- **手動パッケージ管理** — パッケージマネージャ外でインストールしたソフトウェアを手動で追加・編集・削除。Advisory タブで Fortinet / Palo Alto Networks / Sophos / Oracle / Splunk 製品をドロップダウン選択して登録可能
 - **パッケージ更新履歴** — インポート時の追加・更新・削除の変更履歴をアセット詳細で参照
 - **脆弱性スキャン** — heretix-api のバッチ検索でアセットの脆弱性を検出・アラート記録（新規 Alert の作成のみ。既存 Alert の更新・自動解決は行わない）。[ossf/malicious-packages](https://github.com/ossf/malicious-packages) によるマルウェアパッケージ検知（`MAL-` アラート）にも対応
 - **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度 / Tags / **Dependency**（Direct/Indirect））・一括ステータス変更・**CSV / JSON エクスポート**。Direct/Indirect 分類は lockfile ベースの依存データがある場合のみ有効（主に npm/pnpm）。OS パッケージや手動追加パッケージは未分類
 - **アラート自動解決** — インポート時にパッケージがアップグレードされた場合、旧バージョンのアラートを自動で解決済みに変更
+- **SLA / 期限管理** — CVSS重要度（Critical / High / Medium / Low）ごとにSLA期限を設定可能。CISA KEV 該当アラートには固定の期限を別途適用。検知時に各 Alert の期限を自動計算し、CVSS や KEV ステータスが変わると再計算。Alerts テーブルには **Due** 列とフィルタ（Overdue / Urgent / Warning / OK）を表示し、Alert 詳細パネルにも期限とステータスに応じた色分けを表示。SLA機能自体は Settings から無効化可能（無効化すると Due 列・フィルタは非表示）
 - **アラートメタデータ更新** — open / in_progress の全 Alert に対して heretix-api から最新の CVSS スコア・重要度・EPSS・KEV 情報を再取得して更新（新規 Alert の作成は行わない）
 - **Alert Activity** — 全アセット・全アラートの変更イベント（検知・ステータス変更・メタデータ更新）を1つのテーブルで一覧表示。イベント種別・アセットでフィルタ可能。Alerts ページの **Activity** ボタンからアクセス
 - **アラート詳細** — 行クリックでスライドパネルを表示。Overview・NVD・OSV・Advisory・**Dependents** *（Beta）*（脆弱パッケージへの依存パスをインタラクティブグラフで表示）・Timeline タブ
@@ -37,120 +27,109 @@
   - **エクスポート**（`GET /api/vex`・**Export VEX** ボタン）: justification 付きの Ignored アラートを CycloneDX 1.6 VEX JSON（`not_affected`）として出力。`trivy image myapp --vex vex.json` でスキャン時の誤検知抑制に活用可能
   - **インポート**（`POST /api/vex/import`・**Import VEX** ボタン）: ベンダー公開 VEX や外部ツール生成の CycloneDX VEX を読み込み、マッチするアラートに自動適用。Timeline に `vex_imported` イベントを記録
   - Ignored 設定時に CycloneDX 標準の justification（`code_not_reachable`・`code_not_present`・`requires_configuration` 等）を選択して記録
-- **脆弱性検索** — パッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列、または **Advisory モード**（Fortinet / Palo Alto Networks / Sophos / Oracle のベンダーアドバイザリ検索）で直接検索
+- **脆弱性検索** — パッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列、または **Advisory モード**（Fortinet / Palo Alto Networks / Sophos / Oracle / Splunk のベンダーアドバイザリ検索）で直接検索
 - **ユーザー管理** — ユーザーの追加・編集・削除（admin ロールのみ表示・操作可能）
 - **監査ログ** — admin 専用ページ。ログイン・ユーザー管理・設定変更・アセット操作を最新 500 件表示。サイドバーの **Audit Log** からアクセス（admin のみ）
-- **設定** — heretix-api 接続 URL・API Token 設定・疎通確認
+- **設定** — タブ構成: **API**（heretix-api 接続 URL・API Token 設定・疎通確認）、**Notifications**（Slack Webhook — 新規検知・重要度変更・新規KEV検出時に通知。最小重要度・アセットタグでフィルタ可能、テスト送信ボタンあり）、**SLA**（有効/無効切替・期限設定）、**About**（バージョン情報）
 - **定期実行** — サーバー起動時に node-cron でスケジューラを起動。Refresh Metadata（デフォルト 12:00 UTC）→ Run Scan 全アセット（デフォルト 13:00 UTC）を毎日自動実行。`CRON_REFRESH` / `CRON_SCAN` 環境変数で時刻変更可能
 - **構造化ログ** — スキャン進捗（開始・完了・失敗）および認証イベント（ログイン成功・失敗）を JSON 形式で標準出力に記録。Docker 運用時は `docker logs` で収集可能
 
 ## セットアップ
 
-### 前提条件
+### Option A: Docker（推奨）
 
-- Node.js 20+
-- pnpm
-- PostgreSQL（`heretix_management` データベースを作成済み）
-- [heretix-api](../heretix-api) が起動済み（デフォルト: `http://localhost:5000`）
+**前提条件:** Docker、Docker Compose
 
-### 環境変数
+1. プロジェクトルートに `.env` を作成:
+   ```env
+   # 必須
+   AUTH_SECRET="your-secret-key"   # 生成コマンド: openssl rand -base64 32
+   AUTH_URL="http://your-server-ip:3000"  # サーバーの実際の IP/ドメインに変更
+   POSTGRES_PASSWORD="changeme"
 
-`.env.local` を作成:
+   # 任意（Settings 画面からも設定可能）
+   HERETIX_API_URL="http://localhost:5000"
+   HERETIX_API_KEY=""
 
-```env
-DATABASE_URL="postgresql://postgres:password@localhost:5432/heretix_management?schema=public"
-AUTH_SECRET="your-secret-key"
-AUTH_URL="http://localhost:3000"  # Docker デプロイ時はサーバーの IP/ドメインに変更
-# heretix-api の URL とトークンは Settings 画面から DB に保存可（環境変数はフォールバック）
-HERETIX_API_URL="http://localhost:5000"
-HERETIX_API_KEY="your-api-token"
-# 定期実行スケジュール（cron 式、UTC）。省略時は Refresh 12:00、Scan 13:00
-CRON_REFRESH="0 12 * * *"
-CRON_SCAN="0 13 * * *"
-```
+   # 定期実行スケジュール（cron 式、UTC — 分 時 日 月 曜日）:
+   #   CRON_REFRESH — 既存 Alert の CVSS・重要度・EPSS・KEV を再取得（デフォルト 12:00）
+   #   CRON_SCAN    — 全アセットをスキャンして新規脆弱性を検出。Refresh の後に実行（デフォルト 13:00）
+   CRON_REFRESH="0 12 * * *"
+   CRON_SCAN="0 13 * * *"
+   ```
 
-### インストールと起動
+2. ビルドと起動:
+   ```bash
+   docker compose build
+   docker compose up -d
+   docker compose logs -f app
+   ```
+   コンテナ起動時にデータベースのマイグレーションが自動で適用されます。
 
-```bash
-# 依存パッケージのインストール
-pnpm install
-
-# Prisma クライアント生成
-pnpm exec prisma generate
-
-# DBスキーマ反映
-pnpm exec prisma db push
-
-# 管理ユーザーとデフォルトタグの作成（初回のみ）
-pnpm seed
-# デフォルト: admin@example.com / changeme
-# カスタム: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass pnpm seed
-# 作成されるデフォルトタグ: "Internet Facing"（asset）、"Public Endpoint"（package）
-
-# 開発サーバー起動
-pnpm dev
-```
+3. 初回セットアップ（初回のみ）— 管理ユーザーとデフォルトタグの作成:
+   ```bash
+   docker compose exec app node_modules/.bin/tsx prisma/seed.ts
+   # デフォルト: admin@example.com / changeme
+   # カスタム: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass docker compose exec app node_modules/.bin/tsx prisma/seed.ts
+   # 作成されるデフォルトタグ: "Internet Facing"（asset）、"Public Endpoint"（package）
+   ```
 
 `http://localhost:3000` を開いてログイン。
 
-## Docker デプロイ
-
-### 前提条件
-
-- Docker
-- Docker Compose
-
-### セットアップ
-
-プロジェクトルートに `.env` を作成:
-
-```env
-# 必須
-AUTH_SECRET="your-secret-key"   # 生成コマンド: openssl rand -base64 32
-AUTH_URL="http://your-server-ip:3000"  # サーバーの実際の IP/ドメインに変更
-POSTGRES_PASSWORD="changeme"
-
-# 任意（Settings 画面からも設定可能）
-HERETIX_API_URL="http://localhost:5000"
-HERETIX_API_KEY=""
-
-# 定期実行スケジュール（cron 式、UTC）。省略時は Refresh 12:00、Scan 13:00
-CRON_REFRESH="0 12 * * *"
-CRON_SCAN="0 13 * * *"
-```
-
-### ビルドと起動
-
+**よく使うコマンド:**
 ```bash
-docker compose build
-docker compose up -d
-docker compose logs -f app
+docker compose down         # 停止
+docker compose down -v      # 停止＋DBボリューム削除（完全リセット）
+docker compose logs -f app  # ログ確認
 ```
 
-コンテナ起動時にデータベースのマイグレーションが自動で適用されます。
+### Option B: 手動セットアップ（ネイティブ PostgreSQL）
 
-### 初回セットアップ
+**前提条件:** Node.js 20+、pnpm、PostgreSQL（`heretix_management` データベースを作成済み）、[heretix-api](../heretix-api) が起動済み（デフォルト: `http://localhost:5000`）
 
-```bash
-# 管理ユーザーとデフォルトタグの作成
-docker compose exec app node_modules/.bin/tsx prisma/seed.ts
-# デフォルト: admin@example.com / changeme
-# カスタム: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass docker compose exec app node_modules/.bin/tsx prisma/seed.ts
-# 作成されるデフォルトタグ: "Internet Facing"（asset）、"Public Endpoint"（package）
-```
+1. **依存パッケージのインストール**
+   ```bash
+   pnpm install
+   ```
 
-### よく使うコマンド
+2. **環境変数の設定** — `.env.local` を作成:
+   ```env
+   DATABASE_URL="postgresql://postgres:password@localhost:5432/heretix_management?schema=public"
+   AUTH_SECRET="your-secret-key"
+   AUTH_URL="http://localhost:3000"
+   # heretix-api の URL とトークンは Settings 画面から DB に保存可（環境変数はフォールバック）
+   HERETIX_API_URL="http://localhost:5000"
+   HERETIX_API_KEY="your-api-token"
+   # 定期実行スケジュール（cron 式、UTC — 分 時 日 月 曜日）:
+   #   CRON_REFRESH — 既存 Alert の CVSS・重要度・EPSS・KEV を再取得（デフォルト 12:00）
+   #   CRON_SCAN    — 全アセットをスキャンして新規脆弱性を検出。Refresh の後に実行（デフォルト 13:00）
+   CRON_REFRESH="0 12 * * *"
+   CRON_SCAN="0 13 * * *"
+   ```
 
-```bash
-# 停止
-docker compose down
+3. **Prisma クライアント生成**
+   ```bash
+   pnpm exec prisma generate
+   ```
 
-# 停止＋DBボリューム削除（完全リセット）
-docker compose down -v
+4. **DBスキーマ反映**
+   ```bash
+   pnpm exec prisma db push
+   ```
 
-# ログ確認
-docker compose logs -f app
-```
+5. **管理ユーザーとデフォルトタグの作成**（初回のみ）
+   ```bash
+   pnpm seed
+   # デフォルト: admin@example.com / changeme
+   # カスタム: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass pnpm seed
+   # 作成されるデフォルトタグ: "Internet Facing"（asset）、"Public Endpoint"（package）
+   ```
+
+6. **サーバー起動**
+   ```bash
+   pnpm dev
+   ```
+   `http://localhost:3000` でサーバーが起動します。
 
 ## アップグレード（オンプレ環境）
 
@@ -192,7 +171,7 @@ pnpm dev
 1. サイドバーの **Assets** → **Add Manually** を開く
 2. Name・Hostname・Type を入力して **Create Asset**
 3. アセット詳細ページで **Add Package** → **Advisory タブ** を選択
-   - Vendor（Fortinet / Palo Alto Networks / Sophos / Oracle）と製品名をドロップダウンで選択し、バージョンを入力
+   - Vendor（Fortinet / Palo Alto Networks / Sophos / Oracle / Splunk）と製品名をドロップダウンで選択し、バージョンを入力
 4. **Run Scan** で脆弱性を検出（heretix-api の Vendor Advisory データを使用）
 5. ファームウェアアップデート後はパッケージの **Edit** でバージョンを変更して再スキャン
 
@@ -201,7 +180,7 @@ pnpm dev
 1. アセット詳細ページのパッケージテーブル右上の **Add Package** をクリック
 2. タブを選択して入力:
    - **General** — パッケージ名・バージョン・エコシステムを入力（Linux/npm/PyPI/Go/Packagist 等）
-   - **Advisory** — Vendor（Fortinet / Palo Alto Networks / Sophos / Oracle）と製品名をドロップダウンで選択し、バージョンを入力（FW・ネットワーク機器向け）
+   - **Advisory** — Vendor（Fortinet / Palo Alto Networks / Sophos / Oracle / Splunk）と製品名をドロップダウンで選択し、バージョンを入力（FW・ネットワーク機器向け）
    - **CPE** — CPE 2.3 文字列を直接入力
 3. `manual` バッジが付いたパッケージは編集・削除が可能
 4. Alerts 列のバッジをクリックするとそのパッケージのアラート一覧に遷移
@@ -215,7 +194,7 @@ pnpm dev
 ### 4. アラート対応
 
 1. サイドバーの **Alerts** でアラート一覧を確認
-2. **フィルタ**（Asset / Status / Severity）で絞り込み（複数値の同時選択可）
+2. **フィルタ**（Asset / Status / Severity / Tags / Dependency / Due）で絞り込み（複数値の同時選択可）
 3. チェックボックスで複数選択 → ステータスを一括変更可
 4. アラート行をクリックすると詳細パネルが開く
    - **Overview** タブ — 基本情報（修正バージョン（**Fixed in**）が存在する場合は表示）、ステータス変更、メモ記入、自動解決理由
@@ -238,7 +217,7 @@ pnpm dev
 
 ### 5. 脆弱性検索
 
-サイドバーの **Search** でパッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列を指定して直接検索。**Advisory モード**ではベンダーと製品を選択して Fortinet / Palo Alto Networks / Sophos / Oracle のアドバイザリを検索可能。
+サイドバーの **Search** でパッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列を指定して直接検索。**Advisory モード**ではベンダーと製品を選択して Fortinet / Palo Alto Networks / Sophos / Oracle / Splunk のアドバイザリを検索可能。
 
 ## ディレクトリ構成
 
@@ -252,12 +231,14 @@ heretix-management/
 │   │   ├── alerts/             # アラート一覧
 │   │   ├── users/              # ユーザー管理（admin のみ）
 │   │   ├── search/             # 脆弱性検索
-│   │   └── settings/           # 設定
+│   │   ├── tags/               # タグ管理（一覧・作成・編集・削除）
+│   │   └── settings/           # 設定（API / Notifications / SLA / About タブ）
 │   ├── api/                    # API ルート
 │   │   ├── assets/
 │   │   ├── alerts/
 │   │   ├── users/
 │   │   ├── search/
+│   │   ├── tags/
 │   │   └── settings/
 │   └── login/                  # ログインページ
 ├── components/
@@ -275,6 +256,8 @@ heretix-management/
 │   ├── logger.ts               # 構造化 JSON ログユーティリティ
 │   ├── scan.ts                 # スキャンロジック（ルートハンドラ・スケジューラ共用）
 │   ├── refresh.ts              # メタデータ更新ロジック（同上）
+│   ├── sla.ts                  # SLA期限の計算・ステータス判定ヘルパー
+│   ├── advisory-products.ts    # Advisory タブ用のベンダー・製品リスト
 │   └── scheduler.ts            # node-cron によるスケジュール定義
 ├── prisma/
 │   ├── schema.prisma
@@ -305,10 +288,24 @@ heretix-management/
 | GET | `/api/vex` | CycloneDX VEX JSON エクスポート（`?assetId=`、`?download=true`） |
 | POST | `/api/vex/import` | CycloneDX VEX をインポートしてアラートに自動適用 |
 | GET | `/api/search` | 脆弱性検索（heretix-api プロキシ） |
+| GET | `/api/tags` | タグ一覧 |
+| POST | `/api/tags` | タグ作成 |
+| GET | `/api/tags/[id]` | タグ詳細（紐づくアセット・パッケージ含む） |
+| PATCH | `/api/tags/[id]` | タグ更新 |
+| DELETE | `/api/tags/[id]` | タグ削除 |
+| POST | `/api/tags/[id]/assets` | アセットへタグを割り当て |
+| POST | `/api/tags/[id]/packages` | パッケージへタグを割り当て |
 | GET | `/api/settings` | 設定取得 |
 | PATCH | `/api/settings` | 設定更新 |
 | POST | `/api/settings/test` | heretix-api 疎通確認 |
+| POST | `/api/settings/slack-test` | Slack テスト通知送信 |
+| GET | `/api/settings/sla` | SLA設定取得 |
+| POST | `/api/settings/sla` | SLA設定更新 |
 | GET | `/api/users` | ユーザー一覧（admin のみ） |
 | POST | `/api/users` | ユーザー作成（admin のみ） |
 | PATCH | `/api/users/[id]` | ユーザー更新（admin のみ） |
 | DELETE | `/api/users/[id]` | ユーザー削除（admin のみ） |
+
+## ライセンス
+
+Apache License 2.0 — 詳細は [LICENSE](LICENSE) を参照してください。
