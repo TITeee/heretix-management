@@ -54,6 +54,7 @@ export type AdvisoryAffectedProduct = {
   versionStart: string | null
   versionEnd: string | null
   versionFixed: string | null
+  lastAffected: string | null
   affectedVersions: string[]
   patchAvailable: boolean | null
 }
@@ -641,10 +642,14 @@ export function AdvisoryTab({ detail, loading }: { detail: VulnDetail | null; lo
                         <td className="px-3 py-2 font-mono text-muted-foreground">
                           {p.versionStart && p.versionEnd
                             ? `${p.versionStart} – ${p.versionEnd}`
+                            : p.versionStart && p.lastAffected
+                            ? `${p.versionStart} – ${p.lastAffected}`
                             : p.versionStart
                             ? `≥ ${p.versionStart}`
                             : p.versionEnd
                             ? `≤ ${p.versionEnd}`
+                            : p.lastAffected
+                            ? `≤ ${p.lastAffected}`
                             : p.affectedVersions.length > 0
                             ? p.affectedVersions.join(", ")
                             : "n/a"}
