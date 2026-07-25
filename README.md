@@ -169,6 +169,17 @@ pnpm dev
 3. Packages are imported incrementally (only additions, updates, and removals are processed on re-import)
 4. Manually added packages are preserved across re-imports
 
+> **Matching key:** An upload is matched to an existing asset by **hostname** (`inventory.json`'s `hostname` field, or `metadata.component.name` for a CycloneDX BOM) — not by asset name. Re-uploading with the same hostname updates that asset; a different hostname creates a new one.
+>
+> **Docker images:** heretix-cli sets `hostname` to the `--name` value if given, otherwise the image reference itself (e.g. `myapp:1.0`). Since the tag is part of that string, rescanning `myapp:1.0` → `myapp:2.0` without `--name` creates a *new* asset per tag. To track one image across tag/version bumps as a single asset (matching the firmware-update pattern below), always pass a fixed `--name` (e.g. `--name myapp`) regardless of tag.
+>
+> **Per-package diff on re-import** (packages matched by `name` + `ecosystem`, manually added packages excluded from the comparison):
+> | | Behavior |
+> |---|---|
+> | Newly added package | Created; recorded in Package Change History as `added` |
+> | Version changed | Existing package row updated; recorded as `updated` (old → new version). **Open/In Progress Alerts for the old version are auto-resolved** (see Auto-resolve Alerts in Features) |
+> | No longer present | Package row deleted; recorded as `removed`. **Its existing Alerts are *not* auto-resolved** — they stay open even after the package is gone, so review them manually |
+
 **Network Devices & Firewalls (manual registration):**
 1. Go to **Assets** → **Add Manually** in the sidebar
 2. Enter Name, Hostname, and Type, then click **Create Asset**
