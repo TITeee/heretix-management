@@ -15,7 +15,7 @@ A vulnerability management console that imports server package information colle
 - **Dependency Graph** *(Beta)* — Visual dependency graph on the Asset detail page (Dependency Graph tab). Shows vulnerable packages (red) and their upstream dependents (configurable 1–8 hops), with automatic layout via dagre. Available for packages with lockfile-based dependency data (npm/pnpm fully supported; Go and PyPI partially). Works with SBOM or inventory.json from heretix-cli, and with standard CycloneDX SBOMs from tools such as Syft, trivy, and cdxgen
 - **Manual Asset Registration** — Register network devices and firewalls directly via GUI
 - **Tags** — Create color-coded tags for assets or packages (e.g. "Internet Facing", "Public Endpoint"), assign them from the asset/package detail pages, and view aggregated severity counts per tag on the Tags page and Dashboard
-- **Manual Package Management** — Add, edit, and delete software installed outside the package manager. The Advisory tab supports Fortinet, Palo Alto Networks, Sophos, Oracle, and Splunk products via dropdown selection
+- **Manual Package Management** — Add, edit, and delete software installed outside the package manager. The Advisory tab supports Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Oracle, Splunk, Apache HTTP Server, Nginx, Apache Tomcat, and Zabbix products via dropdown selection
 - **Package Change History** — View added/updated/removed package history per asset at import time
 - **Vulnerability Scanning** — Detect vulnerabilities via heretix-api batch search and record alerts (creates new Alerts only; does not update or auto-resolve existing Alerts). Malicious package detection (`MAL-` alerts) is also supported via [ossf/malicious-packages](https://github.com/ossf/malicious-packages)
 - **Alert Management** — Status tracking (Open / In Progress / Resolved / Ignored), filters (Asset / Status / Severity / Tags / **Dependency** (Direct/Indirect), multi-value), bulk status update, **export to CSV / JSON** (reflects active filters). Note: Direct/Indirect classification requires lockfile-based dependency data (npm/pnpm primarily); OS packages and manually added packages are unclassified
@@ -29,7 +29,7 @@ A vulnerability management console that imports server package information colle
   - **Export** (`GET /api/vex`, **Export VEX** button): Outputs ignored alerts with a justification as CycloneDX 1.6 VEX JSON (`not_affected`). Compatible with `trivy image myapp --vex vex.json`
   - **Import** (`POST /api/vex/import`, **Import VEX** button): Ingest a CycloneDX VEX document and auto-apply status changes to matching alerts. Records a `vex_imported` event in the Timeline for audit trail
   - When setting an alert to **Ignored**, select a CycloneDX-standard justification (`code_not_reachable`, `code_not_present`, `requires_configuration`, etc.)
-- **Vulnerability Search** — Search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or **Advisory mode** (Vendor Advisory search for Fortinet, Palo Alto Networks, Sophos, Oracle, and Splunk products)
+- **Vulnerability Search** — Search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or **Advisory mode** (Vendor Advisory search for Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Oracle, Splunk, Apache HTTP Server, Nginx, Apache Tomcat, and Zabbix products)
 - **User Management** — Add, edit, and delete users (admin role only)
 - **Audit Log** — Admin-only page showing the last 500 events: login, user management, settings changes, asset operations. Accessible from the sidebar (admin only)
 - **Settings** — Tabbed configuration: **API** (heretix-api URL/token, connection test), **Notifications** (Slack webhook — notify on new detections, severity changes, or new KEV alerts, filterable by minimum severity and asset tags, with a test-send button), **SLA** (enable/disable and configure thresholds), **About** (version info)
@@ -184,7 +184,7 @@ pnpm dev
 1. Go to **Assets** → **Add Manually** in the sidebar
 2. Enter Name, Hostname, and Type, then click **Create Asset**
 3. On the asset detail page, click **Add Package** → **Advisory tab**
-   - Select Vendor (Fortinet / Palo Alto Networks / Sophos / Oracle / Splunk) and product from the dropdown, then enter the version
+   - Select Vendor (Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix) and product from the dropdown, then enter the version
 4. Click **Run Scan** to detect vulnerabilities (uses heretix-api Vendor Advisory data)
 5. After a firmware update, click **Edit** on the package to change the version and re-scan
 
@@ -193,7 +193,7 @@ pnpm dev
 1. Click **Add Package** in the top-right of the package table on the asset detail page
 2. Select a tab and fill in the details:
    - **General** — Package name, version, and ecosystem (Linux, npm, PyPI, Go, Packagist, etc.)
-   - **Advisory** — Select Vendor (Fortinet / Palo Alto Networks / Sophos / Oracle / Splunk) and product from the dropdown, enter version (for network devices and firewalls)
+   - **Advisory** — Select Vendor (Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix) and product from the dropdown, enter version (for network devices and firewalls)
    - **CPE** — Enter a CPE 2.3 string directly
 3. Packages with a `manual` badge can be edited or deleted
 4. Click the badge in the Alerts column to navigate to the alert list for that package
@@ -230,7 +230,7 @@ pnpm dev
 
 ### 5. Vulnerability Search
 
-Use **Search** in the sidebar to search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or vendor advisory (**Advisory** mode: select Vendor and product to search Fortinet, Palo Alto Networks, Sophos, Oracle, and Splunk advisories).
+Use **Search** in the sidebar to search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or vendor advisory (**Advisory** mode: select Vendor and product to search Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Oracle, Splunk, Apache HTTP Server, Nginx, Apache Tomcat, and Zabbix advisories).
 
 ## Directory Structure
 
