@@ -53,6 +53,8 @@ export default function SettingsPage() {
   const [slaConfig, setSlaConfig] = useState<SlaConfig>(DEFAULT_SLA_CONFIG)
   const [slaSaving, setSlaSaving] = useState(false)
   const [slaSaved, setSlaSaved] = useState(false)
+  const [slaRecalculating, setSlaRecalculating] = useState(false)
+  const [slaRecalcResult, setSlaRecalcResult] = useState<{ updated: number; total: number } | null>(null)
 
   useEffect(() => {
     fetch("/api/settings")
@@ -160,6 +162,20 @@ export default function SettingsPage() {
     setSlaSaving(false)
     setSlaSaved(true)
     setTimeout(() => setSlaSaved(false), 2000)
+  }
+
+  async function handleSlaRecalculate() {
+    setSlaRecalculating(true)
+    setSlaRecalcResult(null)
+    try {
+      const res = await fetch("/api/settings/sla/recalculate", { method: "POST" })
+      if (res.ok) {
+        const data = await res.json()
+        setSlaRecalcResult(data)
+      }
+    } finally {
+      setSlaRecalculating(false)
+    }
   }
 
   return (
@@ -463,7 +479,15 @@ export default function SettingsPage() {
               <Button type="submit" disabled={slaSaving || slaSaved}>
                 {slaSaved ? "Saved" : slaSaving ? "Saving..." : "Save"}
               </Button>
+              <Button type="button" variant="outline" onClick={handleSlaRecalculate} disabled={slaRecalculating}>
+                {slaRecalculating ? "Recalculating..." : "Recalculate Due Dates"}
+              </Button>
             </div>
+            {slaRecalcResult && (
+              <p className="text-sm text-muted-foreground">
+                Recalculated {slaRecalcResult.updated} of {slaRecalcResult.total} open/in-progress alerts.
+              </p>
+            )}
           </form>
         </CardContent>
       </Card>
