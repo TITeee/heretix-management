@@ -69,11 +69,14 @@ export function calculateDueDate(
  * - "urgent": dueDate < now + 24h
  * - "warning": dueDate < now + 7d
  * - "ok": otherwise
+ * - "unscored": no dueDate could be calculated (no CVSS score and not KEV),
+ *   distinct from "ok" so these don't silently look "safe" when they simply
+ *   haven't been scored yet
  */
-export type SlaStatus = "overdue" | "urgent" | "warning" | "ok"
+export type SlaStatus = "overdue" | "urgent" | "warning" | "ok" | "unscored"
 
 export function getSlaStatus(dueDate: Date | null, now: Date = new Date()): SlaStatus {
-  if (!dueDate) return "ok"
+  if (!dueDate) return "unscored"
 
   if (dueDate < now) return "overdue"
 
@@ -93,7 +96,7 @@ export function getSlaStatus(dueDate: Date | null, now: Date = new Date()): SlaS
  * Examples: "2 days", "3 hours", "Overdue by 1 day"
  */
 export function formatDaysUntilDue(dueDate: Date | null, now: Date = new Date()): string {
-  if (!dueDate) return "-"
+  if (!dueDate) return "Unscored"
 
   const diffMs = dueDate.getTime() - now.getTime()
   const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000))

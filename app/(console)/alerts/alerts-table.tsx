@@ -248,7 +248,7 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
     ),
     cell: ({ row }) => {
       const status = getSlaStatus(row.original.dueDate ? new Date(row.original.dueDate) : null)
-      const colorClass = status === "overdue" ? "text-red-600 font-medium" : status === "urgent" ? "text-orange-600 font-medium" : status === "warning" ? "text-yellow-600" : "text-muted-foreground"
+      const colorClass = status === "overdue" ? "text-red-600 font-medium" : status === "urgent" ? "text-orange-600 font-medium" : status === "warning" ? "text-yellow-600" : status === "unscored" ? "text-blue-600" : "text-muted-foreground"
       return (
         <span className={`text-xs ${colorClass}`} suppressHydrationWarning>
           {formatDaysUntilDue(row.original.dueDate ? new Date(row.original.dueDate) : null)}
@@ -296,6 +296,7 @@ const DUE_OPTIONS = [
   { value: "urgent", label: "Urgent" },
   { value: "warning", label: "Warning" },
   { value: "ok", label: "OK" },
+  { value: "unscored", label: "Unscored" },
 ]
 
 export function AlertsTable({ data: initialData, initialPackageName, initialAssetId, slaEnabled = true }: { data: Alert[]; initialPackageName?: string; initialAssetId?: string; slaEnabled?: boolean }) {
