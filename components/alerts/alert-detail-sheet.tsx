@@ -404,6 +404,7 @@ export function AlertDetailSheet({
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [fetchError, setFetchError] = useState(false)
   const [timelineKey, setTimelineKey] = useState(0)
+  const [slaEnabled, setSlaEnabled] = useState(true)
 
   useEffect(() => {
     if (alert) {
@@ -433,6 +434,14 @@ export function AlertDetailSheet({
       .catch(() => setFetchError(true))
       .finally(() => setLoadingDetail(false))
   }, [open, alert?.id])
+
+  useEffect(() => {
+    if (!open) return
+    fetch("/api/settings/sla")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setSlaEnabled(data?.slaEnabled ?? true))
+      .catch(() => setSlaEnabled(true))
+  }, [open])
 
   async function onStatusChange(value: string | null) {
     if (!alert || !value) return
@@ -607,19 +616,27 @@ export function AlertDetailSheet({
                     <span className="text-sm">{alert.resolveReason}</span>
                   </div>
                 )}
-                {alert.dueDate && (
+                {slaEnabled && (
                   <div className="flex items-center gap-2">
                     <span className="w-28 text-muted-foreground shrink-0">Due Date</span>
                     <div className="flex items-center gap-2">
-                      <span suppressHydrationWarning>{new Date(alert.dueDate).toLocaleDateString()}</span>
-                      <Badge variant="outline" className={`text-xs ${
-                        getSlaStatus(new Date(alert.dueDate)) === 'overdue' ? 'bg-red-50 text-red-700 border-red-200' :
-                        getSlaStatus(new Date(alert.dueDate)) === 'urgent' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                        getSlaStatus(new Date(alert.dueDate)) === 'warning' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                        'bg-green-50 text-green-700 border-green-200'
-                      }`}>
-                        {formatDaysUntilDue(new Date(alert.dueDate))}
-                      </Badge>
+                      {alert.dueDate ? (
+                        <>
+                          <span suppressHydrationWarning>{new Date(alert.dueDate).toLocaleDateString()}</span>
+                          <Badge variant="outline" className={`text-xs ${
+                            getSlaStatus(new Date(alert.dueDate)) === 'overdue' ? 'bg-red-50 text-red-700 border-red-200' :
+                            getSlaStatus(new Date(alert.dueDate)) === 'urgent' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                            getSlaStatus(new Date(alert.dueDate)) === 'warning' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                            'bg-green-50 text-green-700 border-green-200'
+                          }`}>
+                            {formatDaysUntilDue(new Date(alert.dueDate))}
+                          </Badge>
+                        </>
+                      ) : (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                          Unscored (no CVSS score yet)
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 )}
