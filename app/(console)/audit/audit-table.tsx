@@ -44,7 +44,7 @@ const columns: ColumnDef<AuditRow>[] = [
   {
     accessorKey: "userEmail",
     header: "User",
-    cell: ({ row }) => <span className="text-sm">{row.original.userEmail ?? "—"}</span>,
+    cell: ({ row }) => <span className="text-sm">{row.original.userEmail ?? "n/a"}</span>,
   },
   {
     accessorKey: "action",
@@ -58,12 +58,12 @@ const columns: ColumnDef<AuditRow>[] = [
   {
     accessorKey: "target",
     header: "Target",
-    cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.target ?? "—"}</span>,
+    cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.target ?? "n/a"}</span>,
   },
   {
     accessorKey: "detail",
     header: "Detail",
-    cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.detail ?? "—"}</span>,
+    cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.detail ?? "n/a"}</span>,
   },
 ]
 

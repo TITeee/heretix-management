@@ -29,27 +29,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null
 
         const email = credentials.email as string
+        const ip =
+          request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+          request.headers.get("x-real-ip") ??
+          "unknown"
 
         const user = await prisma.user.findUnique({ where: { email } })
         if (!user) {
-          logger.warn("login failed", { email, reason: "user_not_found" })
-          await createAuditLog({ userEmail: email, action: "login_failed", detail: "user not found" })
+          logger.warn("login failed", { email, reason: "user_not_found", ip })
+          await createAuditLog({ userEmail: email, action: "login_failed", detail: `user not found (IP: ${ip})` })
           return null
         }
 
         const valid = await bcrypt.compare(credentials.password as string, user.password)
         if (!valid) {
-          logger.warn("login failed", { email, reason: "invalid_password" })
-          await createAuditLog({ userId: user.id, userEmail: email, action: "login_failed", detail: "invalid password" })
+          logger.warn("login failed", { email, reason: "invalid_password", ip })
+          await createAuditLog({ userId: user.id, userEmail: email, action: "login_failed", detail: `invalid password (IP: ${ip})` })
           return null
         }
 
-        logger.info("login success", { email })
-        await createAuditLog({ userId: user.id, userEmail: email, action: "login" })
+        logger.info("login success", { email, ip })
+        await createAuditLog({ userId: user.id, userEmail: email, action: "login", detail: `IP: ${ip}` })
         return { id: user.id, email: user.email, name: user.name, role: user.role }
       },
     }),
