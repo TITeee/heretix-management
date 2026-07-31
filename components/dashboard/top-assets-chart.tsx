@@ -1,6 +1,7 @@
 "use client"
 
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, Rectangle, XAxis } from "recharts"
+import type { BarShapeProps } from "recharts/types/cartesian/Bar"
 import {
   type ChartConfig,
   ChartContainer,
@@ -28,6 +29,13 @@ export type AssetBarData = {
   na: number
 }
 
+const TIERS = ["critical", "high", "medium", "low", "na"] as const
+
+function isTopSegment(row: AssetBarData, tier: (typeof TIERS)[number]) {
+  const idx = TIERS.indexOf(tier)
+  return row[tier] > 0 && TIERS.slice(idx + 1).every((t) => row[t] === 0)
+}
+
 export function TopAssetsChart({ data }: { data: AssetBarData[] }) {
   if (data.length === 0) {
     return (
@@ -47,15 +55,26 @@ export function TopAssetsChart({ data }: { data: AssetBarData[] }) {
           tickMargin={10}
           axisLine={false}
           tickFormatter={(v: string) => (v.length > 14 ? v.slice(0, 13) + "…" : v)}
+          tick={{ fill: "var(--foreground)" }}
         />
         <ChartTooltip content={<ChartTooltipContent hideLabel />} />
         {/* @ts-expect-error recharts/shadcn type mismatch */}
         <ChartLegend content={(props) => <ChartLegendContent {...props} />} />
-        <Bar dataKey="critical" name="Critical" stackId="a" fill="var(--color-critical)" radius={[0, 0, 0, 0]} />
-        <Bar dataKey="high"     name="High"     stackId="a" fill="var(--color-high)"     radius={[0, 0, 0, 0]} />
-        <Bar dataKey="medium"   name="Medium"   stackId="a" fill="var(--color-medium)"   radius={[0, 0, 0, 0]} />
-        <Bar dataKey="low"      name="Low"      stackId="a" fill="var(--color-low)"      radius={[0, 0, 0, 0]} />
-        <Bar dataKey="na"       name="N/A"      stackId="a" fill="var(--color-na)"       radius={[4, 4, 0, 0]} />
+        {TIERS.map((tier) => (
+          <Bar
+            key={tier}
+            dataKey={tier}
+            name={chartConfig[tier].label}
+            stackId="a"
+            fill={`var(--color-${tier})`}
+            shape={(props: BarShapeProps) => (
+              <Rectangle
+                {...props}
+                radius={isTopSegment(props.payload as AssetBarData, tier) ? [4, 4, 0, 0] : 0}
+              />
+            )}
+          />
+        ))}
       </BarChart>
     </ChartContainer>
   )
