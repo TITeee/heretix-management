@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Server, Bell, ShieldAlert, CheckCircle2, Package, Info, Tag as TagIcon } from "lucide-react"
 import { FaTriangleExclamation } from "react-icons/fa6"
 import Link from "next/link"
@@ -12,7 +13,7 @@ import { TagSeverityDonut } from "@/components/dashboard/tag-severity-donut"
 import { CriticalPackagesCard } from "@/components/dashboard/critical-packages-card"
 import { ProductionAssetsCard } from "@/components/dashboard/production-assets-card"
 import { DashboardTabs } from "@/components/dashboard/dashboard-tabs"
-import { SlaStatusCard } from "@/components/dashboard/sla-status-card"
+import { SlaSeverityChart, type SlaSeverityBarData } from "@/components/dashboard/sla-severity-chart"
 import { getSlaStatus } from "@/lib/sla"
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -64,16 +65,27 @@ function buildTagSeverity(alerts: { cvssScore: number | null }[]) {
   return { critical, high, medium, low, na }
 }
 
-function buildSlaStatusCounts(alerts: { dueDate: Date | null }[]) {
-  let overdue = 0, urgent = 0, warning = 0, ok = 0
+function buildSlaSeverityData(alerts: { cvssScore: number | null; dueDate: Date | null }[]): SlaSeverityBarData[] {
+  const statuses = ["Overdue", "Urgent", "Warning", "OK", "Unscored"] as const
+  const statusLabels = {
+    overdue: "Overdue",
+    urgent: "Urgent",
+    warning: "Warning",
+    ok: "OK",
+    unscored: "Unscored",
+  } as const
+  const rows: Record<string, SlaSeverityBarData> = Object.fromEntries(
+    statuses.map((status) => [status, { status, critical: 0, high: 0, medium: 0, low: 0, na: 0 }])
+  )
+
   for (const alert of alerts) {
-    const status = getSlaStatus(alert.dueDate)
-    if (status === "overdue") overdue++
-    else if (status === "urgent") urgent++
-    else if (status === "warning") warning++
-    else ok++
+    const s = alert.cvssScore
+    const tier = s == null ? "na" : s >= 9 ? "critical" : s >= 7 ? "high" : s >= 4 ? "medium" : "low"
+    const status = statusLabels[getSlaStatus(alert.dueDate)]
+    rows[status][tier]++
   }
-  return { overdue, urgent, warning, ok }
+
+  return statuses.map((status) => rows[status])
 }
 
 function buildTopAssets(
@@ -184,14 +196,14 @@ async function getDashboardData() {
     // SLA status for open/in_progress alerts
     prisma.alert.findMany({
       where: { status: { in: ["open", "in_progress"] } },
-      select: { dueDate: true },
+      select: { dueDate: true, cvssScore: true },
     }),
   ])
 
   const trendData = buildWeeklyTrend(trendAlerts)
   const topAssetsData = buildTopAssets(topAssetAlerts)
   const topPackagesData = topPkgGroups.map((g) => ({ name: g.packageName, count: g._count.id }))
-  const slaStatusCounts = buildSlaStatusCounts(slaDueAlerts)
+  const slaSeverityData = buildSlaSeverityData(slaDueAlerts)
 
   // ── Tags tab: fetch all asset/package relationships for every tag ─────────
   const assetTagIds = allTags.filter((t) => t.type === "asset").map((t) => t.id)
@@ -370,7 +382,7 @@ async function getDashboardData() {
     totalPackages,
     kevCount,
     tagData,
-    slaStatusCounts,
+    slaSeverityData,
   }
 }
 
@@ -394,7 +406,7 @@ export default async function DashboardPage() {
     totalPackages,
     kevCount,
     tagData,
-    slaStatusCounts,
+    slaSeverityData,
   } = await getDashboardData()
 
   return (
@@ -489,11 +501,36 @@ export default async function DashboardPage() {
             <div className="text-3xl font-bold text-destructive">{kevCount}</div>
           </CardContent>
         </Card>
-        {/* SLA Status card hidden - will redesign later */}
       </div>
 
-      {/* Charts row 1: C1 + C2 — Tag severity */}
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* Charts row 1: SLA by Severity + C1 + C2 — Tag severity */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-1.5 text-sm font-medium">
+              SLA Status by Severity
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger render={
+                    <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                      <Info className="h-4.5 w-4.5" />
+                    </button>
+                  } />
+                  <TooltipContent side="right" className="flex flex-col gap-1 max-w-xs text-left">
+                    <p><strong>Overdue</strong>: past the SLA deadline</p>
+                    <p><strong>Urgent</strong>: due within 24 hours</p>
+                    <p><strong>Warning</strong>: due within 7 days</p>
+                    <p><strong>OK</strong>: more than 7 days remaining</p>
+                    <p><strong>Unscored</strong>: no CVSS score yet, no deadline set</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SlaSeverityChart data={slaSeverityData} />
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
