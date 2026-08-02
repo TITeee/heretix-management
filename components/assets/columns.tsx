@@ -2,7 +2,7 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import { ArrowUpDown, Trash2 } from "lucide-react"
-import { FaDocker, FaServer } from "react-icons/fa6"
+import { FaDocker, FaServer, FaWindows, FaLinux } from "react-icons/fa6"
 import { Button } from "@/components/ui/button"
 import { SEVERITY_COLORS } from "@/lib/severity"
 import { Badge } from "@/components/ui/badge"
@@ -61,11 +61,26 @@ function DeleteButton({ assetId, assetName }: { assetId: string; assetName: stri
   )
 }
 
+const LINUX_OS_IDS = new Set(["ubuntu", "debian", "alpine", "rocky", "almalinux", "rhel", "centos", "oraclelinux"])
+
+function OSIcon({ osId, osName }: { osId: string; osName: string }) {
+  const id = osId.toLowerCase()
+  const name = osName.toLowerCase()
+  if (id.includes("windows") || name.includes("windows")) {
+    return <FaWindows className="h-5 w-5 shrink-0" />
+  }
+  if (LINUX_OS_IDS.has(id) || name.includes("linux")) {
+    return <FaLinux className="h-5 w-5 shrink-0" />
+  }
+  return null
+}
+
 export type AssetRow = {
   id: string
   name: string
   hostname: string
   assetType: string
+  osId: string
   osName: string
   scannedAt: Date | null
   _count: { packages: number; alerts: number }
@@ -116,6 +131,12 @@ export const assetColumns: ColumnDef<AssetRow>[] = [
       <Button variant="ghost" size="sm" onClick={() => column.toggleSorting()}>
         OS <ArrowUpDown className="ml-1 h-3 w-3" />
       </Button>
+    ),
+    cell: ({ row }) => (
+      <span className="flex items-center gap-2">
+        <OSIcon osId={row.original.osId} osName={row.original.osName} />
+        {row.original.osName}
+      </span>
     ),
   },
   {
