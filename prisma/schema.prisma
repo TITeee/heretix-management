@@ -88,6 +88,7 @@ model Alert {
   updatedAt      DateTime       @updatedAt
   comments       AlertComment[]
   alertEvents    AlertEvent[]
+  chatMessages   AlertChatMessage[]
 
   @@unique([assetId, packageName, packageVersion, ecosystem, externalId])
   @@index([isKev])
@@ -125,6 +126,17 @@ model AlertComment {
   alert     Alert    @relation(fields: [alertId], references: [id], onDelete: Cascade)
   body      String
   createdAt DateTime @default(now())
+}
+
+model AlertChatMessage {
+  id        String   @id @default(cuid())
+  alertId   String
+  alert     Alert    @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([alertId])
 }
 
 model PackageHistory {

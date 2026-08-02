@@ -49,6 +49,15 @@ export default function SettingsPage() {
   const [slackTestResult, setSlackTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [assetTags, setAssetTags] = useState<Tag[]>([])
 
+  // AI settings
+  const [aiEnabled, setAiEnabled] = useState(false)
+  const [aiApiKey, setAiApiKey] = useState("")
+  const [aiModel, setAiModel] = useState("")
+  const [aiSaving, setAiSaving] = useState(false)
+  const [aiSaved, setAiSaved] = useState(false)
+  const [aiTesting, setAiTesting] = useState(false)
+  const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
+
   // SLA settings
   const [slaConfig, setSlaConfig] = useState<SlaConfig>(DEFAULT_SLA_CONFIG)
   const [slaSaving, setSlaSaving] = useState(false)
@@ -70,6 +79,9 @@ export default function SettingsPage() {
         setSlackMinSeverity(data.SLACK_MIN_SEVERITY ?? "ALL")
         setSlackFilterType(data.SLACK_FILTER_TYPE ?? "all")
         try { setSlackTagIds(JSON.parse(data.SLACK_TAG_IDS ?? "[]")) } catch { setSlackTagIds([]) }
+        setAiEnabled(data.AI_ENABLED === "true")
+        setAiApiKey(data.AI_API_KEY ?? "")
+        setAiModel(data.AI_MODEL ?? "")
       })
     fetch("/api/tags")
       .then((r) => r.ok ? r.json() : [])
@@ -126,6 +138,41 @@ export default function SettingsPage() {
       setSlackTestResult({ ok: false, msg: "Network error" })
     } finally {
       setSlackTesting(false)
+    }
+  }
+
+  async function handleAiSave(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setAiSaving(true)
+    await fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        AI_ENABLED: aiEnabled ? "true" : "false",
+        AI_API_KEY: aiApiKey,
+        AI_MODEL: aiModel,
+      }),
+    })
+    setAiSaving(false)
+    setAiSaved(true)
+    setTimeout(() => setAiSaved(false), 2000)
+  }
+
+  async function handleAiTest() {
+    setAiTesting(true)
+    setAiTestResult(null)
+    try {
+      const res = await fetch("/api/settings/ai-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: aiApiKey, model: aiModel }),
+      })
+      const data = await res.json()
+      setAiTestResult(res.ok ? { ok: true, msg: "Connected" } : { ok: false, msg: data.error ?? "Failed" })
+    } catch {
+      setAiTestResult({ ok: false, msg: "Network error" })
+    } finally {
+      setAiTesting(false)
     }
   }
 
@@ -193,6 +240,7 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="api">API</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="sla">SLA</TabsTrigger>
           <TabsTrigger value="about">About</TabsTrigger>
         </TabsList>
@@ -375,6 +423,77 @@ export default function SettingsPage() {
             {slackTestResult && (
               <p className={`text-sm ${slackTestResult.ok ? "text-green-600" : "text-destructive"}`}>
                 {slackTestResult.msg}
+              </p>
+            )}
+          </form>
+        </CardContent>
+      </Card>
+        </TabsContent>
+
+        <TabsContent value="ai" className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>AI Assistant (Beta)</CardTitle>
+          <CardDescription>
+            Lets users chat with an AI about individual alerts (vulnerability explanation, past handling history). Currently supports Anthropic (Claude) only.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleAiSave} className="space-y-4">
+            <div className="flex items-center gap-3">
+              <input
+                id="ai-enabled"
+                type="checkbox"
+                checked={aiEnabled}
+                onChange={(e) => setAiEnabled(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 accent-black"
+              />
+              <label htmlFor="ai-enabled" className="text-sm font-medium">Enable AI Assistant</label>
+            </div>
+
+            {aiEnabled && (
+              <div className="space-y-4 pl-7">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Provider</label>
+                  <Input value="Anthropic (Claude)" disabled className="w-full max-w-sm" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">API Key</label>
+                  <Input
+                    type="password"
+                    value={aiApiKey}
+                    onChange={(e) => setAiApiKey(e.target.value)}
+                    placeholder="sk-ant-..."
+                    className="w-full max-w-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Model</label>
+                  <Input
+                    value={aiModel}
+                    onChange={(e) => setAiModel(e.target.value)}
+                    placeholder="claude-sonnet-4-5-20250929"
+                    className="w-full max-w-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">Leave blank to use the default model.</p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <Button type="submit" disabled={aiSaving || aiSaved}>
+                {aiSaved ? "Saved" : aiSaving ? "Saving..." : "Save"}
+              </Button>
+              {aiEnabled && aiApiKey && (
+                <Button type="button" variant="outline" onClick={handleAiTest} disabled={aiTesting}>
+                  {aiTesting ? "Testing..." : "Test Connection"}
+                </Button>
+              )}
+            </div>
+
+            {aiTestResult && (
+              <p className={`text-sm ${aiTestResult.ok ? "text-green-600" : "text-destructive"}`}>
+                {aiTestResult.msg}
               </p>
             )}
           </form>

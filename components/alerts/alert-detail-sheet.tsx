@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { VulnDetail, DetailSkeleton, NvdTab, OsvTab, AdvisoryTab, SeverityBadge } from "@/components/alerts/vuln-detail-tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Clock, TrendingUp, TrendingDown, AlertTriangle, History, ShieldCheck, GitBranch, CircleHelp } from "lucide-react"
+import { Clock, TrendingUp, TrendingDown, AlertTriangle, History, ShieldCheck, GitBranch, CircleHelp, Sparkles } from "lucide-react"
 import { ReactFlow, Node, Edge, Background, Controls, MarkerType, useNodesState, useEdgesState } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { applyDagreLayout } from "@/lib/dagre-layout"
@@ -384,6 +384,122 @@ function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open
   )
 }
 
+type ChatMsg = { id: string; role: string; content: string; createdAt: string }
+
+function AlertAiChatTab({ alertId, open, aiEnabled }: { alertId: string; open: boolean; aiEnabled: boolean }) {
+  const [messages, setMessages] = useState<ChatMsg[]>([])
+  const [loading, setLoading] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [input, setInput] = useState("")
+  const [error, setError] = useState("")
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const initializedRef = useRef(false)
+
+  async function sendMessage(text?: string) {
+    setSending(true)
+    setError("")
+    if (text) {
+      setMessages((prev) => [...prev, { id: `local-${Date.now()}`, role: "user", content: text, createdAt: new Date().toISOString() }])
+    }
+    try {
+      const res = await fetch(`/api/alerts/${alertId}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Request failed")
+      setMessages((prev) => [...prev, data])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Request failed")
+    } finally {
+      setSending(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!open || !aiEnabled) return
+    initializedRef.current = false
+    setMessages([])
+    setError("")
+    setLoading(true)
+    fetch(`/api/alerts/${alertId}/chat`)
+      .then((r) => r.json())
+      .then(async (data: ChatMsg[]) => {
+        const list = Array.isArray(data) ? data : []
+        setMessages(list)
+        if (list.length === 0 && !initializedRef.current) {
+          initializedRef.current = true
+          await sendMessage(undefined)
+        }
+      })
+      .catch(() => setError("Failed to load conversation"))
+      .finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, alertId, aiEnabled])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
+
+  function handleSend() {
+    if (!input.trim() || sending) return
+    const text = input.trim()
+    setInput("")
+    sendMessage(text)
+  }
+
+  if (!aiEnabled) {
+    return (
+      <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground">
+        <Sparkles className="h-6 w-6" />
+        <p className="text-sm">AI Assistant is not enabled.</p>
+        <p className="text-xs opacity-70">Configure it in Settings → AI.</p>
+      </div>
+    )
+  }
+
+  if (loading && messages.length === 0) return <DetailSkeleton />
+
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+        {messages.map((m) => (
+          <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+              {m.content}
+            </div>
+          </div>
+        ))}
+        {sending && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-muted text-muted-foreground">Thinking…</div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+      {error && <p className="text-sm text-destructive mt-2">{error}</p>}
+      <div className="flex items-end gap-2 pt-3 mt-2 border-t">
+        <Textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault()
+              handleSend()
+            }
+          }}
+          placeholder="Ask a follow-up question..."
+          className="min-h-9 resize-none"
+          rows={1}
+        />
+        <Button onClick={handleSend} disabled={sending || !input.trim()}>Send</Button>
+      </div>
+      <p className="text-[11px] text-muted-foreground mt-1.5">AI-generated: verify before relying on it.</p>
+    </div>
+  )
+}
+
 export function AlertDetailSheet({
   alert,
   open,
@@ -406,6 +522,7 @@ export function AlertDetailSheet({
   const [fetchError, setFetchError] = useState(false)
   const [timelineKey, setTimelineKey] = useState(0)
   const [slaEnabled, setSlaEnabled] = useState(true)
+  const [aiEnabled, setAiEnabled] = useState(false)
 
   useEffect(() => {
     if (alert) {
@@ -442,6 +559,10 @@ export function AlertDetailSheet({
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setSlaEnabled(data?.slaEnabled ?? true))
       .catch(() => setSlaEnabled(true))
+    fetch("/api/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setAiEnabled(data?.AI_ENABLED === "true"))
+      .catch(() => setAiEnabled(false))
   }, [open])
 
   async function onStatusChange(value: string | null) {
@@ -508,6 +629,11 @@ export function AlertDetailSheet({
             )}
             <TabsTrigger value="dependents">Dependents</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            {aiEnabled && (
+              <TabsTrigger value="ai" className="flex items-center gap-1">
+                <Sparkles className="h-3.5 w-3.5" /> AI Insight
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="overview" className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
@@ -725,6 +851,12 @@ export function AlertDetailSheet({
           <TabsContent value="timeline" className="flex-1 overflow-y-auto px-6 py-4">
             <AlertTimelineTab alertId={alert.id} open={open} refreshKey={timelineKey} />
           </TabsContent>
+
+          {aiEnabled && (
+            <TabsContent value="ai" className="flex-1 flex flex-col min-h-0 px-6 py-4">
+              <AlertAiChatTab alertId={alert.id} open={open} aiEnabled={aiEnabled} />
+            </TabsContent>
+          )}
         </Tabs>
 
       </SheetContent>
