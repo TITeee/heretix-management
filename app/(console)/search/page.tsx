@@ -126,8 +126,9 @@ export default function SearchPage() {
         }
         q = new URLSearchParams({ cpe: cpeTrimmed })
       } else if (mode === "advisory") {
-        if (!advisoryProduct || !advisoryVersion.trim()) return
-        q = new URLSearchParams({ package: advisoryProduct, version: advisoryVersion.trim(), ecosystem: "advisory" })
+        if (!advisoryProduct) return
+        q = new URLSearchParams({ package: advisoryProduct, ecosystem: "advisory" })
+        if (advisoryVersion.trim()) q.set("version", advisoryVersion.trim())
       } else {
         if (!pkg) return
         q = new URLSearchParams({ package: pkg })
@@ -336,11 +337,10 @@ export default function SearchPage() {
               </SelectContent>
             </Select>
             <Input
-              placeholder="Version (e.g. 7.4.3)"
+              placeholder="Version (optional)"
               value={advisoryVersion}
               onChange={(e) => setAdvisoryVersion(e.target.value)}
               className="w-40"
-              required
             />
           </>
         ) : (
