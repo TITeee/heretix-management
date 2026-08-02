@@ -596,7 +596,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
         getRowId={(row) => row.id}
         onRowSelectionChange={setSelectedAlerts}
         initialSorting={[{ id: "detectedAt", desc: true }]}
-        initialColumnVisibility={{ updatedAt: false, sources: false, ...(!slaEnabled && { dueDate: false }) }}
+        initialColumnVisibility={{ updatedAt: false, sources: false, dueDate: false }}
         exportRef={exportRef}
         headerActions={
           <div className="flex items-center gap-2">
