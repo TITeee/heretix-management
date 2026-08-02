@@ -26,7 +26,7 @@ export default async function ConsoleLayout({
           userName={session.user?.name}
           userEmail={session.user?.email}
         />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   )
