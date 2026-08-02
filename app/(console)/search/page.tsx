@@ -29,6 +29,7 @@ type Vuln = {
   id: string
   externalId: string
   source: string
+  sources: string[]
   severity: string | null
   cvssScore: number | null
   summary: string | null
@@ -383,7 +384,9 @@ export default function SearchPage() {
                         </span>
                       )}
                       <span className="font-mono font-medium text-sm">{v.externalId}</span>
-                      <Badge variant="outline" className="text-xs">{v.source}</Badge>
+                      {(v.sources?.length ? v.sources : [v.source]).map((s) => (
+                        <Badge key={s} variant="outline" className="text-xs">{s.toUpperCase()}</Badge>
+                      ))}
                     </div>
                     <SeverityBadge score={v.cvssScore} />
                   </div>
