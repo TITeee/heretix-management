@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ArrowUpDown, Download, X } from "lucide-react"
+import { ArrowUpDown, CircleHelp, Download, X } from "lucide-react"
 import { FaTriangleExclamation, FaVirus } from "react-icons/fa6"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -37,6 +37,7 @@ export type Alert = {
   isKev: boolean
   epssScore: number | null
   epssPercentile: number | null
+  approximateMatch: boolean
   status: string
   notes: string | null
   resolveReason: string | null
@@ -170,7 +171,14 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
       </Button>
     ),
     cell: ({ row }) => (
-      <span className="font-mono text-xs">{row.original.externalId}</span>
+      <span className="inline-flex items-center gap-1">
+        <span className="font-mono text-xs">{row.original.externalId}</span>
+        {row.original.approximateMatch && (
+          <span title="Approximate match — version could not be precisely compared">
+            <CircleHelp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          </span>
+        )}
+      </span>
     ),
   },
   {
@@ -430,7 +438,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
     const rows = exportRef.current?.() ?? filteredData
     const headers = [
       "Vuln ID", "Severity", "CVSS Score", "CVSS Vector",
-      "EPSS Score", "EPSS Percentile", "KEV",
+      "EPSS Score", "EPSS Percentile", "KEV", "Approximate Match",
       "Summary", "Package", "Version", "Ecosystem", "Sources",
       "Asset", "Hostname", "Tags", "Status", "Notes",
       "Detected At", "Due Date", "Resolved At", "Updated At",
@@ -445,6 +453,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
         a.epssScore ?? "",
         a.epssPercentile != null ? (a.epssPercentile * 100).toFixed(1) : "",
         a.isKev ? "Yes" : "No",
+        a.approximateMatch ? "Yes" : "No",
         a.summary ?? "",
         a.packageName,
         a.packageVersion,
@@ -474,6 +483,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
       epssScore: a.epssScore,
       epssPercentile: a.epssPercentile,
       kev: a.isKev,
+      approximateMatch: a.approximateMatch,
       summary: a.summary,
       package: a.packageName,
       version: a.packageVersion,

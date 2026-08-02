@@ -20,7 +20,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Clock, TrendingUp, TrendingDown, AlertTriangle, History, ShieldCheck, GitBranch } from "lucide-react"
+import { Clock, TrendingUp, TrendingDown, AlertTriangle, History, ShieldCheck, GitBranch, CircleHelp } from "lucide-react"
 import { ReactFlow, Node, Edge, Background, Controls, MarkerType, useNodesState, useEdgesState } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { applyDagreLayout } from "@/lib/dagre-layout"
@@ -49,6 +49,7 @@ export type SheetAlert = {
   resolveReason: string | null
   vexJustification?: string | null
   fixedVersion?: string | null
+  approximateMatch?: boolean
   detectedAt: Date
   dueDate: Date | null
   resolvedAt: Date | null
@@ -581,6 +582,14 @@ export function AlertDetailSheet({
                   <span className="w-28 text-muted-foreground shrink-0">Ecosystem</span>
                   <span>{alert.ecosystem}</span>
                 </div>
+                {alert.approximateMatch && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 text-muted-foreground shrink-0">Match</span>
+                    <span className="flex items-center gap-1 text-muted-foreground text-xs">
+                      <CircleHelp className="h-3.5 w-3.5" /> Approximate (version could not be precisely compared)
+                    </span>
+                  </div>
+                )}
                 {alert.fixedVersion && (
                   <div className="flex items-center gap-2">
                     <span className="w-28 text-muted-foreground shrink-0">Fixed in</span>

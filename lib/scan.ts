@@ -99,6 +99,7 @@ export async function scanAsset(assetId: string): Promise<{ newAlerts: number }>
               epssScore: v.epssScore ?? null,
               epssPercentile: v.epssPercentile ?? null,
               fixedVersion: v.fixedVersion ?? null,
+              approximateMatch: v.approximateMatch ?? false,
               detectedAt,
               dueDate,
             },
@@ -148,6 +149,7 @@ export async function scanAsset(assetId: string): Promise<{ newAlerts: number }>
             epssScore: v.epssScore ?? null,
             epssPercentile: v.epssPercentile ?? null,
             fixedVersion: v.fixedVersion ?? null,
+            approximateMatch: v.approximateMatch ?? false,
           },
         })
         await prisma.alertEvent.create({
