@@ -454,26 +454,26 @@ export default function SettingsPage() {
             {aiEnabled && (
               <div className="space-y-4 pl-7">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Provider</label>
-                  <Input value="Anthropic (Claude)" disabled className="w-full max-w-sm" />
+                  <label className="block text-sm font-medium">Provider</label>
+                  <Input value="Anthropic (Claude)" disabled className="max-w-sm" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">API Key</label>
+                  <label className="block text-sm font-medium">API Key</label>
                   <Input
                     type="password"
                     value={aiApiKey}
                     onChange={(e) => setAiApiKey(e.target.value)}
                     placeholder="sk-ant-..."
-                    className="w-full max-w-sm"
+                    className="max-w-sm"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Model</label>
+                  <label className="block text-sm font-medium">Model</label>
                   <Input
                     value={aiModel}
                     onChange={(e) => setAiModel(e.target.value)}
                     placeholder="claude-sonnet-4-5-20250929"
-                    className="w-full max-w-sm"
+                    className="max-w-sm"
                   />
                   <p className="text-xs text-muted-foreground">Leave blank to use the default model.</p>
                 </div>
