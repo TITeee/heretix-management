@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SEVERITY_COLORS } from "@/lib/severity"
+import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
 
 export type NvdPackage = {
   cpe: string | null
@@ -167,9 +168,7 @@ export function NvdTab({ detail, loading, error }: { detail: VulnDetail | null; 
             <span className="w-28 text-muted-foreground shrink-0">CVSS</span>
             <div className="flex items-center gap-2">
               <SeverityBadge score={nvd.cvssScore} />
-              {nvd.cvssVector && (
-                <span className="font-mono text-xs text-muted-foreground break-all">{nvd.cvssVector}</span>
-              )}
+              {nvd.cvssVector && <CvssVectorTooltip vector={nvd.cvssVector} />}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -411,9 +410,7 @@ export function OsvTab({ detail, loading, error }: { detail: VulnDetail | null; 
                     {osv.rawData.severity
                       .filter(s => s.score.startsWith("CVSS:"))
                       .map((s, i) => (
-                        <span key={i} className="font-mono text-xs text-muted-foreground break-all">
-                          {s.score}
-                        </span>
+                        <CvssVectorTooltip key={i} vector={s.score} />
                       ))}
                   </div>
                 </div>
@@ -557,9 +554,7 @@ export function AdvisoryTab({ detail, loading }: { detail: VulnDetail | null; lo
                 <span className="w-28 text-muted-foreground shrink-0">CVSS</span>
                 <div className="flex items-center gap-2">
                   <SeverityBadge score={adv.cvssScore} />
-                  {adv.cvssVector && (
-                    <span className="font-mono text-xs text-muted-foreground break-all">{adv.cvssVector}</span>
-                  )}
+                  {adv.cvssVector && <CvssVectorTooltip vector={adv.cvssVector} />}
                 </div>
               </div>
               {adv.severity && (

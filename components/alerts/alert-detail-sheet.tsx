@@ -28,6 +28,7 @@ import { FaTriangleExclamation, FaVirus, FaCircleExclamation, FaClock, FaCircleM
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { getSlaStatus, formatDaysUntilDue } from "@/lib/sla"
+import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
 
 // Minimum Alert fields required by the detail sheet
 export type SheetAlert = {
@@ -645,9 +646,7 @@ export function AlertDetailSheet({
                   <span className="w-28 text-muted-foreground shrink-0">CVSS</span>
                   <div className="flex items-center gap-2">
                     <SeverityBadge score={alert.cvssScore} />
-                    {alert.cvssVector && (
-                      <span className="font-mono text-xs text-muted-foreground break-all">{alert.cvssVector}</span>
-                    )}
+                    {alert.cvssVector && <CvssVectorTooltip vector={alert.cvssVector} />}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
