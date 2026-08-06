@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
-import { isIgnoreReason, REASON_REQUIRES_JUSTIFICATION } from "@/lib/vex"
+import { isIgnoreReason, IGNORE_REASONS, REASON_REQUIRES_JUSTIFICATION } from "@/lib/vex"
 
 export async function PATCH(
   req: NextRequest,
@@ -14,6 +14,11 @@ export async function PATCH(
   const body = await req.json()
   const { status, notes, vexJustification, ignoreReason } = body
 
+  const current = await prisma.alert.findUnique({
+    where: { id },
+    select: { status: true, ignoreReason: true, vexJustification: true },
+  })
+
   const update: {
     status?: string
     notes?: string
@@ -25,10 +30,6 @@ export async function PATCH(
   // Ignoring an alert is a judgment that has to say what kind of judgment it is,
   // otherwise it silently drops out of the VEX export with no way to find it again.
   if (status === "ignored") {
-    const current = await prisma.alert.findUnique({
-      where: { id },
-      select: { ignoreReason: true, vexJustification: true },
-    })
     const effectiveReason = ignoreReason !== undefined ? ignoreReason : current?.ignoreReason
     const effectiveJustification =
       vexJustification !== undefined ? vexJustification : current?.vexJustification
@@ -65,40 +66,54 @@ export async function PATCH(
     }
   }
 
-  // Fetch the previous value before changing status
-  let prevStatus: string | undefined
-  if (status) {
-    const current = await prisma.alert.findUnique({ where: { id }, select: { status: true } })
-    prevStatus = current?.status
-  }
-
   const alert = await prisma.alert.update({ where: { id }, data: update })
 
+  const userName = session.user?.name ?? session.user?.email ?? "Unknown"
+
   // Record a status_changed event
-  if (status && prevStatus && prevStatus !== status) {
+  if (status && current && current.status !== status) {
     await prisma.alertEvent.create({
       data: {
         alertId: id,
         type: "status_changed",
         data: {
-          from: prevStatus,
+          from: current.status,
           to: status,
           ...(alert.ignoreReason ? { ignoreReason: alert.ignoreReason } : {}),
-          userName: session.user?.name ?? session.user?.email ?? "Unknown",
+          userName,
+        },
+      },
+    })
+  } else if (
+    status === "ignored" &&
+    current?.status === "ignored" &&
+    current.ignoreReason !== alert.ignoreReason
+  ) {
+    // The status transition already covers a reason set on first ignoring an
+    // alert; this covers changing the reason afterward (e.g. Not affected ->
+    // Accepted risk) while status stays "ignored", which the branch above misses.
+    await prisma.alertEvent.create({
+      data: {
+        alertId: id,
+        type: "ignore_reason_changed",
+        data: {
+          from: current.ignoreReason ? IGNORE_REASONS[current.ignoreReason as keyof typeof IGNORE_REASONS] ?? current.ignoreReason : null,
+          to: alert.ignoreReason ? IGNORE_REASONS[alert.ignoreReason as keyof typeof IGNORE_REASONS] ?? alert.ignoreReason : null,
+          userName,
         },
       },
     })
   }
 
   // Record a vex_justification_set event
-  if (vexJustification !== undefined && vexJustification) {
+  if (vexJustification !== undefined && vexJustification && vexJustification !== current?.vexJustification) {
     await prisma.alertEvent.create({
       data: {
         alertId: id,
         type: "vex_justification_set",
         data: {
           justification: vexJustification,
-          userName: session.user?.name ?? session.user?.email ?? "Unknown",
+          userName,
         },
       },
     })
@@ -112,7 +127,7 @@ export async function PATCH(
         type: "notes_saved",
         data: {
           notes: notes.trim(),
-          userName: session.user?.name ?? session.user?.email ?? "Unknown",
+          userName,
         },
       },
     })

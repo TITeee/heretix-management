@@ -123,6 +123,11 @@ const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: str
       return entry ? { icon: entry.icon, iconClass: entry.className.replace(/h-\S+ w-\S+ /, "") } : { icon: FaCircleExclamation, iconClass: "text-blue-500" }
     },
   },
+  ignore_reason_changed: {
+    icon: FaCircleExclamation,
+    iconClass: "text-blue-500",
+    label: (data) => `Ignore reason changed: "${data.from}" to "${data.to}"`,
+  },
   kev_added: {
     icon: AlertTriangle,
     iconClass: "text-red-600",
@@ -357,8 +362,8 @@ function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open
                   {!!event.data?.userName && (
                     <Badge className="text-xs px-1.5 py-0">{String(event.data.userName)}</Badge>
                   )}
-                  {!!event.data?.reason && (
-                    <p className="text-xs text-muted-foreground">{String(event.data.reason)}</p>
+                  {isIgnoreReason(event.data?.ignoreReason) && (
+                    <p className="text-xs text-muted-foreground">{IGNORE_REASONS[event.data.ignoreReason]}</p>
                   )}
                 </div>
               )}
