@@ -27,6 +27,7 @@
   - **エクスポート**（`GET /api/vex`・**Export VEX** ボタン）: justification 付きの Ignored アラートを CycloneDX 1.6 VEX JSON（`not_affected`）として出力。`trivy image myapp --vex vex.json` でスキャン時の誤検知抑制に活用可能
   - **インポート**（`POST /api/vex/import`・**Import VEX** ボタン）: ベンダー公開 VEX や外部ツール生成の CycloneDX VEX を読み込み、マッチするアラートに自動適用。Timeline に `vex_imported` イベントを記録
   - Ignored 設定時に CycloneDX 標準の justification（`code_not_reachable`・`code_not_present`・`requires_configuration` 等）を選択して記録
+  - **過去の判断の再利用**: 同一 finding（脆弱性 + パッケージ + バージョン + エコシステム）を他アセットで判断済みの場合、その内容をアラート画面に提示し、**Apply this judgment** ボタンでワンクリック適用。自動適用はしません。ビルド成果物の性質を表すのは `code_not_present` と `protected_by_compiler` の 2 つだけで、残り 7 つは配置環境（ネットワーク配置・ランタイム保護・設定・呼び出し元コードからの到達可能性）に依存するため、再確認が必要な場合は警告を表示し、タグの異なるアセットも明示します
 - **脆弱性検索** — パッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列、または **Advisory モード**（Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix のベンダーアドバイザリ検索）で直接検索
 - **ユーザー管理** — ユーザーの追加・編集・削除（admin ロールのみ表示・操作可能）
 - **監査ログ** — admin 専用ページ。ログイン・ユーザー管理・設定変更・アセット操作を最新 500 件表示。サイドバーの **Audit Log** からアクセス（admin のみ）
@@ -214,6 +215,7 @@ pnpm dev
    - **Advisory** タブ — ベンダーアドバイザリ ID・重要度・影響製品とバージョン（Advisory データが存在する場合のみ表示）
 5. ステータスを `Open` → `In Progress` → `Resolved` / `Ignored` に変更して追跡
    - **Ignored** に設定する際は **VEX Justification** を選択（例: `code_not_reachable`）して判断根拠を記録
+   - 同一 finding を他アセットで判断済みの場合、ステータス欄の上にその判断が表示されます。このアセットでも成立するか確認したうえで **Apply this judgment** ボタンで再利用できます
 6. **Refresh Metadata** ボタンで heretix-api の最新データをアラートに同期
 7. **Export VEX** ボタンで justification 付きの Ignored アラートを CycloneDX VEX JSON（`not_affected`）として出力 → `trivy --vex vex.json` でスキャン時の誤検知を抑制
 8. **Import VEX** ボタンでベンダー公開 VEX や外部生成 VEX を読み込み、マッチするアラートに自動適用
@@ -295,6 +297,7 @@ heretix-management/
 | POST | `/api/alerts/refresh` | アラートメタデータを heretix-api から一括更新 |
 | GET | `/api/alerts/events` | 全アラートイベント一覧 |
 | GET | `/api/alerts/[id]/dependents` | 脆弱パッケージへの依存パス一覧（npm/pnpm） |
+| GET | `/api/alerts/[id]/vex-suggestions` | 同一 finding を他アセットで判断済みの VEX 内容 |
 | GET | `/api/assets/[id]/dependency-graph` | 依存グラフのノード・エッジデータ |
 | GET | `/api/vex` | CycloneDX VEX JSON エクスポート（`?assetId=`、`?download=true`） |
 | POST | `/api/vex/import` | CycloneDX VEX をインポートしてアラートに自動適用 |

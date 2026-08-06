@@ -20,7 +20,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Clock, TrendingUp, TrendingDown, AlertTriangle, History, ShieldCheck, GitBranch, CircleHelp, Sparkles } from "lucide-react"
+import { Clock, TrendingUp, TrendingDown, AlertTriangle, History, ShieldCheck, GitBranch, CircleHelp, Sparkles, Info } from "lucide-react"
 import { ReactFlow, Node, Edge, Background, Controls, MarkerType, useNodesState, useEdgesState } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { applyDagreLayout } from "@/lib/dagre-layout"
@@ -67,6 +67,17 @@ export const VEX_JUSTIFICATION_LABELS: Record<string, string> = {
   protected_at_runtime:                          "Protected at runtime (WAF, sandbox…)",
   protected_at_perimeter:                        "Protected at network perimeter",
   protected_by_mitigating_control:               "Mitigating control in place",
+}
+
+/** A VEX judgment recorded for this same finding on another asset. */
+export type VexSuggestion = {
+  justification: string
+  assetName: string
+  assetTags: string[]
+  environmentDiffers: boolean
+  buildLevel: boolean
+  decidedBy: string | null
+  decidedAt: string
 }
 
 export const STATUS_ICON_MAP: Record<string, { icon: React.ComponentType<{ className?: string }>; className: string }> = {
@@ -524,6 +535,7 @@ export function AlertDetailSheet({
   const [timelineKey, setTimelineKey] = useState(0)
   const [slaEnabled, setSlaEnabled] = useState(true)
   const [aiEnabled, setAiEnabled] = useState(false)
+  const [vexSuggestions, setVexSuggestions] = useState<VexSuggestion[]>([])
 
   useEffect(() => {
     if (alert) {
@@ -566,6 +578,17 @@ export function AlertDetailSheet({
       .catch(() => setAiEnabled(false))
   }, [open])
 
+  useEffect(() => {
+    if (!open || !alert) {
+      setVexSuggestions([])
+      return
+    }
+    fetch(`/api/alerts/${alert.id}/vex-suggestions`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setVexSuggestions(Array.isArray(data) ? data : []))
+      .catch(() => setVexSuggestions([]))
+  }, [open, alert?.id, vexJustification])
+
   async function onStatusChange(value: string | null) {
     if (!alert || !value) return
     setStatus(value)
@@ -590,6 +613,26 @@ export function AlertDetailSheet({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ vexJustification: v }),
     })
+  }
+
+  /**
+   * Reuse a judgment recorded on another asset. Adopting it means concluding the
+   * alert is not exploitable here, so the status moves to `ignored` alongside it.
+   */
+  async function onApplyVexSuggestion(justification: string) {
+    if (!alert) return
+    setStatus("ignored")
+    setVexJustification(justification)
+    notifyStatusChange(alert.id, "ignored")
+    setSavingStatus(true)
+    await fetch(`/api/alerts/${alert.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "ignored", vexJustification: justification }),
+    })
+    setSavingStatus(false)
+    setTimelineKey((k) => k + 1)
+    router.refresh()
   }
 
   async function onSaveNotes() {
@@ -798,6 +841,45 @@ export function AlertDetailSheet({
                     </SelectContent>
                   </Select>
                 </div>
+                {vexSuggestions.length > 0 && (
+                  <div className="rounded-md border bg-muted/40 p-3 space-y-3">
+                    <p className="flex items-center gap-1.5 text-xs font-medium">
+                      <Info className="h-3.5 w-3.5 shrink-0" />
+                      Same finding already judged elsewhere
+                    </p>
+                    {vexSuggestions.map((s, i) => (
+                      <div key={i} className="space-y-1.5 text-xs">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-medium">{s.assetName}</span>
+                          {s.assetTags.map((t) => (
+                            <Badge key={t} variant="outline" className="text-[10px] px-1 py-0">{t}</Badge>
+                          ))}
+                        </div>
+                        <p>{VEX_JUSTIFICATION_LABELS[s.justification] ?? s.justification}</p>
+                        <p className="text-muted-foreground" suppressHydrationWarning>
+                          {s.decidedBy ? `${s.decidedBy}, ` : ""}
+                          {new Date(s.decidedAt).toLocaleDateString()}
+                        </p>
+                        {!s.buildLevel && (
+                          <p className="text-amber-700 dark:text-amber-500">
+                            {s.environmentDiffers
+                              ? "This asset has different tags, and this justification depends on the deployment. Verify it still holds here."
+                              : "This justification depends on the deployment, not the package itself. Verify it still holds here."}
+                          </p>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => onApplyVexSuggestion(s.justification)}
+                          disabled={savingStatus}
+                        >
+                          Apply this judgment
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {status === "ignored" && (
                   <div className="flex items-center gap-2">
                     <span className="w-28 text-sm text-muted-foreground shrink-0">VEX Justification</span>

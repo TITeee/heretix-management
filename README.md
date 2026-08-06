@@ -29,6 +29,7 @@ A vulnerability management console that imports server package information colle
   - **Export** (`GET /api/vex`, **Export VEX** button): Outputs ignored alerts with a justification as CycloneDX 1.6 VEX JSON (`not_affected`). Compatible with `trivy image myapp --vex vex.json`
   - **Import** (`POST /api/vex/import`, **Import VEX** button): Ingest a CycloneDX VEX document and auto-apply status changes to matching alerts. Records a `vex_imported` event in the Timeline for audit trail
   - When setting an alert to **Ignored**, select a CycloneDX-standard justification (`code_not_reachable`, `code_not_present`, `requires_configuration`, etc.)
+  - **Prior judgment reuse**: when the same finding (vulnerability + package + version + ecosystem) has already been judged on another asset, that judgment is shown on the alert with a one-click **Apply this judgment** button. Judgments are never applied automatically, because only `code_not_present` and `protected_by_compiler` describe the build itself. The other seven justifications describe the deployment (network placement, runtime protections, configuration, reachability from the calling code), so the panel warns when reuse needs re-verification and flags assets whose tags differ
 - **Vulnerability Search** — Search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or **Advisory mode** (Vendor Advisory search for Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Oracle, Splunk, Apache HTTP Server, Nginx, Apache Tomcat, and Zabbix products)
 - **User Management** — Add, edit, and delete users (admin role only)
 - **Audit Log** — Admin-only page showing the last 500 events: login, user management, settings changes, asset operations. Accessible from the sidebar (admin only)
@@ -216,6 +217,7 @@ pnpm dev
    - **Advisory** tab — Vendor advisory ID, severity, affected products and versions (shown only when advisory data exists)
 5. Track progress by changing status: `Open` → `In Progress` → `Resolved` / `Ignored`
    - When setting **Ignored**, select a **VEX Justification** (e.g., `code_not_reachable`) to record why the vulnerability is not exploitable
+   - If the same finding was already judged on another asset, that judgment appears above the status field. Review whether it still holds on this asset, then click **Apply this judgment** to reuse it
 6. Click **Refresh Metadata** to sync the latest data from heretix-api
 7. Click **Export VEX** to download a CycloneDX VEX JSON (ignored alerts with justification → `not_affected`) — feed into `trivy --vex vex.json` to suppress false positives
 8. Click **Import VEX** to ingest a vendor-published or externally generated CycloneDX VEX and auto-apply its decisions to matching alerts
@@ -297,6 +299,7 @@ heretix-management/
 | POST | `/api/alerts/refresh` | Bulk refresh alert metadata from heretix-api |
 | GET | `/api/alerts/events` | List all alert events across all alerts |
 | GET | `/api/alerts/[id]/dependents` | Dependency paths to the vulnerable package (npm/pnpm) |
+| GET | `/api/alerts/[id]/vex-suggestions` | Prior VEX judgments for the same finding on other assets |
 | GET | `/api/assets/[id]/dependency-graph` | Dependency graph nodes and edges for visualization |
 | GET | `/api/vex` | Export CycloneDX VEX JSON (`?assetId=`, `?download=true`) |
 | POST | `/api/vex/import` | Import CycloneDX VEX and apply to matching alerts |
