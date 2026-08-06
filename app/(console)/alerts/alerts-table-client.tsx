@@ -30,7 +30,25 @@ export function AlertsTableClient({ data, initialPackageName, initialAssetId, sl
         toast.error(result.error ?? "Import failed.", { style: { background: "#e11d48", color: "#fff", border: "none" } })
         return
       }
-      toast.success(`VEX imported: ${result.applied} alert${result.applied !== 1 ? "s" : ""} updated.`, { style: { background: "#0d9488", color: "#fff", border: "none" } })
+      // Without the follow-on detail, a document that matched nothing just reads
+      // as "0 updated" with no clue why, which is the usual outcome for a vendor
+      // VEX built on version ranges.
+      const detail: string[] = []
+      if (result.unsupportedRange > 0) {
+        detail.push(`${result.unsupportedRange} version range${result.unsupportedRange !== 1 ? "s" : ""} not supported`)
+      }
+      if (result.notFound > 0) detail.push(`${result.notFound} not matched to any alert`)
+      if (result.skipped > 0) detail.push(`${result.skipped} skipped`)
+
+      const summary = `VEX imported: ${result.applied} alert${result.applied !== 1 ? "s" : ""} updated.`
+      const message = detail.length > 0 ? `${summary} (${detail.join(", ")})` : summary
+      const noEffect = result.applied === 0
+
+      toast[noEffect ? "warning" : "success"](message, {
+        style: noEffect
+          ? { background: "#d97706", color: "#fff", border: "none" }
+          : { background: "#0d9488", color: "#fff", border: "none" },
+      })
       router.refresh()
     } catch {
       toast.error("Invalid VEX file.", { style: { background: "#e11d48", color: "#fff", border: "none" } })
@@ -55,7 +73,10 @@ export function AlertsTableClient({ data, initialPackageName, initialAssetId, sl
     }
   }
 
-  const hasVex = data.some(a => a.status === "ignored" && a.vexJustification)
+  // Mirrors the exporter: accepted_risk stays internal, so it does not enable the button.
+  const hasVex = data.some(
+    a => a.status === "ignored" && (a.ignoreReason === "false_positive" || a.vexJustification)
+  )
   const vexUrl = `/api/vex?download=true${initialAssetId ? `&assetId=${initialAssetId}` : ""}`
 
   return (

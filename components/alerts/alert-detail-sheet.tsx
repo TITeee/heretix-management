@@ -29,6 +29,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { getSlaStatus, formatDaysUntilDue } from "@/lib/sla"
 import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
+import { IGNORE_REASONS, IGNORE_REASON_HINTS, isIgnoreReason } from "@/lib/vex"
 
 // Minimum Alert fields required by the detail sheet
 export type SheetAlert = {
@@ -49,6 +50,7 @@ export type SheetAlert = {
   notes: string | null
   resolveReason: string | null
   vexJustification?: string | null
+  ignoreReason?: string | null
   fixedVersion?: string | null
   approximateMatch?: boolean
   detectedAt: Date
@@ -69,13 +71,14 @@ export const VEX_JUSTIFICATION_LABELS: Record<string, string> = {
   protected_by_mitigating_control:               "Mitigating control in place",
 }
 
-/** A VEX judgment recorded for this same finding on another asset. */
+/** An ignore judgment recorded for this same finding on another asset. */
 export type VexSuggestion = {
-  justification: string
+  reason: string
+  justification: string | null
   assetName: string
   assetTags: string[]
   environmentDiffers: boolean
-  buildLevel: boolean
+  requiresReverification: boolean
   decidedBy: string | null
   decidedAt: string
 }
@@ -527,6 +530,8 @@ export function AlertDetailSheet({
   const [status, setStatus] = useState(alert?.status ?? "open")
   const [notes, setNotes] = useState(alert?.notes ?? "")
   const [vexJustification, setVexJustification] = useState(alert?.vexJustification ?? "")
+  const [ignoreReason, setIgnoreReason] = useState(alert?.ignoreReason ?? "")
+  const [pendingIgnore, setPendingIgnore] = useState(false)
   const [savingNotes, setSavingNotes] = useState(false)
   const [savingStatus, setSavingStatus] = useState(false)
   const [vulnDetail, setVulnDetail] = useState<VulnDetail | null>(null)
@@ -542,6 +547,9 @@ export function AlertDetailSheet({
       setStatus(alert.status)
       setNotes(alert.notes ?? "")
       setVexJustification(alert.vexJustification ?? "")
+      setIgnoreReason(alert.ignoreReason ?? "")
+      // Anything already stored as ignored was saved with a reason.
+      setPendingIgnore(false)
     }
   }, [alert?.id])
 
@@ -589,46 +597,75 @@ export function AlertDetailSheet({
       .catch(() => setVexSuggestions([]))
   }, [open, alert?.id, vexJustification])
 
+  const ignoreComplete =
+    isIgnoreReason(ignoreReason) && (ignoreReason !== "not_affected" || !!vexJustification)
+
   async function onStatusChange(value: string | null) {
     if (!alert || !value) return
     setStatus(value)
-    if (value !== "ignored") setVexJustification("")
+
+    // Hold the change until a reason is recorded: an ignore without one drops
+    // out of the VEX export with nothing left to find it by.
+    if (value === "ignored") {
+      setPendingIgnore(true)
+      return
+    }
+
+    setPendingIgnore(false)
+    setIgnoreReason("")
+    setVexJustification("")
     notifyStatusChange(alert.id, value)
     setSavingStatus(true)
     await fetch(`/api/alerts/${alert.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: value, vexJustification: value === "ignored" ? vexJustification : null }),
+      body: JSON.stringify({ status: value }),
     })
     setSavingStatus(false)
     setTimelineKey((k) => k + 1)
   }
 
-  async function onSaveVexJustification(value: string | null) {
-    if (!alert) return
-    const v = value || null
-    setVexJustification(v ?? "")
+  function onChangeIgnoreReason(value: string | null) {
+    setIgnoreReason(value ?? "")
+    // A justification only applies to not_affected.
+    if (value !== "not_affected") setVexJustification("")
+  }
+
+  async function onSaveIgnore() {
+    if (!alert || !ignoreComplete) return
+    setSavingStatus(true)
     await fetch(`/api/alerts/${alert.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vexJustification: v }),
+      body: JSON.stringify({
+        status: "ignored",
+        ignoreReason,
+        vexJustification: ignoreReason === "not_affected" ? vexJustification : null,
+      }),
     })
+    setSavingStatus(false)
+    setPendingIgnore(false)
+    notifyStatusChange(alert.id, "ignored")
+    setTimelineKey((k) => k + 1)
+    router.refresh()
   }
 
   /**
    * Reuse a judgment recorded on another asset. Adopting it means concluding the
    * alert is not exploitable here, so the status moves to `ignored` alongside it.
    */
-  async function onApplyVexSuggestion(justification: string) {
+  async function onApplyVexSuggestion(reason: string, justification: string | null) {
     if (!alert) return
     setStatus("ignored")
-    setVexJustification(justification)
+    setIgnoreReason(reason)
+    setVexJustification(justification ?? "")
+    setPendingIgnore(false)
     notifyStatusChange(alert.id, "ignored")
     setSavingStatus(true)
     await fetch(`/api/alerts/${alert.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "ignored", vexJustification: justification }),
+      body: JSON.stringify({ status: "ignored", ignoreReason: reason, vexJustification: justification }),
     })
     setSavingStatus(false)
     setTimelineKey((k) => k + 1)
@@ -855,12 +892,17 @@ export function AlertDetailSheet({
                             <Badge key={t} variant="outline" className="text-[10px] px-1 py-0">{t}</Badge>
                           ))}
                         </div>
-                        <p>{VEX_JUSTIFICATION_LABELS[s.justification] ?? s.justification}</p>
+                        <p>
+                          {isIgnoreReason(s.reason) ? IGNORE_REASONS[s.reason] : s.reason}
+                          {s.justification
+                            ? `: ${VEX_JUSTIFICATION_LABELS[s.justification] ?? s.justification}`
+                            : ""}
+                        </p>
                         <p className="text-muted-foreground" suppressHydrationWarning>
                           {s.decidedBy ? `${s.decidedBy}, ` : ""}
                           {new Date(s.decidedAt).toLocaleDateString()}
                         </p>
-                        {!s.buildLevel && (
+                        {s.requiresReverification && (
                           <p className="text-amber-700 dark:text-amber-500">
                             {s.environmentDiffers
                               ? "This asset has different tags, and this justification depends on the deployment. Verify it still holds here."
@@ -871,7 +913,7 @@ export function AlertDetailSheet({
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs"
-                          onClick={() => onApplyVexSuggestion(s.justification)}
+                          onClick={() => onApplyVexSuggestion(s.reason, s.justification)}
                           disabled={savingStatus}
                         >
                           Apply this judgment
@@ -881,18 +923,54 @@ export function AlertDetailSheet({
                   </div>
                 )}
                 {status === "ignored" && (
-                  <div className="flex items-center gap-2">
-                    <span className="w-28 text-sm text-muted-foreground shrink-0">VEX Justification</span>
-                    <Select value={vexJustification} onValueChange={onSaveVexJustification}>
-                      <SelectTrigger className="h-8 text-sm w-1/2">
-                        <SelectValue>{vexJustification ? VEX_JUSTIFICATION_LABELS[vexJustification] : <span className="text-muted-foreground">Select justification...</span>}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(VEX_JUSTIFICATION_LABELS).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>{label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-2 rounded-md border p-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-28 text-sm text-muted-foreground shrink-0">Reason</span>
+                      <Select value={ignoreReason} onValueChange={onChangeIgnoreReason}>
+                        <SelectTrigger className="h-8 text-sm w-1/2">
+                          <SelectValue>
+                            {isIgnoreReason(ignoreReason)
+                              ? IGNORE_REASONS[ignoreReason]
+                              : <span className="text-muted-foreground">Select reason...</span>}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(IGNORE_REASONS).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>{label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {isIgnoreReason(ignoreReason) && (
+                      <p className="pl-30 text-xs text-muted-foreground">{IGNORE_REASON_HINTS[ignoreReason]}</p>
+                    )}
+                    {ignoreReason === "not_affected" && (
+                      <div className="flex items-center gap-2">
+                        <span className="w-28 text-sm text-muted-foreground shrink-0">VEX Justification</span>
+                        <Select value={vexJustification} onValueChange={(v) => setVexJustification(v ?? "")}>
+                          <SelectTrigger className="h-8 text-sm w-1/2">
+                            <SelectValue>{vexJustification ? VEX_JUSTIFICATION_LABELS[vexJustification] : <span className="text-muted-foreground">Select justification...</span>}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(VEX_JUSTIFICATION_LABELS).map(([value, label]) => (
+                              <SelectItem key={value} value={value}>{label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3">
+                      <Button size="sm" onClick={onSaveIgnore} disabled={!ignoreComplete || savingStatus}>
+                        {savingStatus ? "Saving..." : "Save"}
+                      </Button>
+                      {pendingIgnore && (
+                        <span className="text-xs text-amber-700 dark:text-amber-500">
+                          {ignoreComplete
+                            ? "Not saved yet."
+                            : "Select a reason to record why this alert is being ignored."}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
                 <div className="space-y-1.5">

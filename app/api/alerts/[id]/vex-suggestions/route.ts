@@ -3,16 +3,16 @@ import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 
 /**
- * Prior VEX judgments recorded for the *same finding* (same vulnerability, package,
- * version and ecosystem) on other assets.
+ * Prior ignore judgments recorded for the *same finding* (same vulnerability,
+ * package, version and ecosystem) on other assets.
  *
- * These are surfaced for a human to consider, never applied automatically: only
- * `code_not_present` and `protected_by_compiler` are properties of the build
- * itself. The other seven CycloneDX justifications describe the deployment
- * (network placement, runtime protections, configuration, reachability from the
- * calling application), so a judgment made on one asset can be plainly wrong on
- * another. `environmentDiffers` flags the case where the two assets carry
- * different tags, which is the signal most likely to invalidate a reused judgment.
+ * These are surfaced for a human to consider, never applied automatically. Of the
+ * nine CycloneDX justifications only `code_not_present` and
+ * `protected_by_compiler` are properties of the build itself; the other seven
+ * describe the deployment (network placement, runtime protections, configuration,
+ * reachability from the calling application), so a judgment made on one asset can
+ * be plainly wrong on another. `environmentDiffers` flags assets carrying
+ * different tags, the signal most likely to invalidate a reused judgment.
  */
 
 const BUILD_LEVEL_JUSTIFICATIONS = new Set(["code_not_present", "protected_by_compiler"])
@@ -35,6 +35,7 @@ export async function GET(
       packageName: true,
       packageVersion: true,
       ecosystem: true,
+      ignoreReason: true,
       vexJustification: true,
       asset: { select: { assetTags: { select: { tag: { select: { name: true } } } } } },
     },
@@ -50,10 +51,13 @@ export async function GET(
       packageName: alert.packageName,
       packageVersion: alert.packageVersion,
       ecosystem: alert.ecosystem,
-      vexJustification: { not: null },
+      status: "ignored",
+      // A reason, or a justification from before the reason column existed.
+      OR: [{ ignoreReason: { not: null } }, { vexJustification: { not: null } }],
     },
     select: {
       id: true,
+      ignoreReason: true,
       vexJustification: true,
       updatedAt: true,
       asset: {
@@ -69,7 +73,11 @@ export async function GET(
   })
 
   // Nothing to suggest if this alert already carries that same judgment.
-  const candidates = others.filter((o) => o.vexJustification !== alert.vexJustification)
+  const candidates = others.filter(
+    (o) =>
+      o.ignoreReason !== alert.ignoreReason ||
+      o.vexJustification !== alert.vexJustification
+  )
   if (candidates.length === 0) return NextResponse.json([])
 
   // Attribution comes from the event log, which records who set the justification
@@ -91,12 +99,18 @@ export async function GET(
     const tags = c.asset.assetTags.map((t) => t.tag.name).sort()
     const event = latestEvent.get(c.id)
     const data = (event?.data ?? {}) as Record<string, unknown>
+    // Pre-column rows carry a justification and no reason, which meant not_affected.
+    const reason = c.ignoreReason ?? "not_affected"
     return {
-      justification: c.vexJustification!,
+      reason,
+      justification: c.vexJustification,
       assetName: c.asset.name || c.asset.hostname,
       assetTags: tags,
       environmentDiffers: tags.join(",") !== ownTags.join(","),
-      buildLevel: BUILD_LEVEL_JUSTIFICATIONS.has(c.vexJustification!),
+      // A false positive is a property of the scan, not of where the package runs,
+      // so it carries across assets the same way a build-level justification does.
+      requiresReverification:
+        reason === "not_affected" && !BUILD_LEVEL_JUSTIFICATIONS.has(c.vexJustification ?? ""),
       decidedBy:
         event?.type === "vex_imported"
           ? "VEX import"

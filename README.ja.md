@@ -24,9 +24,17 @@
 - **アラート詳細** — 行クリックでスライドパネルを表示。Overview・NVD・OSV・Advisory・**Dependents** *（Beta）*（脆弱パッケージへの依存パスをインタラクティブグラフで表示）・Timeline タブ
 - **アラート対応履歴** — 検知・ステータス変更・メモ保存（更新者名とメモ内容を記録）・CVSSスコア変更・重要度変更・KEV追加・VEX justification 変更を自動記録し、Timeline タブで時系列表示
 - **VEX（Vulnerability Exploitability eXchange）対応** *（Beta）* — Producer・Consumer 両方のワークフローに対応:
-  - **エクスポート**（`GET /api/vex`・**Export VEX** ボタン）: justification 付きの Ignored アラートを CycloneDX 1.6 VEX JSON（`not_affected`）として出力。`trivy image myapp --vex vex.json` でスキャン時の誤検知抑制に活用可能
-  - **インポート**（`POST /api/vex/import`・**Import VEX** ボタン）: ベンダー公開 VEX や外部ツール生成の CycloneDX VEX を読み込み、マッチするアラートに自動適用。Timeline に `vex_imported` イベントを記録
-  - Ignored 設定時に CycloneDX 標準の justification（`code_not_reachable`・`code_not_present`・`requires_configuration` 等）を選択して記録
+  - **エクスポート**（`GET /api/vex`・**Export VEX** ボタン）: Ignored アラートを CycloneDX 1.6 VEX JSON として出力。`trivy image myapp --vex vex.json` でスキャン時の誤検知抑制に活用可能
+  - **インポート**（`POST /api/vex/import`・**Import VEX** ボタン）: ベンダー公開 VEX や外部ツール生成の CycloneDX VEX を読み込み、マッチするアラートに自動適用。Timeline に `vex_imported` イベントを記録。影響バージョンは PURL（`pkg:npm/lodash@4.17.20`）と `affects[].versions[]` の両方から解決する。VERS 範囲記法（`vers:npm/>=4.0.0|<4.17.21`）は評価せず件数を報告する（判定を誤ると悪用可能な脆弱性を自動で無視してしまうため）
+  - **Ignored にする際は理由の選択が必須**。`ignored` は VEX の `not_affected` より広い概念であり、理由を記録しないとエクスポートから抜け落ちて後から追跡できなくなるため:
+
+    | 理由 | 意味 | エクスポート |
+    |---|---|---|
+    | **Not affected** | 脆弱なコードは存在するがこの環境では悪用不可。CycloneDX の justification（`code_not_reachable`・`code_not_present` 等）が必須 | `state: not_affected` + justification |
+    | **False positive** | 検知自体が誤り（パッケージ／バージョンの誤マッチ等） | `state: false_positive` |
+    | **Accepted risk** | 悪用可能だが対応しないと判断 | 出力せず内部記録のみ |
+
+    Accepted risk を出力しないのは意図的です。忠実な表現である `state: exploitable` + `response: will_not_fix` は消費側に対処可能な情報を与えない一方、抑制挙動だけを変えてしまうためです。
   - **過去の判断の再利用**: 同一 finding（脆弱性 + パッケージ + バージョン + エコシステム）を他アセットで判断済みの場合、その内容をアラート画面に提示し、**Apply this judgment** ボタンでワンクリック適用。自動適用はしません。ビルド成果物の性質を表すのは `code_not_present` と `protected_by_compiler` の 2 つだけで、残り 7 つは配置環境（ネットワーク配置・ランタイム保護・設定・呼び出し元コードからの到達可能性）に依存するため、再確認が必要な場合は警告を表示し、タグの異なるアセットも明示します
 - **脆弱性検索** — パッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列、または **Advisory モード**（Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix のベンダーアドバイザリ検索）で直接検索
 - **ユーザー管理** — ユーザーの追加・編集・削除（admin ロールのみ表示・操作可能）
@@ -214,7 +222,7 @@ pnpm dev
    - **OSV** タブ — 詳細説明、影響バージョン一覧、参照リンク一覧
    - **Advisory** タブ — ベンダーアドバイザリ ID・重要度・影響製品とバージョン（Advisory データが存在する場合のみ表示）
 5. ステータスを `Open` → `In Progress` → `Resolved` / `Ignored` に変更して追跡
-   - **Ignored** に設定する際は **VEX Justification** を選択（例: `code_not_reachable`）して判断根拠を記録
+   - **Ignored** に設定する際は **Reason**（Not affected / False positive / Accepted risk）の選択が必須。*Not affected* の場合はさらに **VEX Justification**（例: `code_not_reachable`）も必要です。理由を記録するまでステータスは保存されません
    - 同一 finding を他アセットで判断済みの場合、ステータス欄の上にその判断が表示されます。このアセットでも成立するか確認したうえで **Apply this judgment** ボタンで再利用できます
 6. **Refresh Metadata** ボタンで heretix-api の最新データをアラートに同期
 7. **Export VEX** ボタンで justification 付きの Ignored アラートを CycloneDX VEX JSON（`not_affected`）として出力 → `trivy --vex vex.json` でスキャン時の誤検知を抑制

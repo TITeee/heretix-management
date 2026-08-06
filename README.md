@@ -26,9 +26,17 @@ A vulnerability management console that imports server package information colle
 - **Alert Detail Panel** — Click a row to open a slide-over panel with Overview (basic info, memo, resolution reason), NVD, OSV, Advisory, **Dependents** *(Beta)* (interactive graph showing packages that depend on the vulnerable package, with dependency paths), and Timeline tabs
 - **Alert Timeline** — Automatically records detection, status changes, memo saves (with author name and memo content), CVSS score changes, severity changes, KEV additions, and VEX justification changes in the Timeline tab
 - **VEX (Vulnerability Exploitability eXchange)** *(Beta)* — CycloneDX VEX support for producer and consumer workflows:
-  - **Export** (`GET /api/vex`, **Export VEX** button): Outputs ignored alerts with a justification as CycloneDX 1.6 VEX JSON (`not_affected`). Compatible with `trivy image myapp --vex vex.json`
-  - **Import** (`POST /api/vex/import`, **Import VEX** button): Ingest a CycloneDX VEX document and auto-apply status changes to matching alerts. Records a `vex_imported` event in the Timeline for audit trail
-  - When setting an alert to **Ignored**, select a CycloneDX-standard justification (`code_not_reachable`, `code_not_present`, `requires_configuration`, etc.)
+  - **Export** (`GET /api/vex`, **Export VEX** button): Outputs ignored alerts as CycloneDX 1.6 VEX JSON. Compatible with `trivy image myapp --vex vex.json`
+  - **Import** (`POST /api/vex/import`, **Import VEX** button): Ingest a CycloneDX VEX document and auto-apply status changes to matching alerts. Records a `vex_imported` event in the Timeline for audit trail. Affected versions are read from the PURL (`pkg:npm/lodash@4.17.20`) or from `affects[].versions[]`; VERS ranges (`vers:npm/>=4.0.0|<4.17.21`) are reported back rather than evaluated, since misjudging one would silently ignore an exploitable finding
+  - **Ignoring an alert requires a reason**, because `ignored` covers more ground than VEX's `not_affected` and an unlabelled decision would drop out of the export with nothing left to find it by:
+
+    | Reason | Meaning | Exported as |
+    |---|---|---|
+    | **Not affected** | Vulnerable code is present but cannot be exploited here. Requires a CycloneDX justification (`code_not_reachable`, `code_not_present`, etc.) | `state: not_affected` + justification |
+    | **False positive** | The finding itself is wrong, e.g. the scanner matched the wrong package or version | `state: false_positive` |
+    | **Accepted risk** | Exploitable, but the team decided not to act | Not exported, kept internally |
+
+    Accepted risk is withheld from the document on purpose: its faithful encoding (`state: exploitable` + `response: will_not_fix`) gives a consumer nothing actionable while stopping the finding from being suppressed in their scans.
   - **Prior judgment reuse**: when the same finding (vulnerability + package + version + ecosystem) has already been judged on another asset, that judgment is shown on the alert with a one-click **Apply this judgment** button. Judgments are never applied automatically, because only `code_not_present` and `protected_by_compiler` describe the build itself. The other seven justifications describe the deployment (network placement, runtime protections, configuration, reachability from the calling code), so the panel warns when reuse needs re-verification and flags assets whose tags differ
 - **Vulnerability Search** — Search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or **Advisory mode** (Vendor Advisory search for Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Oracle, Splunk, Apache HTTP Server, Nginx, Apache Tomcat, and Zabbix products)
 - **User Management** — Add, edit, and delete users (admin role only)
@@ -216,7 +224,7 @@ pnpm dev
    - **OSV** tab — Description, affected versions, reference links
    - **Advisory** tab — Vendor advisory ID, severity, affected products and versions (shown only when advisory data exists)
 5. Track progress by changing status: `Open` → `In Progress` → `Resolved` / `Ignored`
-   - When setting **Ignored**, select a **VEX Justification** (e.g., `code_not_reachable`) to record why the vulnerability is not exploitable
+   - When setting **Ignored**, pick a **Reason** (Not affected / False positive / Accepted risk). Choosing *Not affected* also requires a **VEX Justification** (e.g., `code_not_reachable`). The status is not saved until the reason is recorded
    - If the same finding was already judged on another asset, that judgment appears above the status field. Review whether it still holds on this asset, then click **Apply this judgment** to reuse it
 6. Click **Refresh Metadata** to sync the latest data from heretix-api
 7. Click **Export VEX** to download a CycloneDX VEX JSON (ignored alerts with justification → `not_affected`) — feed into `trivy --vex vex.json` to suppress false positives

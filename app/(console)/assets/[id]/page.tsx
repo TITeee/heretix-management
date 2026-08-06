@@ -42,8 +42,13 @@ export default async function AssetDetailPage({
     where: { assetId: id, status: { in: ["open", "in_progress"] } },
   })
 
+  // Mirrors the exporter: accepted_risk stays internal, so it does not enable the button.
   const vexCount = await prisma.alert.count({
-    where: { assetId: id, status: "ignored", vexJustification: { not: null } },
+    where: {
+      assetId: id,
+      status: "ignored",
+      OR: [{ ignoreReason: "false_positive" }, { vexJustification: { not: null } }],
+    },
   })
 
   const pkgAlertCounts = await prisma.alert.groupBy({

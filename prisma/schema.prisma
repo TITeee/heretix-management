@@ -81,6 +81,7 @@ model Alert {
   status         String         @default("open")
   notes             String?
   resolveReason     String?
+  ignoreReason      String?
   vexJustification  String?
   detectedAt        DateTime       @default(now())
   dueDate           DateTime?

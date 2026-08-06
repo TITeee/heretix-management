@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       cvssScore: true, cvssVector: true, summary: true,
       isKev: true, epssScore: true, epssPercentile: true,
       status: true, notes: true, resolveReason: true,
-      vexJustification: true, fixedVersion: true,
+      vexJustification: true, ignoreReason: true, fixedVersion: true,
       detectedAt: true, resolvedAt: true,
       asset: { select: { id: true, name: true, hostname: true } },
     },

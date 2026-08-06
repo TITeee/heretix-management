@@ -42,6 +42,7 @@ export type Alert = {
   notes: string | null
   resolveReason: string | null
   vexJustification?: string | null
+  ignoreReason?: string | null
   fixedVersion?: string | null
   packageDirect?: boolean | null
   detectedAt: Date

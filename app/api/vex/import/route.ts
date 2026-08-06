@@ -25,9 +25,14 @@ function distroQualifierToEcosystem(distro: string): string {
   }
 }
 
-function parsePURLWithVersion(purl: string): { ecosystem: string; name: string; version: string } | null {
-  // Capture TYPE, PATH, VERSION, and optional qualifiers
-  const match = purl.match(/^pkg:(\w+)\/([^@?#]+)@([^?#]*)(?:\?([^#]*))?/)
+/**
+ * The version is optional: CycloneDX lets a statement carry it inline
+ * (`pkg:npm/lodash@4.17.20`) or list versions separately under
+ * `affects[].versions[]`, in which case `ref` is a bare PURL.
+ */
+function parsePURL(purl: string): { ecosystem: string; name: string; version: string | null } | null {
+  // Capture TYPE, PATH, optional VERSION, and optional qualifiers
+  const match = purl.match(/^pkg:(\w+)\/([^@?#]+)(?:@([^?#]*))?(?:\?([^#]*))?/)
   if (!match) return null
   const [, type, fullPath, version, qualifierStr] = match
 
@@ -46,21 +51,27 @@ function parsePURLWithVersion(purl: string): { ecosystem: string; name: string; 
       ? decodeURIComponent(fullPath)
       : decodeURIComponent(fullPath.slice(slashIdx + 1))
     const ecosystem = qualifiers["distro"] ? distroQualifierToEcosystem(qualifiers["distro"]) : ""
-    return { ecosystem, name, version }
+    return { ecosystem, name, version: version ?? null }
   }
 
   const lastSlash = fullPath.lastIndexOf("/")
   const ecosystem = PURL_TYPE_MAP[type] ?? type
   if (lastSlash === -1) {
-    return { ecosystem, name: decodeURIComponent(fullPath), version }
+    return { ecosystem, name: decodeURIComponent(fullPath), version: version ?? null }
   }
   const name = decodeURIComponent(fullPath.slice(0, lastSlash)) + "/" + decodeURIComponent(fullPath.slice(lastSlash + 1))
-  return { ecosystem, name, version }
+  return { ecosystem, name, version: version ?? null }
+}
+
+type VexVersionEntry = {
+  version?: string
+  range?: string
+  status?: string
 }
 
 type VexEntry = {
   id?: string
-  affects?: { ref?: string }[]
+  affects?: { ref?: string; versions?: VexVersionEntry[] }[]
   analysis?: { state?: string; justification?: string; detail?: string }
 }
 
@@ -76,7 +87,7 @@ export async function POST(req: NextRequest) {
   const vulnerabilities: VexEntry[] = body.vulnerabilities ?? []
   const source: string = body.serialNumber ?? "imported"
 
-  let applied = 0, skipped = 0, notFound = 0
+  let applied = 0, skipped = 0, notFound = 0, unsupportedRange = 0
 
   for (const vuln of vulnerabilities) {
     const cveId = vuln.id
@@ -86,70 +97,107 @@ export async function POST(req: NextRequest) {
     // Skip: no ID, no state, or "affected" (default assumption, not actionable)
     if (!cveId || !state || state === "affected") { skipped++; continue }
 
-    // Map VEX state → heretix status
+    // Map VEX state → heretix status + ignore reason. false_positive must be
+    // handled here or a document produced by our own exporter would lose those
+    // statements on re-import.
     let newStatus: string
+    let newIgnoreReason: string | null = null
     switch (state) {
-      case "not_affected":       newStatus = "ignored"; break
-      case "fixed":              newStatus = "resolved"; break
+      case "not_affected":        newStatus = "ignored"; newIgnoreReason = "not_affected"; break
+      case "false_positive":      newStatus = "ignored"; newIgnoreReason = "false_positive"; break
+      case "fixed":               newStatus = "resolved"; break
       case "under_investigation": newStatus = "in_progress"; break
-      default:                   skipped++; continue
+      default:                    skipped++; continue
     }
 
     const newVexJustification = state === "not_affected" ? justification : null
 
+    // not_affected without a justification cannot be represented, and would be
+    // rejected by our own PATCH validation; treat it as unusable rather than
+    // storing an ignore decision that the exporter would then drop.
+    if (state === "not_affected" && !justification) { skipped++; continue }
+
     for (const affect of vuln.affects ?? []) {
       if (!affect.ref) { skipped++; continue }
 
-      const parsed = parsePURLWithVersion(affect.ref)
+      const parsed = parsePURL(affect.ref)
       if (!parsed) { skipped++; continue }
 
-      const where = {
-        externalId: cveId,
-        packageName: parsed.name,
-        packageVersion: parsed.version,
-        ...(parsed.ecosystem ? { ecosystem: parsed.ecosystem } : {}),
+      // The affected versions live either inline in the PURL or, as vendor
+      // documents overwhelmingly do, enumerated under affects[].versions[].
+      // Only exact versions are matched; `range` uses the VERS syntax, which
+      // needs per-ecosystem comparison to evaluate and is reported rather than
+      // guessed at, since a wrong guess would silently suppress a real finding.
+      const versions: string[] = []
+      if (affect.versions?.length) {
+        for (const v of affect.versions) {
+          // status defaults to "affected" when omitted
+          if (v.status && v.status !== "affected") { skipped++; continue }
+          if (v.version) { versions.push(v.version); continue }
+          if (v.range) { unsupportedRange++; continue }
+          skipped++
+        }
+      } else if (parsed.version) {
+        versions.push(parsed.version)
+      } else {
+        skipped++
       }
 
-      const alerts = await prisma.alert.findMany({
-        where,
-        select: { id: true, status: true, vexJustification: true },
-      })
-
-      if (alerts.length === 0) { notFound++; continue }
-
-      for (const alert of alerts) {
-        if (alert.status === newStatus && alert.vexJustification === newVexJustification) {
-          skipped++; continue
+      for (const version of versions) {
+        const where = {
+          externalId: cveId,
+          packageName: parsed.name,
+          packageVersion: version,
+          ...(parsed.ecosystem ? { ecosystem: parsed.ecosystem } : {}),
         }
 
-        await prisma.alert.update({
-          where: { id: alert.id },
-          data: {
-            status: newStatus,
-            vexJustification: newVexJustification,
-            ...(newStatus === "resolved" ? { resolvedAt: new Date() } : {}),
-            ...(newStatus !== "resolved" && alert.status === "resolved" ? { resolvedAt: null } : {}),
-          },
+        const alerts = await prisma.alert.findMany({
+          where,
+          select: { id: true, status: true, vexJustification: true, ignoreReason: true },
         })
 
-        await prisma.alertEvent.create({
-          data: {
-            alertId: alert.id,
-            type: "vex_imported",
+        if (alerts.length === 0) { notFound++; continue }
+
+        for (const alert of alerts) {
+          if (
+            alert.status === newStatus &&
+            alert.vexJustification === newVexJustification &&
+            alert.ignoreReason === newIgnoreReason
+          ) {
+            skipped++; continue
+          }
+
+          await prisma.alert.update({
+            where: { id: alert.id },
             data: {
-              source,
-              state,
-              from: alert.status,
-              to: newStatus,
-              ...(justification ? { justification } : {}),
+              status: newStatus,
+              vexJustification: newVexJustification,
+              ignoreReason: newIgnoreReason,
+              ...(newStatus === "resolved" ? { resolvedAt: new Date() } : {}),
+              ...(newStatus !== "resolved" && alert.status === "resolved" ? { resolvedAt: null } : {}),
             },
-          },
-        })
+          })
 
-        applied++
+          await prisma.alertEvent.create({
+            data: {
+              alertId: alert.id,
+              type: "vex_imported",
+              data: {
+                source,
+                state,
+                from: alert.status,
+                to: newStatus,
+                ...(newIgnoreReason ? { ignoreReason: newIgnoreReason } : {}),
+                ...(justification ? { justification } : {}),
+              },
+            },
+          })
+
+          applied++
+        }
       }
     }
   }
 
-  return NextResponse.json({ applied, skipped, notFound })
+  return NextResponse.json({ applied, skipped, notFound, unsupportedRange })
 }
