@@ -184,7 +184,7 @@ export default function SearchPage() {
                 Package
               </button>
             } />
-            <TooltipContent side="bottom" className="flex flex-col gap-1.5 max-w-xs text-left">
+            <TooltipContent side="bottom" className="flex flex-col items-start gap-1.5 max-w-xs text-left">
               <p>Search vulnerabilities by package name, version, and ecosystem.</p>
               <p className="opacity-80">
                 Ecosystem &ldquo;All&rdquo; searches across all supported databases without
@@ -209,7 +209,7 @@ export default function SearchPage() {
                 CVE / OSV ID
               </button>
             } />
-            <TooltipContent side="bottom" className="flex flex-col gap-1.5 max-w-xs text-left">
+            <TooltipContent side="bottom" className="flex flex-col items-start gap-1.5 max-w-xs text-left">
               <p>Search by exact vulnerability ID.</p>
               <p className="opacity-80">
                 Supports CVE IDs (e.g. CVE-2021-44228) and
@@ -233,7 +233,7 @@ export default function SearchPage() {
                 CPE
               </button>
             } />
-            <TooltipContent side="bottom" className="flex flex-col gap-1.5 max-w-xs text-left">
+            <TooltipContent side="bottom" className="flex flex-col items-start gap-1.5 max-w-xs text-left">
               <p>Search by CPE 2.3 string (vendor + product).</p>
               <p className="opacity-80">
                 Useful for products not covered by package ecosystems.
@@ -257,7 +257,7 @@ export default function SearchPage() {
                 Advisory
               </button>
             } />
-            <TooltipContent side="bottom" className="flex flex-col gap-1.5 max-w-xs text-left">
+            <TooltipContent side="bottom" className="flex flex-col items-start gap-1.5 max-w-xs text-left">
               <p>Search by vendor advisory.</p>
               <p className="opacity-80">
                 Supports Fortinet and Palo Alto Networks products.

@@ -516,7 +516,7 @@ export default async function DashboardPage() {
                       <Info className="h-4.5 w-4.5" />
                     </button>
                   } />
-                  <TooltipContent side="right" className="flex flex-col gap-1 max-w-xs text-left">
+                  <TooltipContent side="right" className="flex flex-col items-start gap-1 max-w-xs text-left">
                     <p><strong>Overdue</strong>: past the SLA deadline</p>
                     <p><strong>Urgent</strong>: due within 24 hours</p>
                     <p><strong>Warning</strong>: due within 7 days</p>

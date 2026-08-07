@@ -203,7 +203,7 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
                         <HelpCircle className="h-3.5 w-3.5" />
                       </button>
                     } />
-                    <TooltipContent side="right" className="flex flex-col gap-2 w-72 max-w-none p-3 text-left">
+                    <TooltipContent side="right" className="flex flex-col items-start gap-2 w-72 max-w-none p-3 text-left">
                       <p className="font-medium">About Ecosystem</p>
                       <p className="opacity-80 leading-relaxed">
                         Specifies the package ecosystem used for OSV-based vulnerability matching.
