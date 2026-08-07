@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { logger } from "@/lib/logger"
 import { createAuditLog } from "@/lib/audit"
+import { diffPackages } from "@/lib/package-diff"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
       body.inventory = convertCycloneDXToInventory(body.inventory)
     }
 
-    const { name, inventory, hostname: simpleHostname, assetType: simpleAssetType } = body
+    const { name, inventory, hostname: simpleHostname, assetType: simpleAssetType, dryRun } = body
 
     // Simple creation (no inventory) — used by Add Manually
     if (!inventory) {
@@ -98,65 +99,76 @@ export async function POST(req: NextRequest) {
 
     const existing = await prisma.asset.findFirst({ where: { hostname } })
 
+    // Preview mode for the manual upload UI: report what an import would do
+    // (which existing asset it matches, and the package diff) without
+    // committing, so the user can confirm before a hostname collision
+    // silently overwrites the wrong asset.
+    if (dryRun) {
+      if (!existing) return NextResponse.json({ existing: null })
+
+      const existingPkgs = await prisma.package.findMany({
+        where: { assetId: existing.id, source: { not: "manual" } },
+        select: { name: true, ecosystem: true, version: true },
+      })
+      const { toCreate, toDelete, supersededVersions } = diffPackages(
+        existingPkgs,
+        incomingPackages as { name: string; version: string; ecosystem: string }[]
+      )
+
+      return NextResponse.json({
+        existing: { id: existing.id, name: existing.name, hostname: existing.hostname, scannedAt: existing.scannedAt },
+        diff: {
+          added: toCreate.length,
+          removed: toDelete.length,
+          // Superseded versions are a subset of the removals, surfaced separately
+          // because those are the ones whose alerts get auto-resolved.
+          superseded: supersededVersions.length,
+        },
+      })
+    }
+
     if (existing) {
-      // Diff-based update: compare by (name, ecosystem)
       const existingPkgs = await prisma.package.findMany({
         where: { assetId: existing.id, source: { not: "manual" } },
       })
 
-      const existingMap = new Map(existingPkgs.map(p => [`${p.name}::${p.ecosystem}`, p]))
       type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[] }
-      const incomingMap = new Map<string, IncomingPkg>(
-        incomingPackages.map((p: IncomingPkg) => [`${p.name}::${p.ecosystem}`, p])
+      const { toCreate, toUpdateMeta, toDelete, supersededVersions } = diffPackages(
+        existingPkgs,
+        incomingPackages as IncomingPkg[]
       )
 
-      const toCreate: typeof incomingPackages = []
-      const toUpdate: { id: string; version: string; rawVersion: string; location: string | null; direct: boolean | null; deps: string[] }[] = []
-      const toUpdateMeta: { id: string; direct: boolean | null; deps: string[] }[] = []
-      const toDelete: string[] = []
       const historyEntries: {
         packageName: string
         ecosystem: string
         action: string
         oldVersion?: string
         newVersion?: string
-      }[] = []
+      }[] = [
+        ...toCreate.map(p => ({ packageName: p.name, ecosystem: p.ecosystem, action: "added", newVersion: p.version })),
+        ...toDelete.map(p => ({ packageName: p.name, ecosystem: p.ecosystem, action: "removed", oldVersion: p.version })),
+      ]
 
-      for (const [key, incoming] of incomingMap) {
-        const exPkg = existingMap.get(key)
-        if (!exPkg) {
-          toCreate.push(incoming)
-          historyEntries.push({ packageName: incoming.name, ecosystem: incoming.ecosystem, action: "added", newVersion: incoming.version })
-        } else if (exPkg.version !== incoming.version) {
-          toUpdate.push({ id: exPkg.id, version: incoming.version, rawVersion: incoming.rawVersion, location: incoming.location, direct: incoming.direct, deps: incoming.deps })
-          historyEntries.push({ packageName: incoming.name, ecosystem: incoming.ecosystem, action: "updated", oldVersion: exPkg.version, newVersion: incoming.version })
-        } else {
-          // Same version: update direct/deps if they changed (e.g. re-import after parser fix)
-          const depsChanged = JSON.stringify(exPkg.deps) !== JSON.stringify(incoming.deps ?? [])
-          if (exPkg.direct !== incoming.direct || depsChanged) {
-            toUpdateMeta.push({ id: exPkg.id, direct: incoming.direct, deps: incoming.deps ?? [] })
-          }
-        }
-      }
-
-      for (const [key, exPkg] of existingMap) {
-        if (!incomingMap.has(key)) {
-          toDelete.push(exPkg.id)
-          historyEntries.push({ packageName: exPkg.name, ecosystem: exPkg.ecosystem, action: "removed", oldVersion: exPkg.version })
-        }
-      }
+      // Matched rows keep their identity; only the mutable metadata can differ
+      // (e.g. re-import after a collector fix filled in deps).
+      const metaChanged = toUpdateMeta.filter(({ existing: ex, incoming: inc }) =>
+        ex.direct !== inc.direct ||
+        ex.location !== inc.location ||
+        ex.rawVersion !== inc.rawVersion ||
+        JSON.stringify(ex.deps) !== JSON.stringify(inc.deps ?? [])
+      )
 
       // Execute all package changes + history in one transaction
       await prisma.$transaction([
-        prisma.package.deleteMany({ where: { id: { in: toDelete } } }),
-        ...toCreate.map((p: { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct?: boolean | null; deps?: string[] }) =>
+        prisma.package.deleteMany({ where: { id: { in: toDelete.map(p => p.id) } } }),
+        ...toCreate.map((p: IncomingPkg) =>
           prisma.package.create({ data: { assetId: existing.id, ...p, deps: p.deps ?? [] } })
         ),
-        ...toUpdate.map(({ id, version, rawVersion, location, direct, deps }) =>
-          prisma.package.update({ where: { id }, data: { version, rawVersion, location, direct, deps } })
-        ),
-        ...toUpdateMeta.map(({ id, direct, deps }) =>
-          prisma.package.update({ where: { id }, data: { direct, deps } })
+        ...metaChanged.map(({ existing: ex, incoming: inc }) =>
+          prisma.package.update({
+            where: { id: ex.id },
+            data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [] },
+          })
         ),
         ...(historyEntries.length > 0
           ? [prisma.packageHistory.createMany({
@@ -165,16 +177,19 @@ export async function POST(req: NextRequest) {
           : []),
       ])
 
-      // Auto-resolve alerts for upgraded packages
-      const upgraded = historyEntries.filter(h => h.action === "updated")
-      for (const pkg of upgraded) {
-        const resolveReason = `Auto-resolved: package upgraded from ${pkg.oldVersion} to ${pkg.newVersion}`
+      // Auto-resolve alerts raised against versions that are no longer installed
+      // while the package itself remains. Pairing an old version to a specific new
+      // one is not possible in general (both versions of a co-installed package can
+      // move at once), and is not needed: what makes the alert stale is simply that
+      // its version is gone.
+      for (const superseded of supersededVersions) {
+        const resolveReason = `Auto-resolved: ${superseded.version} no longer installed (now ${superseded.remainingVersions.join(", ")})`
         const alertsToResolve = await prisma.alert.findMany({
           where: {
             assetId: existing.id,
-            packageName: pkg.packageName,
-            packageVersion: pkg.oldVersion,
-            ecosystem: pkg.ecosystem,
+            packageName: superseded.name,
+            packageVersion: superseded.version,
+            ecosystem: superseded.ecosystem,
             status: { in: ["open", "in_progress"] },
           },
           select: { id: true, status: true },
@@ -208,7 +223,7 @@ export async function POST(req: NextRequest) {
       await createAuditLog({
         userId: session.user.id, userEmail: session.user.email,
         action: "asset_imported", target: asset.name || hostname,
-        detail: `packages: ${incomingPackages.length} (added: ${toCreate.length}, updated: ${toUpdate.length}, removed: ${toDelete.length})`,
+        detail: `packages: ${incomingPackages.length} (added: ${toCreate.length}, removed: ${toDelete.length}, superseded: ${supersededVersions.length})`,
       })
       return NextResponse.json({ ...asset, updated: true }, { status: 200 })
     }

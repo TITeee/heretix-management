@@ -66,7 +66,7 @@ export default async function AssetsPage() {
           </Link>
           <Link href="/assets/new">
             <Button size="sm">
-              <Plus className="mr-1 h-4 w-4" /> Import inventory.json
+              <Plus className="mr-1 h-4 w-4" /> Import
             </Button>
           </Link>
         </div>

@@ -46,6 +46,12 @@ model Package {
   cpe         String?
   direct      Boolean?
   deps        String[]
+
+  // A package is identified by its ecosystem, name and version, matching what a
+  // vulnerability lookup is keyed on and what a PURL encodes. npm and pnpm resolve
+  // several versions of the same package side by side, so name alone is not unique
+  // within an asset.
+  @@unique([assetId, name, version, ecosystem])
 }
 
 model ScanJob {
