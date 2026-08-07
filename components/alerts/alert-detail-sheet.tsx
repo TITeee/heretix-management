@@ -365,9 +365,21 @@ function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open
                   {isIgnoreReason(event.data?.ignoreReason) && (
                     <p className="text-xs text-muted-foreground">{IGNORE_REASONS[event.data.ignoreReason]}</p>
                   )}
-                  {!!event.data?.reason && (
-                    <p className="text-xs text-muted-foreground">{String(event.data.reason)}</p>
-                  )}
+                  {!!event.data?.reason && (() => {
+                    const text = String(event.data.reason)
+                    const prefix = "Auto-resolved:"
+                    const isAutoResolved = text.startsWith(prefix)
+                    return (
+                      <>
+                        {isAutoResolved && (
+                          <Badge variant="outline" className="text-xs px-1.5 py-0 text-green-600 border-green-600/40">
+                            Auto-resolved
+                          </Badge>
+                        )}
+                        <p className="text-xs">{isAutoResolved ? text.slice(prefix.length).trim() : text}</p>
+                      </>
+                    )
+                  })()}
                 </div>
               )}
               {event.type === "notes_saved" && (

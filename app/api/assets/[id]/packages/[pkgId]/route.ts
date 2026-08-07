@@ -31,7 +31,7 @@ export async function PATCH(
   // Auto-resolve open/in_progress alerts when version changes
   if (versionChanged) {
     const oldVersion = pkg.version
-    const resolveReason = `Package version changed: ${oldVersion} → ${version}`
+    const resolveReason = `Auto-resolved: version changed ${oldVersion} → ${version}`
     const alerts = await prisma.alert.findMany({
       where: {
         assetId: pkg.assetId,
