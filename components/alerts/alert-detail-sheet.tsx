@@ -365,6 +365,9 @@ function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open
                   {isIgnoreReason(event.data?.ignoreReason) && (
                     <p className="text-xs text-muted-foreground">{IGNORE_REASONS[event.data.ignoreReason]}</p>
                   )}
+                  {!!event.data?.reason && (
+                    <p className="text-xs text-muted-foreground">{String(event.data.reason)}</p>
+                  )}
                 </div>
               )}
               {event.type === "notes_saved" && (
