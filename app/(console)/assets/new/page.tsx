@@ -212,8 +212,9 @@ export default function NewAssetPage() {
               </div>
               {preview.diff.superseded > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  {preview.diff.superseded} of the removed {preview.diff.superseded === 1 ? "version is" : "versions are"} superseded
-                  by another version of the same package. Their open alerts will be resolved automatically.
+                  {preview.diff.superseded} of the removed {preview.diff.superseded === 1 ? "version is" : "versions are"} replaced
+                  by a newer version of the same package. Their open alerts move to the new version and are
+                  re-checked on the next scan.
                 </p>
               )}
             </div>

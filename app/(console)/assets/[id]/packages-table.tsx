@@ -96,6 +96,7 @@ function PackageFormDialog({
   const [ecosystemSelect, setEcosystemSelect] = useState(pkg ? toSelectValue(pkg.ecosystem) : "")
   const [loading, setLoading] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const isEdit = !!pkg
 
   const versionChanged = isEdit && form.version !== pkg!.version
@@ -109,6 +110,7 @@ function PackageFormDialog({
       )
       setEcosystemSelect(pkg ? toSelectValue(pkg.ecosystem) : "")
       setConfirming(false)
+      setError(null)
     }
     onOpenChange(v)
   }
@@ -121,19 +123,30 @@ function PackageFormDialog({
 
   async function doSave() {
     setLoading(true)
+    setError(null)
     try {
-      if (isEdit) {
-        await fetch(`/api/assets/${assetId}/packages/${pkg!.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(isCpePkg ? { name: form.name, version: form.version, cpe: form.cpe } : form),
-        })
-      } else {
-        await fetch(`/api/assets/${assetId}/packages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
-        })
+      const res = isEdit
+        ? await fetch(`/api/assets/${assetId}/packages/${pkg!.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(isCpePkg ? { name: form.name, version: form.version, cpe: form.cpe } : form),
+          })
+        : await fetch(`/api/assets/${assetId}/packages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(form),
+          })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        setError(body?.error ?? "Could not save the package.")
+        return
+      }
+      // The package is saved either way; only the re-check against heretix-api failed,
+      // so the alerts still describe the version the package had before the edit.
+      if (body?.scanError) {
+        setError(`Saved, but the re-scan failed: ${body.scanError}. Run Scan to refresh the alerts.`)
+        router.refresh()
+        return
       }
       onOpenChange(false)
       router.refresh()
@@ -170,14 +183,15 @@ function PackageFormDialog({
             <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3 text-sm space-y-1">
               <p className="font-medium text-amber-800 dark:text-amber-300">Version change detected</p>
               <p className="text-amber-700 dark:text-amber-400">
-                Changing version from <span className="font-mono font-semibold">{pkg!.version}</span> to <span className="font-mono font-semibold">{form.version}</span> will automatically resolve all open / in-progress alerts for the old version.
+                The open alerts for <span className="font-mono font-semibold">{pkg!.version}</span> move to <span className="font-mono font-semibold">{form.version}</span>, then the asset is scanned to check which of them still apply. Ones that no longer apply are resolved; the rest keep their status and history.
               </p>
-              <p className="text-amber-700 dark:text-amber-400">Run Scan after saving to detect vulnerabilities for the new version.</p>
+              <p className="text-amber-700 dark:text-amber-400">This takes a moment.</p>
             </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
             <DialogFooter>
               <Button variant="outline" onClick={() => setConfirming(false)}>Back</Button>
               <Button onClick={doSave} disabled={loading}>
-                {loading ? "Saving..." : "Yes, continue"}
+                {loading ? "Saving and scanning..." : "Yes, continue"}
               </Button>
             </DialogFooter>
           </div>
@@ -235,6 +249,7 @@ function PackageFormDialog({
                 </>
               )}
             </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
             <DialogFooter>
               <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
               <Button

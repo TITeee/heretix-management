@@ -20,12 +20,26 @@ export type PackageDiff<E extends DiffPackage, I extends DiffPackage> = {
   toUpdateMeta: { existing: E; incoming: I }[]
   toDelete: E[]
   /**
-   * Versions that are no longer installed even though the package itself is
-   * still present at some other version. Alerts raised against these are stale,
-   * so they are auto-resolved; a package that disappeared outright is left alone
-   * because a partial inventory should not silently close its findings.
+   * Versions that are no longer installed even though the package itself is still
+   * present at some other version — an upgrade rather than a removal. Alerts raised
+   * against these move to the successor so the finding keeps its history; a package
+   * that disappeared outright is left alone because a partial inventory should not
+   * silently close its findings.
    */
-  supersededVersions: { name: string; ecosystem: string; version: string; remainingVersions: string[] }[]
+  supersededVersions: {
+    name: string
+    ecosystem: string
+    version: string
+    remainingVersions: string[]
+    /**
+     * The version the alerts move to, or null when several versions of the package
+     * remain and no single one can be called the successor (npm and pnpm resolve
+     * versions side by side, and they can all move at once). Alerts of an ambiguous
+     * supersession stay where they are: guessing a successor would attach a finding
+     * to a version nothing has verified it against.
+     */
+    successor: string | null
+  }[]
 }
 
 function key(p: DiffPackage): string {
@@ -74,6 +88,7 @@ export function diffPackages<E extends DiffPackage, I extends DiffPackage>(
         ecosystem: ex.ecosystem,
         version: ex.version,
         remainingVersions: remaining,
+        successor: remaining.length === 1 ? remaining[0] : null,
       })
     }
   }

@@ -6,6 +6,6 @@ export async function POST() {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { updated } = await refreshMetadata()
-  return NextResponse.json({ updated })
+  const { updated, failed } = await refreshMetadata()
+  return NextResponse.json({ updated, failed })
 }

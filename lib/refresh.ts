@@ -1,9 +1,15 @@
 import { prisma } from "@/lib/db"
 import { getVulnerabilityById } from "@/lib/heretix-api"
 import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
+import { logger } from "@/lib/logger"
 import { calculateDueDate, DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
 
-export async function refreshMetadata(): Promise<{ updated: number }> {
+// heretix-api has no lookup-by-id batch endpoint, so each vulnerability costs one
+// request. They run a few at a time rather than one after another; the cap keeps the
+// refresh from opening a connection per vulnerability against a shared service.
+const LOOKUP_CONCURRENCY = 10
+
+export async function refreshMetadata(): Promise<{ updated: number; failed: number }> {
   // Load SLA configuration
   const slaSetting = await prisma.setting.findUnique({
     where: { key: "sla_config" },
@@ -26,21 +32,30 @@ export async function refreshMetadata(): Promise<{ updated: number }> {
     },
   })
 
-  const uniqueIds = [...new Set(alerts.map(a => a.externalId))]
+  // Grouped up front: scanning the whole alert list once per vulnerability turns the
+  // refresh quadratic on installations where one CVE covers many assets.
+  const alertsByExternalId = new Map<string, typeof alerts>()
+  for (const a of alerts) {
+    const group = alertsByExternalId.get(a.externalId)
+    if (group) group.push(a)
+    else alertsByExternalId.set(a.externalId, [a])
+  }
+  const uniqueIds = [...alertsByExternalId.keys()]
   const run = await prisma.metadataRefreshRun.create({ data: { updatedCount: 0 } })
 
   let updated = 0
   let totalEvents = 0
+  let failed = 0
 
   const severityChangedMap = new Map<string, AlertSummary[]>()
   const kevAddedMap = new Map<string, AlertSummary[]>()
 
-  for (const externalId of uniqueIds) {
+  const refreshOne = async (externalId: string) => {
     try {
       const vuln = await getVulnerabilityById(externalId)
-      if (!vuln) continue
+      if (!vuln) return
 
-      const targets = alerts.filter(a => a.externalId === externalId)
+      const targets = alertsByExternalId.get(externalId) ?? []
 
       for (const alert of targets) {
         const events: { type: string; data: object }[] = []
@@ -115,9 +130,33 @@ export async function refreshMetadata(): Promise<{ updated: number }> {
           totalEvents += events.length
         }
       }
-    } catch {
-      // Skip heretix-api errors
+    } catch (err) {
+      // One vulnerability failing must not abandon the rest, but it is not nothing
+      // either: a refresh that reaches nothing would otherwise report a clean run.
+      failed++
+      logger.warn("metadata refresh failed for vulnerability", {
+        externalId,
+        error: err instanceof Error ? err.message : String(err),
+      })
     }
+  }
+
+  for (let i = 0; i < uniqueIds.length; i += LOOKUP_CONCURRENCY) {
+    await Promise.all(uniqueIds.slice(i, i + LOOKUP_CONCURRENCY).map(refreshOne))
+  }
+
+  logger.info("metadata refresh completed", {
+    vulnerabilities: uniqueIds.length,
+    alerts: alerts.length,
+    updated,
+    events: totalEvents,
+    failed,
+  })
+  if (failed > 0) {
+    logger.warn("metadata refresh could not reach some vulnerabilities", {
+      failed,
+      total: uniqueIds.length,
+    })
   }
 
   if (totalEvents === 0) {
@@ -148,5 +187,5 @@ export async function refreshMetadata(): Promise<{ updated: number }> {
     }).catch(() => {})
   }
 
-  return { updated }
+  return { updated, failed }
 }

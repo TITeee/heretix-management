@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
+import { scanAsset } from "@/lib/scan"
+import { carryForwardAlerts } from "@/lib/alerts"
+import { logger } from "@/lib/logger"
 
 export async function PATCH(
   req: NextRequest,
@@ -15,7 +18,26 @@ export async function PATCH(
   const pkg = await prisma.package.findUnique({ where: { id: pkgId } })
   if (!pkg) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  const versionChanged = version !== undefined && version !== pkg.version
+  const next = {
+    name: name ?? pkg.name,
+    version: version ?? pkg.version,
+    ecosystem: ecosystem ?? pkg.ecosystem,
+  }
+  const identityChanged =
+    next.name !== pkg.name || next.version !== pkg.version || next.ecosystem !== pkg.ecosystem
+
+  if (identityChanged) {
+    const clash = await prisma.package.findFirst({
+      where: { assetId: pkg.assetId, ...next, id: { not: pkg.id } },
+      select: { id: true },
+    })
+    if (clash) {
+      return NextResponse.json(
+        { error: `${next.name} ${next.version} is already registered on this asset` },
+        { status: 409 }
+      )
+    }
+  }
 
   const updated = await prisma.package.update({
     where: { id: pkgId },
@@ -28,31 +50,24 @@ export async function PATCH(
     },
   })
 
-  // Auto-resolve open/in_progress alerts when version changes
-  if (versionChanged) {
-    const oldVersion = pkg.version
-    const resolveReason = `Auto-resolved: version changed ${oldVersion} → ${version}`
-    const alerts = await prisma.alert.findMany({
-      where: {
-        assetId: pkg.assetId,
-        packageName: pkg.name,
-        packageVersion: oldVersion,
-        status: { in: ["open", "in_progress"] },
-      },
-    })
-    for (const alert of alerts) {
-      await prisma.alert.update({
-        where: { id: alert.id },
-        data: { status: "resolved", resolvedAt: new Date(), resolveReason },
-      })
-      await prisma.alertEvent.create({
-        data: {
-          alertId: alert.id,
-          type: "status_changed",
-          data: { from: alert.status, to: "resolved", reason: resolveReason },
-        },
-      })
-    }
+  if (!identityChanged) return NextResponse.json(updated)
+
+  await carryForwardAlerts(
+    { assetId: pkg.assetId, name: pkg.name, version: pkg.version, ecosystem: pkg.ecosystem },
+    { assetId: pkg.assetId, ...next }
+  )
+
+  // Ask heretix-api whether the package is still affected. Findings that survive the
+  // edit are matched to the carried rows and left untouched; the ones that are fixed
+  // are closed by the scan's reconciliation. Deciding that here from the version
+  // strings alone would mean guessing, and a wrong guess silently hides a real finding.
+  try {
+    await scanAsset(pkg.assetId)
+  } catch (err) {
+    const scanError = err instanceof Error ? err.message : "Unknown error"
+    logger.warn("rescan after package edit failed", { assetId: pkg.assetId, pkgId, error: scanError })
+    // The package edit itself stands; the alerts simply keep the state they had.
+    return NextResponse.json({ ...updated, scanError })
   }
 
   return NextResponse.json(updated)

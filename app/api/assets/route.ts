@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth"
 import { logger } from "@/lib/logger"
 import { createAuditLog } from "@/lib/audit"
 import { diffPackages } from "@/lib/package-diff"
+import { carryForwardAlerts } from "@/lib/alerts"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -120,9 +121,9 @@ export async function POST(req: NextRequest) {
         diff: {
           added: toCreate.length,
           removed: toDelete.length,
-          // Superseded versions are a subset of the removals, surfaced separately
-          // because those are the ones whose alerts get auto-resolved.
-          superseded: supersededVersions.length,
+          // Upgrades are a subset of the removals, surfaced separately because those
+          // are the ones whose open alerts follow the package to its new version.
+          superseded: supersededVersions.filter((s) => s.successor).length,
         },
       })
     }
@@ -177,36 +178,26 @@ export async function POST(req: NextRequest) {
           : []),
       ])
 
-      // Auto-resolve alerts raised against versions that are no longer installed
-      // while the package itself remains. Pairing an old version to a specific new
-      // one is not possible in general (both versions of a co-installed package can
-      // move at once), and is not needed: what makes the alert stale is simply that
-      // its version is gone.
+      // Carry the alerts of an upgraded package over to the version that replaced it,
+      // so a finding that survives the upgrade stays the same alert instead of being
+      // closed here and raised again as a new one. Whether it survives is not decided
+      // here: the next scan asks heretix-api and closes the ones it no longer reports.
       for (const superseded of supersededVersions) {
-        const resolveReason = `Auto-resolved: ${superseded.version} no longer installed (now ${superseded.remainingVersions.join(", ")})`
-        const alertsToResolve = await prisma.alert.findMany({
-          where: {
+        if (!superseded.successor) continue
+        await carryForwardAlerts(
+          {
             assetId: existing.id,
-            packageName: superseded.name,
-            packageVersion: superseded.version,
+            name: superseded.name,
+            version: superseded.version,
             ecosystem: superseded.ecosystem,
-            status: { in: ["open", "in_progress"] },
           },
-          select: { id: true, status: true },
-        })
-        for (const alert of alertsToResolve) {
-          await prisma.alert.update({
-            where: { id: alert.id },
-            data: { status: "resolved", resolvedAt: new Date(), resolveReason },
-          })
-          await prisma.alertEvent.create({
-            data: {
-              alertId: alert.id,
-              type: "status_changed",
-              data: { from: alert.status, to: "resolved", reason: resolveReason },
-            },
-          })
-        }
+          {
+            assetId: existing.id,
+            name: superseded.name,
+            version: superseded.successor,
+            ecosystem: superseded.ecosystem,
+          }
+        )
       }
 
       const asset = await prisma.asset.update({
@@ -223,7 +214,7 @@ export async function POST(req: NextRequest) {
       await createAuditLog({
         userId: session.user.id, userEmail: session.user.email,
         action: "asset_imported", target: asset.name || hostname,
-        detail: `packages: ${incomingPackages.length} (added: ${toCreate.length}, removed: ${toDelete.length}, superseded: ${supersededVersions.length})`,
+        detail: `packages: ${incomingPackages.length} (added: ${toCreate.length}, removed: ${toDelete.length}, upgraded: ${supersededVersions.filter((s) => s.successor).length})`,
       })
       return NextResponse.json({ ...asset, updated: true }, { status: 200 })
     }

@@ -64,7 +64,17 @@ export function AlertsTableClient({ data, initialPackageName, initialAssetId, sl
         toast.error(data.error ?? "Update failed.", { style: { background: "#e11d48", color: "#fff", border: "none" } })
         return
       }
-      toast.success(`${data.updated} alert${data.updated !== 1 ? "s" : ""} updated.`, { style: { background: "#0d9488", color: "#fff", border: "none" } })
+      const updated = `${data.updated} alert${data.updated !== 1 ? "s" : ""} updated`
+      if (data.failed > 0) {
+        // Reporting only the successes would make an unreachable heretix-api look
+        // like a run that found nothing to change.
+        toast.error(
+          `${updated}. ${data.failed} vulnerabilit${data.failed !== 1 ? "ies" : "y"} could not be reached.`,
+          { style: { background: "#e11d48", color: "#fff", border: "none" } }
+        )
+      } else {
+        toast.success(`${updated}.`, { style: { background: "#0d9488", color: "#fff", border: "none" } })
+      }
       router.refresh()
     } catch {
       toast.error("Update failed.", { style: { background: "#e11d48", color: "#fff", border: "none" } })
