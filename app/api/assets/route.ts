@@ -275,6 +275,13 @@ const PURL_TYPE_MAP: Record<string, string> = {
 }
 
 function distroQualifierToEcosystem(distro: string): string {
+  // Oracle Linux's canonical qualifier carries no version segment (heretix-api routes
+  // it on the bare string "oracle-linux"), unlike every other distro here. It has to
+  // be checked before the generic "{id}-{version}" split below, which would otherwise
+  // misparse the hyphen inside "oracle-linux" itself as the id/version boundary
+  // (id="oracle", ver="linux") and silently fall through to "".
+  if (distro === "oracle-linux") return "oracle-linux"
+
   // distro format: "{id}-{version}" e.g. "almalinux-9", "ubuntu-22.04", "alpine-3.18"
   const lastDash = distro.lastIndexOf("-")
   if (lastDash === -1) return ""
@@ -286,6 +293,8 @@ function distroQualifierToEcosystem(distro: string): string {
     case "debian":      return `Debian:${ver}`
     case "alpine":      return `Alpine:v${ver}`
     case "rocky":       return `Rocky:${ver}`
+    // Older heretix-cli builds (2026-04-15 to 2026-08) emitted "oraclelinux-<major>"
+    // before being reverted to the bare, version-less form handled above.
     case "oraclelinux": return "oracle-linux"
     case "rhel":        return `Red Hat:${ver}`
     case "centos":      return `CentOS:${ver}`
