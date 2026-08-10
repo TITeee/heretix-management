@@ -197,7 +197,18 @@ export const assetColumns: ColumnDef<AssetRow>[] = [
   },
   {
     accessorKey: "scannedAt",
-    header: "Last Scanned",
+    header: ({ column }) => (
+      <Button variant="ghost" size="sm" onClick={() => column.toggleSorting()}>
+        Last Scanned <ArrowUpDown className="ml-1 h-3 w-3" />
+      </Button>
+    ),
+    // Never-scanned assets sort as older than any scanned one in both directions,
+    // rather than landing wherever null happens to fall in a generic comparator.
+    sortingFn: (a, b) => {
+      const av = a.original.scannedAt ? new Date(a.original.scannedAt).getTime() : -Infinity
+      const bv = b.original.scannedAt ? new Date(b.original.scannedAt).getTime() : -Infinity
+      return av - bv
+    },
     cell: ({ row }) =>
       row.original.scannedAt
         ? new Date(row.original.scannedAt).toLocaleString("en-US")
