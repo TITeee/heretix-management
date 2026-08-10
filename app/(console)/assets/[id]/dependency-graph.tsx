@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { Maximize2, Minimize2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SeverityBadge } from "@/components/alerts/vuln-detail-tabs"
@@ -70,10 +70,37 @@ export function DependencyGraph({ assetId }: { assetId: string }) {
   const [alertsLoading, setAlertsLoading] = useState(false)
   const [selectedAlert, setSelectedAlert] = useState<SheetAlert | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  // Close the side panel on any click outside it, except: clicks on a graph node
+  // (onNodeClick below owns that transition — switch to the new node, or close for a
+  // non-vulnerable one) and clicks inside the alert detail Sheet, which renders into
+  // a portal outside this panel's DOM subtree and manages its own open state.
+  //
+  // Registered on the capture phase: React Flow's pan/zoom handling stops
+  // propagation on pointer events inside the canvas (pane, controls, minimap), so a
+  // bubble-phase document listener never sees clicks there. Capture fires on the way
+  // down, before that happens, so it isn't affected.
+  useEffect(() => {
+    if (!selectedNode) return
+    function handlePointerDown(e: MouseEvent) {
+      const target = e.target as HTMLElement
+      if (target.closest(".react-flow__node")) return
+      if (target.closest('[data-slot="sheet-content"], [data-slot="sheet-overlay"]')) return
+      if (panelRef.current && !panelRef.current.contains(target)) {
+        setSelectedNode(null)
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown, true)
+    return () => document.removeEventListener("mousedown", handlePointerDown, true)
+  }, [selectedNode])
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     const graphNode = data?.nodes.find(n => n.id === node.id)
-    if (!graphNode?.vulnerable || graphNode.alertCount === 0) return
+    if (!graphNode?.vulnerable || graphNode.alertCount === 0) {
+      setSelectedNode(null)
+      return
+    }
     setSelectedNode({ name: graphNode.name, version: graphNode.version })
     setAlertsLoading(true)
     fetch(`/api/alerts?assetId=${assetId}&packageName=${encodeURIComponent(graphNode.name)}&packageVersion=${encodeURIComponent(graphNode.version)}`)
@@ -140,8 +167,11 @@ export function DependencyGraph({ assetId }: { assetId: string }) {
     </div>
   )
 
+  // z-60: above the fullscreen container's fixed inset-0 z-50 — same z-index would
+  // leave the outcome to DOM order, which puts the fullscreen graph on top and hides
+  // this panel behind it.
   const alertPanel = selectedNode && (
-    <div className="fixed left-0 top-0 z-50 h-full w-80 border-r bg-background shadow-xl flex flex-col">
+    <div ref={panelRef} className="fixed left-0 top-0 z-60 h-full w-80 border-r bg-background shadow-xl flex flex-col">
       <div className="flex items-center justify-between p-4 border-b">
         <div className="min-w-0">
           <p className="text-sm font-semibold truncate">{selectedNode.name}</p>
