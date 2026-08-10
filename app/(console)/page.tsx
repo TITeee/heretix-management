@@ -355,10 +355,11 @@ async function getDashboardData() {
     where: { status: { in: ["open", "in_progress"] } },
     select: { assetId: true, packageName: true, packageVersion: true },
   })
+  // One OR condition per open alert used to build the query, which blows past
+  // Postgres's parameter limit once alert counts grow large. Fetching every package
+  // for the affected assets and matching in memory instead scales with asset count.
   const depPkgs = await prisma.package.findMany({
-    where: {
-      OR: openAlertPkgs.map(a => ({ assetId: a.assetId, name: a.packageName, version: a.packageVersion })),
-    },
+    where: { assetId: { in: [...new Set(openAlertPkgs.map(a => a.assetId))] } },
     select: { assetId: true, name: true, version: true, direct: true },
   })
   const depMap = new Map(depPkgs.map(p => [`${p.assetId}::${p.name}::${p.version}`, p.direct]))

@@ -46,11 +46,12 @@ export default async function AlertsPage({
     packageTagMap.get(pt.packageName)!.push(pt.tag)
   }
 
-  // Fetch direct/indirect flag from Package table for each alert
+  // Fetch direct/indirect flag from Package table for each alert. One OR condition
+  // per alert would blow past Postgres's parameter limit once the unfiltered alert
+  // list grows large; fetching every package for the affected assets and matching
+  // in memory instead scales with asset count.
   const packages = await prisma.package.findMany({
-    where: {
-      OR: alerts.map(a => ({ assetId: a.assetId, name: a.packageName, version: a.packageVersion })),
-    },
+    where: { assetId: { in: [...new Set(alerts.map(a => a.assetId))] } },
     select: { assetId: true, name: true, version: true, direct: true },
   })
   const directMap = new Map(packages.map(p => [`${p.assetId}::${p.name}::${p.version}`, p.direct]))
