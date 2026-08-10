@@ -444,25 +444,37 @@ export function OsvTab({ detail, loading, error }: { detail: VulnDetail | null; 
                   <thead>
                     <tr className="border-b bg-muted/50">
                       <th className="px-3 py-2 text-left font-medium">Ecosystem / Package</th>
-                      <th className="px-3 py-2 text-left font-medium">Introduced</th>
+                      <th className="px-3 py-2 text-left font-medium">Affected Range</th>
                       <th className="px-3 py-2 text-left font-medium">Fixed</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {osv.affectedPackages.map((pkg, i) => (
-                      <tr key={i} className="border-b last:border-0">
-                        <td className="px-3 py-2">
-                          <div className="font-medium">{pkg.packageName}</div>
-                          <div className="text-muted-foreground">{pkg.ecosystem}</div>
-                        </td>
-                        <td className="px-3 py-2 font-mono text-muted-foreground">
-                          {pkg.introducedVersion ?? "n/a"}
-                        </td>
-                        <td className="px-3 py-2 font-mono text-muted-foreground">
-                          {pkg.fixedVersion ?? pkg.lastAffectedVersion ?? "n/a"}
-                        </td>
-                      </tr>
-                    ))}
+                    {osv.affectedPackages.map((pkg, i) => {
+                      // OSV's "fixed" event is an exclusive upper bound (affected < fixed);
+                      // "last_affected" is inclusive (affected ≤ lastAffected, and no fix is
+                      // known yet). Keeping lastAffectedVersion out of the Fixed column matters
+                      // here specifically: showing it there read as "fixed at this version" when
+                      // it means the opposite — this version is still affected.
+                      const lower = pkg.introducedVersion ? `≥ ${pkg.introducedVersion}` : null
+                      const upper = pkg.fixedVersion
+                        ? `< ${pkg.fixedVersion}`
+                        : pkg.lastAffectedVersion
+                        ? `≤ ${pkg.lastAffectedVersion}`
+                        : null
+                      const range = [lower, upper].filter(Boolean).join(", ") || "n/a"
+                      return (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="px-3 py-2">
+                            <div className="font-medium">{pkg.packageName}</div>
+                            <div className="text-muted-foreground">{pkg.ecosystem}</div>
+                          </td>
+                          <td className="px-3 py-2 font-mono text-muted-foreground">{range}</td>
+                          <td className="px-3 py-2 font-mono text-muted-foreground">
+                            {pkg.fixedVersion ?? "n/a"}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -635,14 +647,19 @@ export function AdvisoryTab({ detail, loading }: { detail: VulnDetail | null; lo
                           <div className="text-muted-foreground">{p.vendor}</div>
                         </td>
                         <td className="px-3 py-2 font-mono text-muted-foreground">
+                          {/* versionEnd is an exclusive upper bound ("fixed in X" means
+                              affected versions are < X); lastAffected is inclusive. Mixing
+                              up the two made a row read as e.g. "affected ≤ 1.2.3" next to
+                              "Fixed: 1.2.3" — contradictory, since a version can't be both
+                              affected and the fix at once. */}
                           {p.versionStart && p.versionEnd
-                            ? `${p.versionStart} – ${p.versionEnd}`
+                            ? `≥ ${p.versionStart}, < ${p.versionEnd}`
                             : p.versionStart && p.lastAffected
                             ? `${p.versionStart} – ${p.lastAffected}`
                             : p.versionStart
                             ? `≥ ${p.versionStart}`
                             : p.versionEnd
-                            ? `≤ ${p.versionEnd}`
+                            ? `< ${p.versionEnd}`
                             : p.lastAffected
                             ? `≤ ${p.lastAffected}`
                             : p.affectedVersions.length > 0
