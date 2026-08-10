@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Pencil, Trash2, X } from "lucide-react"
+import { ArrowUpDown, Pencil, Trash2, X } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
@@ -322,18 +322,28 @@ function DeleteButton({ assetId, pkg }: { assetId: string; pkg: PackageRow }) {
 }
 
 
+function sortableHeader(label: string) {
+  return function Header({ column }: { column: { toggleSorting: () => void } }) {
+    return (
+      <Button variant="ghost" size="sm" onClick={() => column.toggleSorting()}>
+        {label} <ArrowUpDown className="ml-1 h-3 w-3" />
+      </Button>
+    )
+  }
+}
+
 function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
   return [
-    { accessorKey: "name", header: "Package" },
-    { accessorKey: "version", header: "Version" },
+    { accessorKey: "name", header: sortableHeader("Package") },
+    { accessorKey: "version", header: sortableHeader("Version") },
     {
       accessorKey: "ecosystem",
-      header: "Ecosystem",
+      header: sortableHeader("Ecosystem"),
       cell: ({ row }) => row.original.ecosystem || "Other",
     },
     {
       accessorKey: "source",
-      header: "Source",
+      header: sortableHeader("Source"),
       cell: ({ row }) => (
         row.original.source === "manual"
           ? <Badge variant="outline" className="text-xs">manual</Badge>
@@ -342,7 +352,14 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
     },
     {
       accessorKey: "direct",
-      header: "Dependency",
+      header: sortableHeader("Dependency"),
+      // Direct sorts before indirect, with the direct/indirect-unknown packages
+      // (older imports predating the flag) trailing rather than landing wherever
+      // a plain boolean-to-number coercion of null happens to put them.
+      sortingFn: (a, b) => {
+        const rank = (v: boolean | null | undefined) => (v === true ? 0 : v === false ? 1 : 2)
+        return rank(a.original.direct) - rank(b.original.direct)
+      },
       cell: ({ row }) => {
         if (row.original.direct === true) return <Badge className="text-xs">Direct</Badge>
         if (row.original.direct === false) return <Badge variant="outline" className="text-xs text-muted-foreground">Indirect</Badge>
@@ -360,7 +377,8 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
     },
     {
       id: "alerts",
-      header: "Alerts",
+      accessorFn: (row) => row.alertCount,
+      header: sortableHeader("Alerts"),
       cell: ({ row }) => {
         const count = row.original.alertCount
         const href = `/alerts?assetId=${assetId}&packageName=${encodeURIComponent(row.original.name)}`
