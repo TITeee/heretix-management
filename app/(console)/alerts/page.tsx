@@ -5,7 +5,7 @@ import { DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
 export default async function AlertsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ assetId?: string; status?: string; severity?: string; packageName?: string }>
+  searchParams: Promise<{ assetId?: string; status?: string; severity?: string; packageName?: string; packageVersion?: string }>
 }) {
   const params = await searchParams
   const alerts = await prisma.alert.findMany({
@@ -13,6 +13,7 @@ export default async function AlertsPage({
       ...(params.assetId ? { assetId: params.assetId } : {}),
       ...(params.status ? { status: params.status } : {}),
       ...(params.packageName ? { packageName: params.packageName } : {}),
+      ...(params.packageVersion ? { packageVersion: params.packageVersion } : {}),
     },
     orderBy: [{ cvssScore: "desc" }, { detectedAt: "desc" }],
     include: {

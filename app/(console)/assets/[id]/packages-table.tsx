@@ -381,7 +381,7 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
       header: sortableHeader("Alerts"),
       cell: ({ row }) => {
         const count = row.original.alertCount
-        const href = `/alerts?assetId=${assetId}&packageName=${encodeURIComponent(row.original.name)}`
+        const href = `/alerts?assetId=${assetId}&packageName=${encodeURIComponent(row.original.name)}&packageVersion=${encodeURIComponent(row.original.version)}`
         return count > 0
           ? <Link href={href}><Badge variant="destructive" className="cursor-pointer">{count}</Badge></Link>
           : <Badge variant="outline">0</Badge>

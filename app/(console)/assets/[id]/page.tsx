@@ -51,15 +51,19 @@ export default async function AssetDetailPage({
     },
   })
 
+  // Grouped by version as well as name: RPM-style packages routinely keep several
+  // installed versions side by side (e.g. old kernel builds left in place after an
+  // upgrade), and each is a distinct Package row with its own alerts. Grouping by
+  // name alone summed every version's alerts onto each row.
   const pkgAlertCounts = await prisma.alert.groupBy({
-    by: ["packageName"],
+    by: ["packageName", "packageVersion"],
     where: { assetId: id },
     _count: { id: true },
   })
-  const pkgAlertMap = new Map(pkgAlertCounts.map(r => [r.packageName, r._count.id]))
+  const pkgAlertMap = new Map(pkgAlertCounts.map(r => [`${r.packageName}::${r.packageVersion}`, r._count.id]))
   const packagesWithAlerts = asset.packages.map(p => ({
     ...p,
-    alertCount: pkgAlertMap.get(p.name) ?? 0,
+    alertCount: pkgAlertMap.get(`${p.name}::${p.version}`) ?? 0,
   }))
 
   return (
