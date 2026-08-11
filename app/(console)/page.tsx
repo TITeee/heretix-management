@@ -257,11 +257,11 @@ async function getDashboardData() {
       where: { assetId: { in: allTaggedAssetIds }, status: { in: activeStatus } },
     }),
     prisma.alert.groupBy({
-      by: ["assetId", "severity"], _count: { id: true },
+      by: ["assetId", "cvssScore"], _count: { id: true },
       where: { assetId: { in: allTaggedAssetIds }, status: { in: activeStatus } },
     }),
     prisma.alert.groupBy({
-      by: ["assetId", "severity"], _count: { id: true },
+      by: ["assetId", "cvssScore"], _count: { id: true },
       where: { assetId: { in: allTaggedAssetIds }, status: { in: activeStatus }, detectedAt: { gte: since24h } },
     }),
     prisma.alert.groupBy({
@@ -278,11 +278,11 @@ async function getDashboardData() {
       where: { packageName: { in: allTaggedPkgNames }, status: { in: activeStatus } },
     }),
     prisma.alert.groupBy({
-      by: ["packageName", "packageVersion", "severity"], _count: { id: true },
+      by: ["packageName", "packageVersion", "cvssScore"], _count: { id: true },
       where: { packageName: { in: allTaggedPkgNames }, status: { in: activeStatus } },
     }),
     prisma.alert.groupBy({
-      by: ["packageName", "packageVersion", "severity"], _count: { id: true },
+      by: ["packageName", "packageVersion", "cvssScore"], _count: { id: true },
       where: { packageName: { in: allTaggedPkgNames }, status: { in: activeStatus }, detectedAt: { gte: since24h } },
     }),
     prisma.alert.groupBy({
@@ -293,16 +293,21 @@ async function getDashboardData() {
 
   type SeverityCounts = { critical: number; high: number; medium: number; low: number; unknown: number }
 
-  function buildSeverityCounts(rows: { severity?: string | null; _count?: { id?: number } | number }[]): SeverityCounts {
+  // Buckets by cvssScore, not the severity string column: some sources (e.g. OSV
+  // GHSA advisories) set severity without a cvssScore, which would otherwise land in
+  // a real tier here while the same alert counts as N/A everywhere else that buckets
+  // by score (getSeverityTier, buildTagSeverity, the Alerts list itself) — undercounting
+  // N/A on this tab relative to the real alert list.
+  function buildSeverityCounts(rows: { cvssScore?: number | null; _count?: { id?: number } | number }[]): SeverityCounts {
     const c = { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 }
     for (const r of rows) {
-      const s = ((r as { severity?: string | null }).severity ?? "").toUpperCase()
+      const score = (r as { cvssScore?: number | null }).cvssScore ?? null
       const cnt = typeof r._count === "number" ? r._count : ((r._count as { id?: number })?.id ?? 0)
-      if (s === "CRITICAL") c.critical += cnt
-      else if (s === "HIGH") c.high += cnt
-      else if (s === "MEDIUM") c.medium += cnt
-      else if (s === "LOW") c.low += cnt
-      else c.unknown += cnt
+      if (!score) c.unknown += cnt
+      else if (score >= 9) c.critical += cnt
+      else if (score >= 7) c.high += cnt
+      else if (score >= 4) c.medium += cnt
+      else c.low += cnt
     }
     return c
   }
