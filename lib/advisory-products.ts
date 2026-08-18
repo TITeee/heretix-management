@@ -91,13 +91,18 @@ export const SONICWALL_PRODUCTS = [
   "Cloud App Security",
 ]
 
+// Matched against AdvisoryAffectedProduct.product by exact string (searchAdvisory()
+// in heretix-api has no aliasing), so these have to track Broadcom's current advisory
+// page wording, not just what the product is commonly called. Confirmed against live
+// data: Broadcom's page now writes out the full "VMware ..." form for these four,
+// where it used to use the bare product name.
 export const BROADCOM_PRODUCTS = [
-  "ESXi",
-  "vCenter Server",
+  "VMware vSphere ESXi",
+  "VMware vCenter Server",
   "VMware Cloud Foundation",
-  "NSX-T",
+  "VMware NSX",
   "Workstation",
-  "Fusion",
+  "VMware Fusion",
   "VMware Tools",
   "VMware Aria Operations",
   "Horizon Client for Windows",
