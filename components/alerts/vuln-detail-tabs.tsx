@@ -75,6 +75,16 @@ export type AdvisoryVulnerability = {
   solution: string | null
   publishedAt: string | null
   affectedProducts: AdvisoryAffectedProduct[]
+  // Vendor-specific fields the fetcher didn't normalize into the columns above.
+  // Only zabbix_component (Zabbix's affected-component tag, e.g. "Frontend",
+  // "Agent2") is read out of this today.
+  rawData?: Record<string, unknown> | null
+}
+
+function getZabbixComponents(rawData: AdvisoryVulnerability["rawData"]): string[] {
+  const v = rawData?.zabbix_component
+  if (!Array.isArray(v)) return []
+  return v.filter((c): c is string => typeof c === "string" && c.length > 0)
 }
 
 export type VulnDetail = {
@@ -573,6 +583,16 @@ export function AdvisoryTab({ detail, loading }: { detail: VulnDetail | null; lo
                 <div className="flex items-center gap-2">
                   <span className="w-28 text-muted-foreground shrink-0">Severity</span>
                   <span>{adv.severity}</span>
+                </div>
+              )}
+              {getZabbixComponents(adv.rawData).length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="w-28 text-muted-foreground shrink-0">Component</span>
+                  <div className="flex gap-1 flex-wrap">
+                    {getZabbixComponents(adv.rawData).map((c) => (
+                      <Badge key={c} variant="outline" className="text-xs">{c}</Badge>
+                    ))}
+                  </div>
                 </div>
               )}
               {adv.summary && (
