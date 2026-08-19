@@ -2,7 +2,8 @@ import { prisma } from "@/lib/db"
 import { getVulnerabilityById } from "@/lib/heretix-api"
 import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
 import { logger } from "@/lib/logger"
-import { calculateDueDate, DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
+import { DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
+import { diffAlertMetadata } from "@/lib/alert-metadata"
 
 // heretix-api has no lookup-by-id batch endpoint, so each vulnerability costs one
 // request. They run a few at a time rather than one after another; the cap keeps the
@@ -58,76 +59,43 @@ export async function refreshMetadata(): Promise<{ updated: number; failed: numb
       const targets = alertsByExternalId.get(externalId) ?? []
 
       for (const alert of targets) {
-        const events: { type: string; data: object }[] = []
-
-        if (alert.cvssScore != null && vuln.cvssScore != null && vuln.cvssScore !== alert.cvssScore) {
-          events.push({ type: "cvss_changed", data: { from: alert.cvssScore, to: vuln.cvssScore } })
-        }
-        if ((vuln.severity ?? null) !== (alert.severity ?? null)) {
-          events.push({ type: "severity_changed", data: { from: alert.severity, to: vuln.severity ?? null } })
-          const entry: AlertSummary = {
-            packageName: alert.packageName,
-            packageVersion: alert.packageVersion,
-            externalId: alert.externalId,
-            severity: vuln.severity ?? null,
+        // getVulnerabilityById looks up by vulnerability alone, not a specific
+        // package/version match, so it has no per-match fixedVersion to offer —
+        // fixedVersion is left undefined, meaning "don't touch it" (see
+        // diffAlertMetadata's AlertMetadataUpdate.fixedVersion).
+        const diff = diffAlertMetadata(
+          alert,
+          {
             cvssScore: vuln.cvssScore ?? null,
-          }
-          if (!severityChangedMap.has(alert.assetId)) severityChangedMap.set(alert.assetId, [])
-          severityChangedMap.get(alert.assetId)!.push(entry)
-        }
-        if (!alert.isKev && (vuln.isKev ?? false)) {
-          events.push({ type: "kev_added", data: {} })
-          const entry: AlertSummary = {
-            packageName: alert.packageName,
-            packageVersion: alert.packageVersion,
-            externalId: alert.externalId,
+            cvssVector: vuln.cvssVector ?? null,
             severity: vuln.severity ?? null,
-            cvssScore: vuln.cvssScore ?? null,
-          }
-          if (!kevAddedMap.has(alert.assetId)) kevAddedMap.set(alert.assetId, [])
-          kevAddedMap.get(alert.assetId)!.push(entry)
-        }
-        if (alert.epssScore != null && vuln.epssScore != null && Math.abs(vuln.epssScore - alert.epssScore) >= 0.001) {
-          events.push({ type: "epss_changed", data: { from: alert.epssScore, to: vuln.epssScore, percentileFrom: alert.epssPercentile, percentileTo: vuln.epssPercentile } })
-        }
+            summary: vuln.summary ?? null,
+            isKev: vuln.isKev ?? false,
+            epssScore: vuln.epssScore ?? null,
+            epssPercentile: vuln.epssPercentile ?? null,
+          },
+          slaConfig
+        )
 
-        const hasChange =
-          (vuln.cvssScore ?? null) !== alert.cvssScore ||
-          (vuln.cvssVector ?? null) !== (alert.cvssVector ?? null) ||
-          (vuln.severity ?? null) !== alert.severity ||
-          (vuln.isKev ?? false) !== alert.isKev ||
-          (vuln.epssScore ?? null) !== alert.epssScore
-
-        if (hasChange) {
-          // Recalculate dueDate if CVSS or isKev changed
-          const cvssOrKevChanged =
-            (vuln.cvssScore ?? null) !== alert.cvssScore ||
-            (vuln.isKev ?? false) !== alert.isKev
-          const newDueDate = cvssOrKevChanged
-            ? calculateDueDate(vuln.cvssScore ?? null, vuln.isKev ?? false, alert.detectedAt, slaConfig)
-            : undefined
-
-          await prisma.alert.update({
-            where: { id: alert.id },
-            data: {
-              cvssScore: vuln.cvssScore ?? null,
-              cvssVector: vuln.cvssVector ?? null,
-              severity: vuln.severity ?? null,
-              summary: vuln.summary ?? null,
-              isKev: vuln.isKev ?? false,
-              epssScore: vuln.epssScore ?? null,
-              epssPercentile: vuln.epssPercentile ?? null,
-              ...(newDueDate !== undefined && { dueDate: newDueDate }),
-            },
-          })
+        if (diff.changed) {
+          await prisma.alert.update({ where: { id: alert.id }, data: diff.data })
           updated++
         }
 
-        if (events.length > 0) {
+        if (diff.events.length > 0) {
           await prisma.alertEvent.createMany({
-            data: events.map(e => ({ alertId: alert.id, type: e.type, data: e.data, metadataRefreshRunId: run.id })),
+            data: diff.events.map((e) => ({ alertId: alert.id, type: e.type, data: e.data, metadataRefreshRunId: run.id })),
           })
-          totalEvents += events.length
+          totalEvents += diff.events.length
+        }
+
+        if (diff.slack.severityChanged) {
+          if (!severityChangedMap.has(alert.assetId)) severityChangedMap.set(alert.assetId, [])
+          severityChangedMap.get(alert.assetId)!.push(diff.slack.severityChanged)
+        }
+        if (diff.slack.kevAdded) {
+          if (!kevAddedMap.has(alert.assetId)) kevAddedMap.set(alert.assetId, [])
+          kevAddedMap.get(alert.assetId)!.push(diff.slack.kevAdded)
         }
       }
     } catch (err) {

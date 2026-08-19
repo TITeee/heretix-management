@@ -3,6 +3,7 @@ import { batchSearch, searchByCPE, type VulnSearchResult } from "@/lib/heretix-a
 import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
 import { logger } from "@/lib/logger"
 import { calculateDueDate, DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
+import { diffAlertMetadata } from "@/lib/alert-metadata"
 
 const BATCH_SIZE = 1000
 
@@ -100,6 +101,14 @@ export async function scanAsset(
         externalId: true,
         status: true,
         resolveReason: true,
+        cvssScore: true,
+        cvssVector: true,
+        severity: true,
+        isKev: true,
+        epssScore: true,
+        epssPercentile: true,
+        fixedVersion: true,
+        detectedAt: true,
       },
     })
     const alertsByFinding = new Map(
@@ -114,7 +123,46 @@ export async function scanAsset(
     let newAlertCount = 0
     let reopenedCount = 0
     let renamedCount = 0
+    let metadataUpdatedCount = 0
     const newAlertsList: AlertSummary[] = []
+    const severityChangedList: AlertSummary[] = []
+    const kevAddedList: AlertSummary[] = []
+
+    // A match under the id already reported does not, by itself, mean nothing
+    // changed: heretix-api's own data for that id can move between scans (a CVSS
+    // score lands, a severity is revised, KEV status flips), and without this an
+    // alert's metadata is only ever refreshed by the separate daily refreshMetadata
+    // job — which does not reach an alert whose package has left the inventory
+    // entirely, but does reach everything a scan does, so the two now overlap by
+    // design rather than one silently covering a gap in the other.
+    const updateMetadataIfChanged = async (alert: (typeof existingAlerts)[number], v: VulnSearchResult) => {
+      const diff = diffAlertMetadata(
+        alert,
+        {
+          cvssScore: v.cvssScore ?? null,
+          cvssVector: v.cvssVector ?? null,
+          severity: v.severity ?? null,
+          summary: v.summary ?? null,
+          isKev: v.isKev ?? false,
+          epssScore: v.epssScore ?? null,
+          epssPercentile: v.epssPercentile ?? null,
+          fixedVersion: v.fixedVersion ?? null,
+        },
+        slaConfig
+      )
+      if (!diff.changed) return
+
+      await prisma.alert.update({ where: { id: alert.id }, data: diff.data })
+      if (diff.events.length > 0) {
+        await prisma.alertEvent.createMany({
+          data: diff.events.map((e) => ({ alertId: alert.id, type: e.type, data: e.data })),
+        })
+      }
+      if (diff.slack.severityChanged) severityChangedList.push(diff.slack.severityChanged)
+      if (diff.slack.kevAdded) kevAddedList.push(diff.slack.kevAdded)
+      Object.assign(alert, diff.data)
+      metadataUpdatedCount++
+    }
 
     // A finding that is reported again must not stay closed because an earlier scan
     // stopped seeing it. Only the scan's own resolutions are reverted.
@@ -171,6 +219,7 @@ export async function scanAsset(
 
       const existing = alertsByFinding.get(key)
       if (existing) {
+        await updateMetadataIfChanged(existing, v)
         await reopenIfAutoResolved(existing)
         return
       }
@@ -180,24 +229,7 @@ export async function scanAsset(
       const renamed = findByAlias(packageName, packageVersion, v)
       if (renamed) {
         const { prior, alias } = renamed
-        await prisma.alert.update({
-          where: { id: prior.id },
-          data: {
-            externalId,
-            // The metadata this alert was raised with came from the identity it no
-            // longer has — typically a vendor advisory with no CVSS score at all,
-            // which is the whole reason its severity read as n/a. The scan result in
-            // hand is the authoritative record for the identity it has now.
-            severity: v.severity ?? null,
-            cvssScore: v.cvssScore ?? null,
-            cvssVector: v.cvssVector ?? null,
-            summary: v.summary ?? null,
-            isKev: v.isKev ?? false,
-            epssScore: v.epssScore ?? null,
-            epssPercentile: v.epssPercentile ?? null,
-            fixedVersion: v.fixedVersion ?? null,
-          },
-        })
+        await prisma.alert.update({ where: { id: prior.id }, data: { externalId } })
         await prisma.alertEvent.create({
           data: {
             alertId: prior.id,
@@ -205,10 +237,17 @@ export async function scanAsset(
             data: { from: alias, to: externalId },
           },
         })
+        prior.externalId = externalId
+        // The metadata this alert was raised with came from the identity it no
+        // longer has — typically a vendor advisory with no CVSS score at all, which
+        // is the whole reason its severity read as n/a. diffAlertMetadata compares
+        // that stale metadata against the scan result in hand exactly as it would
+        // for any other match, so the change surfaces as a normal severity_changed
+        // event (and Slack ping) rather than a silent overwrite.
+        await updateMetadataIfChanged(prior, v)
         // Move it in both indexes so the reconciliation below sees it under the id
         // the scan reported, rather than closing it as no longer detected.
         alertsByFinding.delete(findingKey(packageName, packageVersion, alias))
-        prior.externalId = externalId
         alertsByFinding.set(key, prior)
         await reopenIfAutoResolved(prior)
         renamedCount++
@@ -244,14 +283,7 @@ export async function scanAsset(
           dueDate,
         },
       })
-      alertsByFinding.set(key, {
-        id: alert.id,
-        packageName,
-        packageVersion,
-        externalId,
-        status: alert.status,
-        resolveReason: null,
-      })
+      alertsByFinding.set(key, alert)
       await prisma.alertEvent.create({
         data: {
           alertId: alert.id,
@@ -344,18 +376,35 @@ export async function scanAsset(
       resolvedAlerts: resolvedCount,
       reopenedAlerts: reopenedCount,
       renamedAlerts: renamedCount,
+      metadataUpdatedAlerts: metadataUpdatedCount,
       reconciledPackages: reconcilable.size,
       scannedPackages: pkgs.length,
       durationMs: Date.now() - startedAt,
     })
 
+    const assetTagIds = asset.assetTags.map((at) => at.tagId)
     if (newAlertsList.length > 0) {
-      const assetTagIds = asset.assetTags.map((at) => at.tagId)
       await notifySlackIfNeeded({
         assetName: asset.name || asset.hostname,
         assetTagIds,
         triggerType: "detected",
         alerts: newAlertsList,
+      }).catch(() => {})
+    }
+    if (severityChangedList.length > 0) {
+      await notifySlackIfNeeded({
+        assetName: asset.name || asset.hostname,
+        assetTagIds,
+        triggerType: "severity_changed",
+        alerts: severityChangedList,
+      }).catch(() => {})
+    }
+    if (kevAddedList.length > 0) {
+      await notifySlackIfNeeded({
+        assetName: asset.name || asset.hostname,
+        assetTagIds,
+        triggerType: "kev_added",
+        alerts: kevAddedList,
       }).catch(() => {})
     }
 
