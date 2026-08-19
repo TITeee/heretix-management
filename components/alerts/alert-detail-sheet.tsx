@@ -128,6 +128,20 @@ const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: str
     iconClass: "text-blue-500",
     label: (data) => `Ignore reason changed: "${data.from}" to "${data.to}"`,
   },
+  // Emitted when an alert is carried over to a package whose version changed, and
+  // when a finding starts being reported under a newly assigned CVE. Both move an
+  // alert rather than replacing it, so the timeline is the only place the move is
+  // visible — an unregistered type is dropped silently by the renderer below.
+  package_changed: {
+    icon: GitBranch,
+    iconClass: "text-blue-500",
+    label: (data) => `Package changed: ${data.from} → ${data.to}`,
+  },
+  identifier_changed: {
+    icon: FaCircleExclamation,
+    iconClass: "text-blue-500",
+    label: (data) => `Identifier changed: ${data.from} → ${data.to}`,
+  },
   kev_added: {
     icon: AlertTriangle,
     iconClass: "text-red-600",

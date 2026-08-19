@@ -113,6 +113,7 @@ export async function scanAsset(
 
     let newAlertCount = 0
     let reopenedCount = 0
+    let renamedCount = 0
     const newAlertsList: AlertSummary[] = []
 
     // A finding that is reported again must not stay closed because an earlier scan
@@ -135,6 +136,26 @@ export async function scanAsset(
       reopenedCount++
     }
 
+    /**
+     * Finds an alert raised under an id this finding used to be reported by.
+     *
+     * heretix-api reports a finding under its *preferred* id, which is the CVE
+     * once one exists and the vendor or OSV id until then. A finding first seen
+     * before its CVE was assigned therefore comes back under a different id later,
+     * which would otherwise read as the old one disappearing (auto-resolved by the
+     * reconciliation below) and an unrelated new one appearing. Matching on the
+     * ids it is also known by keeps it a single alert.
+     */
+    const findByAlias = (packageName: string, packageVersion: string, v: VulnSearchResult) => {
+      const reported = v.externalId || v.id
+      for (const alias of v.aliases ?? []) {
+        if (alias === reported) continue
+        const prior = alertsByFinding.get(findingKey(packageName, packageVersion, alias))
+        if (prior) return { prior, alias }
+      }
+      return null
+    }
+
     // Records one finding for a package, whether it came from the package search or
     // from the CPE search: both produce the same alert and the same SLA due date.
     const record = async (
@@ -151,6 +172,46 @@ export async function scanAsset(
       const existing = alertsByFinding.get(key)
       if (existing) {
         await reopenIfAutoResolved(existing)
+        return
+      }
+
+      // Not on record under the id just reported, but possibly on record under one
+      // this finding was reported by before a CVE was assigned to it.
+      const renamed = findByAlias(packageName, packageVersion, v)
+      if (renamed) {
+        const { prior, alias } = renamed
+        await prisma.alert.update({
+          where: { id: prior.id },
+          data: {
+            externalId,
+            // The metadata this alert was raised with came from the identity it no
+            // longer has — typically a vendor advisory with no CVSS score at all,
+            // which is the whole reason its severity read as n/a. The scan result in
+            // hand is the authoritative record for the identity it has now.
+            severity: v.severity ?? null,
+            cvssScore: v.cvssScore ?? null,
+            cvssVector: v.cvssVector ?? null,
+            summary: v.summary ?? null,
+            isKev: v.isKev ?? false,
+            epssScore: v.epssScore ?? null,
+            epssPercentile: v.epssPercentile ?? null,
+            fixedVersion: v.fixedVersion ?? null,
+          },
+        })
+        await prisma.alertEvent.create({
+          data: {
+            alertId: prior.id,
+            type: "identifier_changed",
+            data: { from: alias, to: externalId },
+          },
+        })
+        // Move it in both indexes so the reconciliation below sees it under the id
+        // the scan reported, rather than closing it as no longer detected.
+        alertsByFinding.delete(findingKey(packageName, packageVersion, alias))
+        prior.externalId = externalId
+        alertsByFinding.set(key, prior)
+        await reopenIfAutoResolved(prior)
+        renamedCount++
         return
       }
 
@@ -282,6 +343,7 @@ export async function scanAsset(
       newAlerts: newAlertCount,
       resolvedAlerts: resolvedCount,
       reopenedAlerts: reopenedCount,
+      renamedAlerts: renamedCount,
       reconciledPackages: reconcilable.size,
       scannedPackages: pkgs.length,
       durationMs: Date.now() - startedAt,

@@ -32,6 +32,15 @@ export type VulnSearchResult = {
   epssScore: number | null
   epssPercentile: number | null
   fixedVersion: string | null
+  /**
+   * Every id this finding is reachable by, including externalId. externalId is
+   * the *preferred* id and changes when a CVE is assigned to something that only
+   * had a vendor or OSV id before; the others stay put, so they are what lets an
+   * alert raised under the old id be recognised as the same finding.
+   *
+   * Optional: an older heretix-api that predates this field simply omits it.
+   */
+  aliases?: string[]
 }
 
 export type BatchPackage = {
