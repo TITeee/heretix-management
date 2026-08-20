@@ -219,7 +219,7 @@ export function TagsClient({ tags: initialTags }: { tags: Tag[] }) {
                         {high > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.high }} className="text-white">{high}</Badge>}
                         {medium > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.medium }} className="text-white">{medium}</Badge>}
                         {low > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.low }} className="text-white">{low}</Badge>}
-                        {na > 0 && <Badge variant="outline" className="text-muted-foreground">{na}</Badge>}
+                        {na > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.na }} className="text-neutral-900">{na}</Badge>}
                       </div>
                     )
                   })()}

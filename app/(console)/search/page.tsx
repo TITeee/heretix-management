@@ -67,7 +67,8 @@ const ECOSYSTEMS = [
 type SearchMode = "package" | "id" | "cpe" | "advisory"
 
 function SeverityBadge({ score }: { score: number | null }) {
-  if (!score) return <Badge variant="outline">Unknown</Badge>
+  // See the note on the same case in components/alerts/vuln-detail-tabs.tsx.
+  if (!score) return <Badge style={{ backgroundColor: SEVERITY_COLORS.na }} className="text-neutral-900">Unknown</Badge>
   if (score >= 9.0) return <Badge style={{ backgroundColor: SEVERITY_COLORS.critical }} className="text-white">Critical {score.toFixed(1)}</Badge>
   if (score >= 7.0) return <Badge style={{ backgroundColor: SEVERITY_COLORS.high }} className="text-white">High {score.toFixed(1)}</Badge>
   if (score >= 4.0) return <Badge style={{ backgroundColor: SEVERITY_COLORS.medium }} className="text-white">Medium {score.toFixed(1)}</Badge>

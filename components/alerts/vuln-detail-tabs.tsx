@@ -122,7 +122,10 @@ export type VulnDetail = {
 }
 
 export function SeverityBadge({ score }: { score: number | null }) {
-  if (!score) return <Badge variant="outline">n/a</Badge>
+  // Filled from SEVERITY_COLORS like the scored tiers rather than left as an outline
+  // badge, so an unscored finding reads as the same "N/A" the dashboard charts show.
+  // Dark text, not the white the others use: SEVERITY_COLORS.na is a light grey.
+  if (!score) return <Badge style={{ backgroundColor: SEVERITY_COLORS.na }} className="text-neutral-900">n/a</Badge>
   if (score >= 9.0) return <Badge style={{ backgroundColor: SEVERITY_COLORS.critical }} className="text-white">{score.toFixed(1)}</Badge>
   if (score >= 7.0) return <Badge style={{ backgroundColor: SEVERITY_COLORS.high }} className="text-white">{score.toFixed(1)}</Badge>
   if (score >= 4.0) return <Badge style={{ backgroundColor: SEVERITY_COLORS.medium }} className="text-white">{score.toFixed(1)}</Badge>
