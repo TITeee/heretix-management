@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Bell, FileDown } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { ScanButton } from "./scan-button"
 import { EditAssetDialog } from "./edit-asset-dialog"
@@ -34,6 +35,9 @@ export default async function AssetDetailPage({
       _count: { select: { alerts: true } },
       scanJobs: { orderBy: { createdAt: "desc" }, take: 5 },
       packageHistories: { orderBy: { changedAt: "desc" }, take: 50 },
+      assetTags: {
+        include: { tag: { select: { id: true, name: true, color: true, description: true } } },
+      },
     },
   })
   if (!asset) notFound()
@@ -65,6 +69,10 @@ export default async function AssetDetailPage({
     ...p,
     alertCount: pkgAlertMap.get(`${p.name}::${p.version}`) ?? 0,
   }))
+
+  const tags = asset.assetTags
+    .map((at) => at.tag)
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <div className="space-y-6">
@@ -108,7 +116,7 @@ export default async function AssetDetailPage({
       </div>
 
       {/* Info */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">OS</CardTitle>
@@ -130,6 +138,35 @@ export default async function AssetDetailPage({
           </CardHeader>
           <CardContent className="text-sm">
             {asset.scannedAt ? new Date(asset.scannedAt).toLocaleString() : "Not scanned yet"}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Tags</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {tags.length === 0 ? (
+              // Tags are assigned from the Tags section, not here — point there rather
+              // than leaving a dead end, since this card is the likeliest place someone
+              // notices an asset is untagged.
+              <Link href="/tags" className="text-sm text-muted-foreground hover:underline">
+                No tags assigned
+              </Link>
+            ) : (
+              <div className="flex gap-1 flex-wrap">
+                {tags.map((tag) => (
+                  <Link key={tag.id} href={`/tags/${tag.id}`} title={tag.description ?? undefined}>
+                    <Badge
+                      variant="outline"
+                      className="text-xs font-medium hover:bg-accent"
+                      style={tag.color ? { color: tag.color, borderColor: tag.color } : undefined}
+                    >
+                      {tag.name}
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
