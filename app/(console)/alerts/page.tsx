@@ -56,6 +56,13 @@ export default async function AlertsPage({
     select: { assetId: true, name: true, version: true, direct: true },
   })
   const directMap = new Map(packages.map(p => [`${p.assetId}::${p.name}::${p.version}`, p.direct]))
+  // An alert whose package is no longer in the asset's current inventory is left
+  // open rather than auto-resolved (see lib/package-diff.ts) — a scan can only
+  // vouch for findings on packages it actually queried, so this needs a human
+  // to confirm it's a genuine fix and not scan/import noise. Surfacing it here
+  // instead of silently leaving the count out of sync with views (like the
+  // dependency graph) that can only show currently-inventoried packages.
+  const packageKeys = new Set(packages.map(p => `${p.assetId}::${p.name}::${p.version}`))
 
   const alertsWithTags = alerts.map(alert => {
     const assetTagsList = alert.asset.assetTags.map(at => at.tag)
@@ -67,8 +74,10 @@ export default async function AlertsPage({
       return true
     })
     const { assetTags: _, ...asset } = alert.asset
-    const packageDirect = directMap.get(`${alert.assetId}::${alert.packageName}::${alert.packageVersion}`) ?? null
-    return { ...alert, asset, tags, packageDirect }
+    const pkgKey = `${alert.assetId}::${alert.packageName}::${alert.packageVersion}`
+    const packageDirect = directMap.get(pkgKey) ?? null
+    const packageExists = packageKeys.has(pkgKey)
+    return { ...alert, asset, tags, packageDirect, packageExists }
   })
 
   return (

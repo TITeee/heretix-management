@@ -45,6 +45,7 @@ export type Alert = {
   ignoreReason?: string | null
   fixedVersion?: string | null
   packageDirect?: boolean | null
+  packageExists?: boolean
   detectedAt: Date
   dueDate: Date | null
   updatedAt: Date
@@ -147,7 +148,19 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
     header: "Package",
     cell: ({ row }) => (
       <div>
-        <div className="font-medium">{row.original.packageName}</div>
+        <div className="flex items-center gap-1.5">
+          <span className="font-medium">{row.original.packageName}</span>
+          {row.original.packageExists === false && (
+            <span title="This package is no longer in the asset's inventory. The alert stays open until a scan or manual review confirms the finding no longer applies.">
+              <Badge
+                variant="outline"
+                className="text-xs text-amber-700 border-amber-300 dark:text-amber-400 dark:border-amber-800"
+              >
+                Not in inventory
+              </Badge>
+            </span>
+          )}
+        </div>
         <div className="text-xs text-muted-foreground">{row.original.packageVersion}</div>
       </div>
     ),
@@ -322,6 +335,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
   const [sourcesFilter, setSourcesFilter] = useState<Set<string>>(new Set())
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set())
   const [dependencyFilter, setDependencyFilter] = useState<Set<string>>(new Set())
+  const [inventoryFilter, setInventoryFilter] = useState<Set<string>>(new Set())
   const [dueFilter, setDueFilter] = useState<Set<string>>(new Set())
   const [selectedAlerts, setSelectedAlerts] = useState<Alert[]>([])
   const [bulkStatus, setBulkStatus] = useState("")
@@ -380,14 +394,15 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
       if (dependencyFilter.has("direct") && alert.packageDirect !== true) return false
       if (dependencyFilter.has("indirect") && alert.packageDirect !== false) return false
     }
+    if (inventoryFilter.size > 0 && !inventoryFilter.has(alert.packageExists === false ? "missing" : "present")) return false
     if (dueFilter.size > 0) {
       const status = getSlaStatus(alert.dueDate ? new Date(alert.dueDate) : null)
       if (!dueFilter.has(status)) return false
     }
     return true
-  }), [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter, dueFilter])
+  }), [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter, inventoryFilter, dueFilter])
 
-  const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0 || dependencyFilter.size > 0 || dueFilter.size > 0
+  const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0 || dependencyFilter.size > 0 || inventoryFilter.size > 0 || dueFilter.size > 0
 
   function handleStatusChange(alertId: string, newStatus: string) {
     setData(prev => prev.map(a => a.id === alertId ? { ...a, status: newStatus } : a))
@@ -560,6 +575,15 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
           selected={dependencyFilter}
           onSelectedChange={setDependencyFilter}
         />
+        <DataTableFacetedFilter
+          title="Inventory"
+          options={[
+            { value: "missing", label: "Not in inventory" },
+            { value: "present", label: "In inventory" },
+          ]}
+          selected={inventoryFilter}
+          onSelectedChange={setInventoryFilter}
+        />
         {slaEnabled && (
           <DataTableFacetedFilter
             title="Due"
@@ -574,7 +598,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
             size="sm"
             onClick={() => {
               if (initialAssetId) { window.location.href = "/alerts"; return }
-              setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set()); setDependencyFilter(new Set()); setDueFilter(new Set())
+              setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set()); setDependencyFilter(new Set()); setInventoryFilter(new Set()); setDueFilter(new Set())
             }}
           >
             Reset <X className="ml-1 size-4" />
