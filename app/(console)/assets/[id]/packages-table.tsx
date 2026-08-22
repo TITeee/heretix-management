@@ -62,6 +62,7 @@ type PackageRow = {
   location: string | null
   cpe?: string | null
   direct?: boolean | null
+  scope?: string | null
   alertCount: number
 }
 
@@ -367,6 +368,27 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
       },
     },
     {
+      accessorKey: "scope",
+      header: sortableHeader("Scope"),
+      // Dev-only sorts first so it's easy to spot; everything else (required
+      // or unknown — older imports predating this field) is equivalent here.
+      sortingFn: (a, b) => {
+        const rank = (v: string | null | undefined) => (v === "excluded" ? 0 : 1)
+        return rank(a.original.scope) - rank(b.original.scope)
+      },
+      cell: ({ row }) =>
+        row.original.scope === "excluded"
+          ? (
+            <Badge
+              variant="outline"
+              className="text-xs text-amber-700 border-amber-300 dark:text-amber-400 dark:border-amber-800"
+            >
+              Dev-only
+            </Badge>
+          )
+          : null,
+    },
+    {
       accessorKey: "location",
       header: "Location",
       cell: ({ row }) => (
@@ -406,6 +428,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
   const [ecosystemFilter, setEcosystemFilter] = useState<Set<string>>(new Set())
   const [sourceFilter, setSourceFilter] = useState<Set<string>>(new Set())
   const [directFilter, setDirectFilter] = useState<Set<string>>(new Set())
+  const [scopeFilter, setScopeFilter] = useState<Set<string>>(new Set())
 
   const ecosystemOptions = useMemo(() =>
     [...new Set(data.map(p => p.ecosystem))].sort().map(v => ({ value: v, label: v || "Other" })),
@@ -419,15 +442,20 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
     { value: "true", label: "Direct" },
     { value: "false", label: "Indirect" },
   ]
+  const scopeOptions = [
+    { value: "excluded", label: "Dev-only" },
+    { value: "other", label: "Required" },
+  ]
 
   const filteredData = useMemo(() => data.filter(p => {
     if (ecosystemFilter.size > 0 && !ecosystemFilter.has(p.ecosystem)) return false
     if (sourceFilter.size > 0 && !sourceFilter.has(p.source)) return false
     if (directFilter.size > 0 && !directFilter.has(String(p.direct))) return false
+    if (scopeFilter.size > 0 && !scopeFilter.has(p.scope === "excluded" ? "excluded" : "other")) return false
     return true
-  }), [data, ecosystemFilter, sourceFilter, directFilter])
+  }), [data, ecosystemFilter, sourceFilter, directFilter, scopeFilter])
 
-  const hasFilter = ecosystemFilter.size > 0 || sourceFilter.size > 0 || directFilter.size > 0
+  const hasFilter = ecosystemFilter.size > 0 || sourceFilter.size > 0 || directFilter.size > 0 || scopeFilter.size > 0
 
   return (
     <div className="space-y-3">
@@ -450,9 +478,15 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
           selected={directFilter}
           onSelectedChange={setDirectFilter}
         />
+        <DataTableFacetedFilter
+          title="Scope"
+          options={scopeOptions}
+          selected={scopeFilter}
+          onSelectedChange={setScopeFilter}
+        />
         {hasFilter && (
           <Button variant="ghost" size="sm"
-            onClick={() => { setEcosystemFilter(new Set()); setSourceFilter(new Set()); setDirectFilter(new Set()) }}>
+            onClick={() => { setEcosystemFilter(new Set()); setSourceFilter(new Set()); setDirectFilter(new Set()); setScopeFilter(new Set()) }}>
             Reset <X className="ml-1 size-4" />
           </Button>
         )}

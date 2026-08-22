@@ -46,6 +46,9 @@ model Package {
   cpe         String?
   direct      Boolean?
   deps        String[]
+  // null=required/unknown, "excluded"=dev-only per CycloneDX component.scope
+  // (would not survive a production prune, e.g. `pnpm prune --prod`)
+  scope       String?
 
   // A package is identified by its ecosystem, name and version, matching what a
   // vulnerability lookup is keyed on and what a PURL encodes. npm and pnpm resolve

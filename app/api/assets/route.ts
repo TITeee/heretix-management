@@ -87,6 +87,7 @@ export async function POST(req: NextRequest) {
       location?: string
       direct?: boolean | null
       deps?: string[]
+      scope?: string | null
     }) => ({
       name: p.name,
       version: p.version,
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
       location: p.location ?? null,
       direct: p.direct ?? null,
       deps: p.deps ?? [],
+      scope: p.scope ?? null,
     }))
 
     const existing = await prisma.asset.findFirst({ where: { hostname } })
@@ -133,7 +135,7 @@ export async function POST(req: NextRequest) {
         where: { assetId: existing.id, source: { not: "manual" } },
       })
 
-      type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[] }
+      type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[]; scope: string | null }
       const { toCreate, toUpdateMeta, toDelete, supersededVersions } = diffPackages(
         existingPkgs,
         incomingPackages as IncomingPkg[]
@@ -156,6 +158,7 @@ export async function POST(req: NextRequest) {
         ex.direct !== inc.direct ||
         ex.location !== inc.location ||
         ex.rawVersion !== inc.rawVersion ||
+        ex.scope !== inc.scope ||
         JSON.stringify(ex.deps) !== JSON.stringify(inc.deps ?? [])
       )
 
@@ -168,7 +171,7 @@ export async function POST(req: NextRequest) {
         ...metaChanged.map(({ existing: ex, incoming: inc }) =>
           prisma.package.update({
             where: { id: ex.id },
-            data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [] },
+            data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [], scope: inc.scope },
           })
         ),
         ...(historyEntries.length > 0
@@ -246,11 +249,42 @@ export async function POST(req: NextRequest) {
 }
 
 type CycloneDXComponent = {
+  type?: string
   name?: string
   version?: string
   purl?: string
+  scope?: string
   properties?: { name: string; value: string }[]
 }
+
+/**
+ * CycloneDX component types that describe something other than an installed
+ * package, and so must not become Package rows.
+ *
+ * Scanners put more than packages in `components`: Syft's container scan emits a
+ * "file" entry per file in the image and an "operating-system" entry for the
+ * distro itself, neither of which carries a purl. Left in, the file entries fill
+ * the Packages tab with paths, and the operating-system entry — which does have a
+ * version — gets sent to heretix-api as a package named e.g. "alpine", inviting
+ * matches against something unrelated.
+ *
+ * An allowlist would be the wrong shape here: "library" covers most of what
+ * scanners emit, but cdxgen also types entries as "framework", and a scanner is
+ * free to use "application" for a packaged app. Excluding only what is definitely
+ * not a package keeps an unfamiliar type from being silently dropped.
+ */
+const NON_PACKAGE_COMPONENT_TYPES = new Set([
+  "file",
+  "operating-system",
+  "container",
+  "device",
+  "firmware",
+  "platform",
+  "device-driver",
+  "machine-learning-model",
+  "data",
+  "cryptographic-asset",
+])
 
 type CycloneDXDependency = {
   ref: string
@@ -365,7 +399,12 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
   const rootPurl = bom.metadata?.component?.purl
   const rootDirectPurls = new Set<string>(rootPurl ? (depsMap.get(rootPurl) ?? []) : [])
 
-  const packages = (bom.components ?? []).map((c: CycloneDXComponent) => {
+  const packages = (bom.components ?? []).filter((c: CycloneDXComponent) => {
+    if (c.type && NON_PACKAGE_COMPONENT_TYPES.has(c.type)) return false
+    // No purl and no version is not something a vulnerability lookup can act on;
+    // it is a component the scanner listed for provenance, not an installed package.
+    return !!c.purl || !!c.version
+  }).map((c: CycloneDXComponent) => {
     const { ecosystem, name } = parsePURL(c.purl)
     const directProp = c.properties?.find(p => p.name === "cdx:direct")
     let direct: boolean | null
@@ -386,6 +425,7 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
       location: null,
       direct,
       deps,
+      scope: c.scope === "excluded" ? "excluded" : null,
     }
   }).filter(p => p.name !== "")
 
