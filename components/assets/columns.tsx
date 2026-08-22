@@ -2,7 +2,7 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import { ArrowUpDown, Trash2 } from "lucide-react"
-import { FaDocker, FaServer, FaWindows, FaLinux } from "react-icons/fa6"
+import { FaDocker, FaServer, FaWindows, FaLinux, FaUserPen } from "react-icons/fa6"
 import { Button } from "@/components/ui/button"
 import { SEVERITY_COLORS } from "@/lib/severity"
 import { Badge } from "@/components/ui/badge"
@@ -66,6 +66,9 @@ const LINUX_OS_IDS = new Set(["ubuntu", "debian", "alpine", "rocky", "almalinux"
 function OSIcon({ osId, osName }: { osId: string; osName: string }) {
   const id = osId.toLowerCase()
   const name = osName.toLowerCase()
+  if (id === "manual") {
+    return <FaUserPen className="h-5 w-5 shrink-0" />
+  }
   if (id.includes("windows") || name.includes("windows")) {
     return <FaWindows className="h-5 w-5 shrink-0" />
   }
