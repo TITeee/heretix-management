@@ -403,6 +403,7 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
   const rootPurl = bom.metadata?.component?.purl
   const rootDirectPurls = new Set<string>(rootPurl ? (depsMap.get(rootPurl) ?? []) : [])
 
+  const seenPackageKeys = new Set<string>()
   const packages = (bom.components ?? []).filter((c: CycloneDXComponent) => {
     if (c.type && NON_PACKAGE_COMPONENT_TYPES.has(c.type)) return false
     // No purl and no version is not something a vulnerability lookup can act on;
@@ -431,7 +432,18 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
       deps,
       scope: c.scope === "excluded" ? "excluded" : null,
     }
-  }).filter(p => p.name !== "")
+  }).filter(p => p.name !== "").filter(p => {
+    // Some scanners (Syft on Bitnami images, for one) report the same package
+    // twice — via different catalogers — with byte-identical purls. Package
+    // rows are unique per (assetId, name, version, ecosystem), so an
+    // unfiltered duplicate breaks the nested create on a brand-new asset,
+    // while an existing asset's diff silently absorbs it (incoming packages
+    // are keyed through a Map there). Dedupe here so both paths agree.
+    const key = `${p.ecosystem}::${p.name}::${p.version}`
+    if (seenPackageKeys.has(key)) return false
+    seenPackageKeys.add(key)
+    return true
+  })
 
   const type = bom.metadata?.component?.type === "container" ? "docker_image" : "host"
 
