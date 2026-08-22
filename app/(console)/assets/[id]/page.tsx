@@ -116,7 +116,7 @@ export default async function AssetDetailPage({
       </div>
 
       {/* Info */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">OS</CardTitle>
@@ -138,9 +138,14 @@ export default async function AssetDetailPage({
           </CardHeader>
           <CardContent className="text-sm">
             {asset.scannedAt ? new Date(asset.scannedAt).toLocaleString() : "Not scanned yet"}
-            {asset.sbomTool && (
-              <div className="text-xs text-muted-foreground mt-0.5">via {asset.sbomTool}</div>
-            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Scanner</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            {asset.sbomTool ?? "Unknown"}
           </CardContent>
         </Card>
         <Card>
