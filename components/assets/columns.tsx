@@ -133,9 +133,11 @@ export const assetColumns: ColumnDef<AssetRow>[] = [
       </Button>
     ),
     cell: ({ row }) => (
-      <span className="flex items-center gap-2">
+      <span className="flex items-center gap-2 min-w-0">
         <OSIcon osId={row.original.osId} osName={row.original.osName} />
-        {row.original.osName}
+        <span className="truncate max-w-40" title={row.original.osName}>
+          {row.original.osName}
+        </span>
       </span>
     ),
   },
