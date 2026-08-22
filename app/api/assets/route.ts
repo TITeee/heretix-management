@@ -256,6 +256,7 @@ type CycloneDXComponent = {
   type?: string
   name?: string
   version?: string
+  description?: string
   purl?: string
   scope?: string
   properties?: { name: string; value: string }[]
@@ -386,7 +387,19 @@ function parsePURL(purl: string | undefined): { ecosystem: string; name: string 
 
 function convertCycloneDXToInventory(bom: CycloneDXBom) {
   const hostname = bom.metadata?.component?.name ?? "unknown"
-  const osName = bom.metadata?.component?.version ?? ""
+
+  // Prefer an explicit "operating-system" component (Syft, Trivy, and cdxgen all
+  // emit one) for OS info. metadata.component.version describes the scanned
+  // artifact itself, not its OS — e.g. Syft sets it to a Bitnami image's own
+  // version ("10" for bitnami/drupal:10), which isn't the OS at all. heretix-cli's
+  // own SBOMs are the exception: they carry no operating-system component and put
+  // the OS name in metadata.component.version instead, so that's the fallback.
+  const osComponent = (bom.components ?? []).find((c: CycloneDXComponent) => c.type === "operating-system")
+  const osId = osComponent?.name ?? ""
+  const osVersionId = osComponent?.version ?? ""
+  const osName = osComponent
+    ? (osComponent.description || `${osComponent.name ?? ""} ${osComponent.version ?? ""}`.trim())
+    : (bom.metadata?.component?.version ?? "")
 
   // Build a PURL → deps map from the bom.dependencies section.
   // CycloneDX 1.6 uses "dependsOn"; older tooling may use "dependencies".
@@ -452,7 +465,7 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
     hostname,
     type,
     scannedAt: bom.metadata?.timestamp ?? new Date().toISOString(),
-    os: { id: "", versionId: "", name: osName },
+    os: { id: osId, versionId: osVersionId, name: osName },
     packages,
   }
 }
