@@ -138,6 +138,9 @@ export default async function AssetDetailPage({
           </CardHeader>
           <CardContent className="text-sm">
             {asset.scannedAt ? new Date(asset.scannedAt).toLocaleString() : "Not scanned yet"}
+            {asset.sbomTool && (
+              <div className="text-xs text-muted-foreground mt-0.5">via {asset.sbomTool}</div>
+            )}
           </CardContent>
         </Card>
         <Card>

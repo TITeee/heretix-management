@@ -216,6 +216,7 @@ export async function POST(req: NextRequest) {
           osVersionId: inventory.os?.versionId ?? "unknown",
           osName: inventory.os?.name ?? "Unknown",
           scannedAt: inventory.scannedAt ? new Date(inventory.scannedAt) : null,
+          sbomTool: inventory.sbomTool ?? null,
         },
       })
       await createAuditLog({
@@ -236,6 +237,7 @@ export async function POST(req: NextRequest) {
         osVersionId: inventory.os?.versionId ?? "unknown",
         osName: inventory.os?.name ?? "Unknown",
         scannedAt: inventory.scannedAt ? new Date(inventory.scannedAt) : null,
+        sbomTool: inventory.sbomTool ?? null,
         packages: { create: incomingPackages },
       },
     })
@@ -297,10 +299,29 @@ type CycloneDXDependency = {
   dependencies?: string[] // fallback for older format
 }
 
+type CycloneDXTool = { vendor?: string; author?: string; name?: string; version?: string }
+
 type CycloneDXBom = {
-  metadata?: { component?: { name?: string; version?: string; type?: string; purl?: string }; timestamp?: string }
+  metadata?: {
+    component?: { name?: string; version?: string; type?: string; purl?: string }
+    timestamp?: string
+    // CycloneDX <1.5 (heretix-cli): a flat array. 1.5+ (Syft, Trivy, cdxgen): wrapped in `components`.
+    tools?: CycloneDXTool[] | { components?: CycloneDXTool[] }
+  }
   components?: CycloneDXComponent[]
   dependencies?: CycloneDXDependency[]
+}
+
+// Returns "name version" (or just "name") for the first tool listed in
+// metadata.tools, in whichever of the two CycloneDX shapes it comes in.
+function extractSbomTool(bom: CycloneDXBom): string | null {
+  const tools = bom.metadata?.tools
+  if (!tools) return null
+  const list = Array.isArray(tools) ? tools : (tools.components ?? [])
+  const name = list[0]?.name
+  if (!name) return null
+  const version = list[0]?.version
+  return version ? `${name} ${version}` : name
 }
 
 // Maps PURL type strings to OSV canonical ecosystem names
@@ -466,6 +487,7 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
     type,
     scannedAt: bom.metadata?.timestamp ?? new Date().toISOString(),
     os: { id: osId, versionId: osVersionId, name: osName },
+    sbomTool: extractSbomTool(bom),
     packages,
   }
 }

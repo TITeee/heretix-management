@@ -24,6 +24,7 @@ model Asset {
   osVersionId      String
   osName           String
   scannedAt        DateTime?
+  sbomTool         String? // e.g. "syft 1.51.0", "heretix-cli 0.1.4" — from the imported SBOM's metadata.tools
   packages         Package[]
   scanJobs         ScanJob[]
   alerts           Alert[]
