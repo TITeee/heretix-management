@@ -162,7 +162,11 @@ export async function POST(req: NextRequest) {
         JSON.stringify(ex.deps) !== JSON.stringify(inc.deps ?? [])
       )
 
-      // Execute all package changes + history in one transaction
+      // Execute all package changes + history in one transaction.
+      // A full re-import of a large asset touches every package row (hundreds of
+      // individual create/update/delete statements, since Prisma has no bulk
+      // upsert), which can run past the default 5s transaction timeout — that
+      // showed up as an opaque "Failed to create asset" on a big asset's re-import.
       await prisma.$transaction([
         prisma.package.deleteMany({ where: { id: { in: toDelete.map(p => p.id) } } }),
         ...toCreate.map((p: IncomingPkg) =>
@@ -179,7 +183,7 @@ export async function POST(req: NextRequest) {
               data: historyEntries.map(h => ({ assetId: existing.id, ...h })),
             })]
           : []),
-      ])
+      ], { timeout: 60_000, maxWait: 15_000 })
 
       // Carry the alerts of an upgraded package over to the version that replaced it,
       // so a finding that survives the upgrade stays the same alert instead of being
