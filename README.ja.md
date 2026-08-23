@@ -16,7 +16,7 @@
 - **手動パッケージ管理** — パッケージマネージャ外でインストールしたソフトウェアを手動で追加・編集・削除。Advisory タブで Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix 製品をドロップダウン選択して登録可能
 - **パッケージ更新履歴** — インポート時の追加・更新・削除の変更履歴をアセット詳細で参照
 - **脆弱性スキャン** — heretix-api のバッチ検索でアセットの脆弱性を検出・アラート記録（新規 Alert の作成のみ。既存 Alert の更新・自動解決は行わない）。[ossf/malicious-packages](https://github.com/ossf/malicious-packages) によるマルウェアパッケージ検知（`MAL-` アラート）にも対応
-- **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度 / Tags / **Dependency**（Direct/Indirect））・一括ステータス変更・**CSV / JSON エクスポート**。Direct/Indirect 分類は lockfile ベースの依存データがある場合のみ有効（主に npm/pnpm）。OS パッケージや手動追加パッケージは未分類
+- **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度 / Tags / **Dependency**（Direct/Indirect））・一括ステータス変更・**CSV / JSON エクスポート**。Direct/Indirect 分類は、lockfile ベースの依存データ（主に npm/pnpm）か、SBOM 内の明示的な direct マーカー（heretix-cli 独自の `cdx:direct` プロパティ）のどちらかが無いと判定できない。Syft の dpkg/apt カタロガーのようなサードパーティ製 OS パッケージ SBOM はこの情報を一切持たない — `bom.dependencies` にスキャン対象のコンテナ/イメージ自身のエントリが存在しないため、「直接インストールされたか」を推測する材料が無く、OS パッケージは全て未分類として扱われる（推測はしない）。手動追加パッケージも同様に未分類
 - **アラート自動解決** — インポート時にパッケージがアップグレードされた場合、旧バージョンのアラートを自動で解決済みに変更
 - **SLA / 期限管理** — CVSS重要度（Critical / High / Medium / Low）ごとにSLA期限を設定可能。CISA KEV 該当アラートには固定の期限を別途適用。検知時に各 Alert の期限を自動計算し、CVSS や KEV ステータスが変わると再計算。Alerts テーブルには **Due** 列とフィルタ（Overdue / Urgent / Warning / OK）を表示し、Alert 詳細パネルにも期限とステータスに応じた色分けを表示。SLA機能自体は Settings から無効化可能（無効化すると Due 列・フィルタは非表示）
 - **アラートメタデータ更新** — open / in_progress の全 Alert に対して heretix-api から最新の CVSS スコア・重要度・EPSS・KEV 情報を再取得して更新（新規 Alert の作成は行わない）
