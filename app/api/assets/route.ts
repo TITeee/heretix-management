@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger"
 import { createAuditLog } from "@/lib/audit"
 import { diffPackages } from "@/lib/package-diff"
 import { carryForwardAlerts } from "@/lib/alerts"
+import { buildPURL } from "@/lib/purl"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -255,6 +256,7 @@ export async function POST(req: NextRequest) {
 }
 
 type CycloneDXComponent = {
+  "bom-ref"?: string
   type?: string
   name?: string
   version?: string
@@ -262,6 +264,16 @@ type CycloneDXComponent = {
   purl?: string
   scope?: string
   properties?: { name: string; value: string }[]
+}
+
+// bom.dependencies cross-references components by bom-ref, not purl — the two
+// are usually identical (heretix-cli always sets bom-ref = purl), but a scanner
+// is free to make them differ. Syft does exactly that to disambiguate same-purl
+// components: bom-ref carries an internal "package-id" query param that purl
+// doesn't, so joining on purl silently finds nothing and every package looks
+// dependency-free.
+function componentRef(c: { "bom-ref"?: string; purl?: string }): string | undefined {
+  return c["bom-ref"] ?? c.purl
 }
 
 /**
@@ -303,7 +315,7 @@ type CycloneDXTool = { vendor?: string; author?: string; name?: string; version?
 
 type CycloneDXBom = {
   metadata?: {
-    component?: { name?: string; version?: string; type?: string; purl?: string }
+    component?: { "bom-ref"?: string; name?: string; version?: string; type?: string; purl?: string }
     timestamp?: string
     // CycloneDX <1.5 (heretix-cli): a flat array. 1.5+ (Syft, Trivy, cdxgen): wrapped in `components`.
     tools?: CycloneDXTool[] | { components?: CycloneDXTool[] }
@@ -422,7 +434,7 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
     ? (osComponent.description || `${osComponent.name ?? ""} ${osComponent.version ?? ""}`.trim())
     : (bom.metadata?.component?.version ?? "")
 
-  // Build a PURL → deps map from the bom.dependencies section.
+  // Build a ref → deps map from the bom.dependencies section.
   // CycloneDX 1.6 uses "dependsOn"; older tooling may use "dependencies".
   const depsMap = new Map<string, string[]>()
   for (const dep of bom.dependencies ?? []) {
@@ -432,10 +444,25 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
     }
   }
 
-  // Build set of direct dependency PURLs from the root component entry in dependencies.
+  // dependsOn entries are refs too, so resolve each one back to a normalized,
+  // qualifier-free PURL — built the same way (buildPURL) the dependency graph
+  // reconstructs one from a Package row's name/version/ecosystem. The
+  // component's own raw purl won't do: OS packages carry distro/arch/upstream
+  // qualifiers Package rows don't store, so a raw-purl match would silently
+  // fail there exactly like the unresolved ref did.
+  const refToPurl = new Map<string, string>()
+  for (const c of bom.components ?? []) {
+    const ref = componentRef(c)
+    if (!ref || !c.purl) continue
+    const { ecosystem, name } = parsePURL(c.purl)
+    if (!name) continue
+    refToPurl.set(ref, buildPURL(name, c.version ?? "", ecosystem))
+  }
+
+  // Build set of direct dependency refs from the root component entry in dependencies.
   // Used as fallback when cdx:direct property is absent (SBOMs from Syft, trivy, cdxgen, etc.)
-  const rootPurl = bom.metadata?.component?.purl
-  const rootDirectPurls = new Set<string>(rootPurl ? (depsMap.get(rootPurl) ?? []) : [])
+  const rootRef = bom.metadata?.component ? componentRef(bom.metadata.component) : undefined
+  const rootDirectRefs = new Set<string>(rootRef ? (depsMap.get(rootRef) ?? []) : [])
 
   const seenPackageKeys = new Set<string>()
   const packages = (bom.components ?? []).filter((c: CycloneDXComponent) => {
@@ -445,16 +472,19 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
     return !!c.purl || !!c.version
   }).map((c: CycloneDXComponent) => {
     const { ecosystem, name } = parsePURL(c.purl)
+    const ref = componentRef(c)
     const directProp = c.properties?.find(p => p.name === "cdx:direct")
     let direct: boolean | null
     if (directProp) {
       direct = directProp.value === "true"
-    } else if (rootDirectPurls.size > 0 && c.purl) {
-      direct = rootDirectPurls.has(c.purl)
+    } else if (rootDirectRefs.size > 0 && ref) {
+      direct = rootDirectRefs.has(ref)
     } else {
       direct = null
     }
-    const deps = c.purl ? (depsMap.get(c.purl) ?? []) : []
+    const deps = ref
+      ? (depsMap.get(ref) ?? []).map(depRef => refToPurl.get(depRef) ?? depRef)
+      : []
     return {
       name: name ?? c.name ?? "",
       version: c.version ?? "",
