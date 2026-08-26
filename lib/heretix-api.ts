@@ -98,6 +98,25 @@ export async function searchVulnerabilities(params: {
   return res.json()
 }
 
+export async function suggestPackageNames(params: {
+  q: string
+  ecosystem?: string
+}): Promise<string[]> {
+  const [baseUrl, headers] = await Promise.all([getHeretixApiUrl(), apiHeaders()])
+  const query = new URLSearchParams({ q: params.q })
+  if (params.ecosystem) query.set("ecosystem", params.ecosystem)
+
+  const res = await fetch(
+    `${baseUrl}/api/v1/vulnerabilities/suggest?${query}`,
+    { headers, signal: AbortSignal.timeout(10_000) }
+  )
+  if (!res.ok) {
+    throw new Error(`heretix-api suggest error: ${res.status}`)
+  }
+  const data = await res.json()
+  return data.suggestions ?? []
+}
+
 export type CpeSearchResult = {
   cpe: string
   parsed: { vendor: string; product: string; version: string | null }
