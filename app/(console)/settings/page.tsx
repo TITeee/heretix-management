@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { ExternalLink } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -281,6 +282,14 @@ export default function SettingsPage() {
               </Button>
               <Button type="button" variant="outline" onClick={handleTest} disabled={testing}>
                 {testing ? "Testing..." : "Test Connection"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => window.open(`${vulnApiUrl.replace(/\/+$/, "")}/dashboard`, "_blank", "noopener,noreferrer")}
+                disabled={!vulnApiUrl.trim()}
+              >
+                Open Dashboard <ExternalLink className="ml-1 h-4 w-4" />
               </Button>
             </div>
 
