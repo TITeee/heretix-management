@@ -409,7 +409,6 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
     setSelected(prev => prev?.id === alertId ? { ...prev, status: newStatus } : prev)
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const columns = useMemo(() => buildColumns(handleStatusChange), [])
 
   function handleOpenChange(v: boolean) {

@@ -108,7 +108,6 @@ export function DataTable<TData, TValue>({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [pageSize] = useState(initialPageSize)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const selectionColumn: ColumnDef<TData, any> = {
     id: "select",
     header: ({ table }) => (

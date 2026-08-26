@@ -115,10 +115,8 @@ const ChartTooltipContent = React.forwardRef<
       labelKey?: string
       payload?: RechartsPrimitive.TooltipPayloadEntry[]
       label?: string
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       labelFormatter?: (value: unknown, payload: any[]) => React.ReactNode
       labelClassName?: string
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       formatter?: (...args: any[]) => React.ReactNode
       color?: string
     }
