@@ -585,12 +585,18 @@ export function AlertDetailSheet({
       // Anything already stored as ignored was saved with a reason.
       setPendingIgnore(false)
     }
+    // Reset editable fields only when switching to a different alert, not on
+    // every metadata refresh of the same one (which would wipe in-progress edits).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [alert?.id])
 
   useEffect(() => {
     if (alert) {
       setStatus(alert.status)
     }
+    // Same reasoning: only re-sync when status itself changes, not on other
+    // metadata-refresh-driven updates to the alert object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [alert?.status])
 
   useEffect(() => {
@@ -606,6 +612,9 @@ export function AlertDetailSheet({
       .then((data) => setVulnDetail(data.results?.[0] ?? null))
       .catch(() => setFetchError(true))
       .finally(() => setLoadingDetail(false))
+    // Keyed by id, not the alert object, so a metadata refresh doesn't
+    // trigger a redundant re-fetch of the same vuln detail.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, alert?.id])
 
   useEffect(() => {
@@ -629,6 +638,9 @@ export function AlertDetailSheet({
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => setVexSuggestions(Array.isArray(data) ? data : []))
       .catch(() => setVexSuggestions([]))
+    // Same reasoning: keyed by id, not the alert object, so a metadata
+    // refresh doesn't trigger a redundant re-fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, alert?.id, vexJustification])
 
   const ignoreComplete =
