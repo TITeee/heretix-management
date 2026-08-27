@@ -596,7 +596,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
             variant="ghost"
             size="sm"
             onClick={() => {
-              if (initialAssetId) { window.location.href = "/alerts"; return }
+              if (initialAssetId) { router.push("/alerts"); return }
               setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set()); setDependencyFilter(new Set()); setInventoryFilter(new Set()); setDueFilter(new Set())
             }}
           >
@@ -614,7 +614,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
         secondFilterPlaceholder="Vuln ID..."
         initialPageSize={25}
         initialFilterValue={initialPackageName}
-        onFilterReset={() => { window.location.href = "/alerts" }}
+        onFilterReset={() => { router.push("/alerts") }}
         onRowClick={(row) => { setSelected(row); setOpen(true) }}
         enableRowSelection
         getRowId={(row) => row.id}
