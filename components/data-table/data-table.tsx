@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
 import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
@@ -30,6 +31,13 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { ChevronDown, ChevronLeft, ChevronRight, CheckIcon, MinusIcon, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -226,19 +234,21 @@ export function DataTable<TData, TValue>({
         )}
         <div className="ml-auto flex items-center gap-2">
           {headerActions}
-          <select
-            className="h-9 rounded-md border bg-background px-2 text-sm"
-            value={table.getState().pagination.pageSize}
-            onChange={(e) => table.setPageSize(Number(e.target.value))}
+          <Select
+            value={String(table.getState().pagination.pageSize)}
+            onValueChange={(v) => { if (v) table.setPageSize(Number(v)) }}
           >
-            {[10, 25, 50].map((s) => (
-              <option key={s} value={s}>
-                {s} / page
-              </option>
-            ))}
-          </select>
+            <SelectTrigger size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[10, 25, 50].map((s) => (
+                <SelectItem key={s} value={String(s)}>{s} / page</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex h-8 items-center gap-1 rounded-md border border-input bg-transparent px-3 text-sm font-medium shadow-sm hover:bg-accent">
+            <DropdownMenuTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
               Columns <ChevronDown className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
