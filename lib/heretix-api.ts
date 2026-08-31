@@ -117,6 +117,34 @@ export async function suggestPackageNames(params: {
   return data.suggestions ?? []
 }
 
+export type CveCpeMatch = {
+  cpe: string
+  vendor: string
+  product: string
+}
+
+/**
+ * Reverse-resolves a CVE + the product label recorded on the alert (e.g.
+ * "PAN-OS") to the CPE vendor:product NVD's own analysts already assigned to
+ * that specific CVE. Returns null when heretix-api has no matching CPE data
+ * for this CVE/product pair (no NVD analysis yet, or an ambiguous match) —
+ * that is an expected, common outcome, not an error.
+ */
+export async function findCpeForCve(cveId: string, product: string): Promise<CveCpeMatch | null> {
+  const [baseUrl, headers] = await Promise.all([getHeretixApiUrl(), apiHeaders()])
+  const query = new URLSearchParams({ product })
+
+  const res = await fetch(
+    `${baseUrl}/api/v1/vulnerabilities/${encodeURIComponent(cveId)}/cpe?${query}`,
+    { headers, signal: AbortSignal.timeout(10_000) }
+  )
+  if (res.status === 404) return null
+  if (!res.ok) {
+    throw new Error(`heretix-api cpe lookup error: ${res.status}`)
+  }
+  return res.json()
+}
+
 export type CpeSearchResult = {
   cpe: string
   parsed: { vendor: string; product: string; version: string | null }

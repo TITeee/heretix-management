@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { EXPORTABLE_REASONS, vexStateFor } from "@/lib/vex"
+import { findCpeForCve } from "@/lib/heretix-api"
 
 // Reverse-maps from OSV ecosystem name to PURL type + namespace
 function buildPURL(name: string, version: string, ecosystem: string): string {
@@ -29,6 +30,20 @@ function buildPURL(name: string, version: string, ecosystem: string): string {
   return `pkg:generic/${name}@${version}`
 }
 
+function componentType(purl: string): string {
+  if (purl.startsWith("pkg:deb/") || purl.startsWith("pkg:rpm/") || purl.startsWith("pkg:apk/")) return "operating-system"
+  return "application"
+}
+
+type VexComponent = {
+  "bom-ref": string
+  type: string
+  name: string
+  version: string
+  purl: string
+  cpe?: string
+}
+
 export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -36,6 +51,10 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const assetId = searchParams.get("assetId") ?? undefined
   const download = searchParams.get("download") === "true"
+
+  const asset = assetId
+    ? await prisma.asset.findUnique({ where: { id: assetId }, select: { name: true, hostname: true, assetType: true } })
+    : null
 
   // Only ignored alerts produce statements. resolved (package upgraded) and
   // in_progress do not map cleanly to VEX fixed/under_investigation because
@@ -65,8 +84,11 @@ export async function GET(req: NextRequest) {
     orderBy: { externalId: "asc" },
   })
 
-  // Deduplicate by (externalId, PURL)
+  // Deduplicate by (externalId, PURL). affects[].ref points at a component's
+  // bom-ref (the purl itself, which is unique per component here) rather than
+  // a bare purl string, so the reference actually resolves within the document.
   const seen = new Set<string>()
+  const components = new Map<string, VexComponent>()
   const vulnerabilities: object[] = []
 
   for (const alert of alerts) {
@@ -77,6 +99,16 @@ export async function GET(req: NextRequest) {
     const key = `${alert.externalId}::${purl}`
     if (seen.has(key)) continue
     seen.add(key)
+
+    if (!components.has(purl)) {
+      components.set(purl, {
+        "bom-ref": purl,
+        type: componentType(purl),
+        name: alert.packageName,
+        version: alert.packageVersion,
+        purl,
+      })
+    }
 
     vulnerabilities.push({
       id: alert.externalId,
@@ -90,6 +122,32 @@ export async function GET(req: NextRequest) {
     })
   }
 
+  // A "pkg:generic/..." purl (vendor appliances like PAN-OS/BIG-IP — anything
+  // outside a real package ecosystem) carries no identity a third party can
+  // resolve. Try to recover the CPE vendor:product NVD's own analysts already
+  // assigned to this exact CVE/product instead of guessing one. Cached per
+  // product (by whichever alert is encountered first for it) rather than
+  // retried across every one of that product's CVEs — cheaper, and in
+  // practice a PSIRT bulletin's CVEs against the same product/version tend to
+  // get analyzed by NVD together, so the first attempt is usually enough.
+  const cpeAttempted = new Set<string>()
+  for (const alert of alerts) {
+    const purl = buildPURL(alert.packageName, alert.packageVersion, alert.ecosystem)
+    const component = components.get(purl)
+    if (!component || !purl.startsWith("pkg:generic/")) continue
+
+    const cacheKey = alert.packageName.toLowerCase()
+    if (cpeAttempted.has(cacheKey)) continue
+    cpeAttempted.add(cacheKey)
+
+    const match = await findCpeForCve(alert.externalId, alert.packageName).catch(() => null)
+    if (match) {
+      for (const c of components.values()) {
+        if (c.name.toLowerCase() === cacheKey) c.cpe = match.cpe
+      }
+    }
+  }
+
   const vex = {
     bomFormat: "CycloneDX",
     specVersion: "1.6",
@@ -98,7 +156,13 @@ export async function GET(req: NextRequest) {
     metadata: {
       timestamp: new Date().toISOString(),
       tools: [{ vendor: "heretix", name: "heretix-management" }],
+      // Identifies which asset this document's statements apply to. Not a
+      // resolvable product identity (name/hostname are operational labels,
+      // not vendor/product) — that's carried per-package by components[].cpe
+      // above when available.
+      ...(asset ? { component: { type: asset.assetType === "docker_image" ? "container" : "application", name: asset.name || asset.hostname } } : {}),
     },
+    components: [...components.values()],
     vulnerabilities: vulnerabilities.map(v => ({ "bom-ref": (v as { id: string }).id, ...v })),
   }
 
@@ -107,7 +171,6 @@ export async function GET(req: NextRequest) {
   if (download) {
     let filename = "vex.json"
     if (assetId) {
-      const asset = await prisma.asset.findUnique({ where: { id: assetId }, select: { name: true, hostname: true } })
       const assetName = (asset?.name || asset?.hostname || assetId).replace(/[^a-zA-Z0-9_\-]/g, "_")
       filename = `vex-${assetName}.json`
     }
