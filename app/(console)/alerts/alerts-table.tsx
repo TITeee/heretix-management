@@ -6,7 +6,10 @@ import { DataTable } from "@/components/data-table/data-table"
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
+import { cn } from "@/lib/utils"
 import { Textarea } from "@/components/ui/textarea"
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { SeverityBadge } from "@/components/alerts/vuln-detail-tabs"
 import { AlertDetailSheet, STATUS_ICON_MAP, StatusIcon } from "@/components/alerts/alert-detail-sheet"
 import { formatDaysUntilDue, getSlaStatus } from "@/lib/sla"
@@ -89,7 +92,18 @@ function StatusSelect({ alertId, currentStatus, onStatusChange }: {
         <SelectItem value="open"><span className="flex items-center gap-1.5"><StatusIcon status="open" />Open</span></SelectItem>
         <SelectItem value="in_progress"><span className="flex items-center gap-1.5"><StatusIcon status="in_progress" />In Progress</span></SelectItem>
         <SelectItem value="resolved"><span className="flex items-center gap-1.5"><StatusIcon status="resolved" />Resolved</span></SelectItem>
-        <SelectItem value="ignored"><span className="flex items-center gap-1.5"><StatusIcon status="ignored" />Ignored</span></SelectItem>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger render={
+              <SelectItem value="ignored" disabled className="data-disabled:pointer-events-auto">
+                <span className="flex items-center gap-1.5"><StatusIcon status="ignored" />Ignored</span>
+              </SelectItem>
+            } />
+            <TooltipContent side="right">
+              Ignoring an alert requires a reason — set it from the alert detail panel
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </SelectContent>
     </Select>
   )
@@ -627,7 +641,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
             <div className="relative group">
               <button
                 type="button"
-                className="inline-flex h-8 items-center gap-1 rounded-md border border-input bg-transparent px-3 text-sm font-medium shadow-sm hover:bg-accent"
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
               >
                 <Download className="h-4 w-4" />
                 Export
@@ -651,7 +665,18 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
                     <SelectItem value="open"><span className="flex items-center gap-1.5"><StatusIcon status="open" />Open</span></SelectItem>
                     <SelectItem value="in_progress"><span className="flex items-center gap-1.5"><StatusIcon status="in_progress" />In Progress</span></SelectItem>
                     <SelectItem value="resolved"><span className="flex items-center gap-1.5"><StatusIcon status="resolved" />Resolved</span></SelectItem>
-                    <SelectItem value="ignored"><span className="flex items-center gap-1.5"><StatusIcon status="ignored" />Ignored</span></SelectItem>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger render={
+                          <SelectItem value="ignored" disabled className="data-disabled:pointer-events-auto">
+                            <span className="flex items-center gap-1.5"><StatusIcon status="ignored" />Ignored</span>
+                          </SelectItem>
+                        } />
+                        <TooltipContent side="right">
+                          Ignoring an alert requires a reason — set it from the alert detail panel
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </SelectContent>
                 </Select>
                 <Button size="sm" onClick={handleBulkStatusChange} disabled={!bulkStatus || bulkLoading}>
