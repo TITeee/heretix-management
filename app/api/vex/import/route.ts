@@ -79,6 +79,18 @@ export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  // Required: a VEX statement is a judgment about a product's deployment, not a
+  // fact about a package+version in the abstract — of the nine CycloneDX
+  // justifications, only code_not_present and protected_by_compiler describe the
+  // build itself, and even those aren't applied without a human clicking "Apply"
+  // when reused from the alert detail panel's own suggestion feature. Importing
+  // without an asset previously applied every matching statement to every asset
+  // sharing that package+version+CVE, silently overriding judgments elsewhere.
+  const assetId = req.nextUrl.searchParams.get("assetId")
+  if (!assetId) {
+    return NextResponse.json({ error: "assetId is required — import VEX from an asset's page" }, { status: 400 })
+  }
+
   const body = await req.json()
   if (body.bomFormat !== "CycloneDX") {
     return NextResponse.json({ error: "Only CycloneDX VEX format is supported" }, { status: 400 })
@@ -145,6 +157,7 @@ export async function POST(req: NextRequest) {
 
       for (const version of versions) {
         const where = {
+          assetId,
           externalId: cveId,
           packageName: parsed.name,
           packageVersion: version,

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { ScanButton } from "./scan-button"
+import { ImportVexButton } from "./import-vex-button"
 import { EditAssetDialog } from "./edit-asset-dialog"
 import { AddPackageDialog } from "./add-package-dialog"
 import { PackagesTable } from "./packages-table"
@@ -98,15 +99,19 @@ export default async function AssetDetailPage({
         </div>
         <div className="flex items-center gap-2">
           <EditAssetDialog asset={{ id: asset.id, name: asset.name, hostname: asset.hostname, osName: asset.osName, osVersionId: asset.osVersionId }} />
-          {vexCount > 0 && (
-            <a
-              href={`/api/vex?assetId=${id}&download=true`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              <FileDown className="h-4 w-4" />
-              Export VEX
-            </a>
-          )}
+          <a
+            {...(vexCount > 0 ? { href: `/api/vex?assetId=${id}&download=true` } : {})}
+            aria-disabled={vexCount === 0}
+            title={vexCount === 0 ? "No ignored alerts with an exportable reason yet" : undefined}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              vexCount === 0 && "pointer-events-none opacity-50"
+            )}
+          >
+            <FileDown className="h-4 w-4" />
+            Export VEX
+          </a>
+          <ImportVexButton assetId={id} />
           <Link href={`/alerts?assetId=${id}`}>
             <Button variant="destructive" size="sm">
               <Bell className="h-4 w-4" />
