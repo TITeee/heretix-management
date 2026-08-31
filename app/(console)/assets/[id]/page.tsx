@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db"
 import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
+import { cn } from "@/lib/utils"
 import { Bell, FileDown } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -99,7 +101,7 @@ export default async function AssetDetailPage({
           {vexCount > 0 && (
             <a
               href={`/api/vex?assetId=${id}&download=true`}
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-input bg-transparent px-3 text-sm font-medium shadow-sm hover:bg-accent"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
               <FileDown className="h-4 w-4" />
               Export VEX
