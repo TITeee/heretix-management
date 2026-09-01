@@ -347,11 +347,14 @@ const PURL_TYPE_MAP: Record<string, string> = {
 }
 
 function distroQualifierToEcosystem(distro: string): string {
-  // Oracle Linux's canonical qualifier carries no version segment (heretix-api routes
-  // it on the bare string "oracle-linux"), unlike every other distro here. It has to
-  // be checked before the generic "{id}-{version}" split below, which would otherwise
-  // misparse the hyphen inside "oracle-linux" itself as the id/version boundary
-  // (id="oracle", ver="linux") and silently fall through to "".
+  // Legacy heretix-cli builds (2026 to 2026-09-01) emitted the bare, version-less
+  // "oracle-linux" qualifier — heretix-api's AdvisoryAffectedProduct lookup had no
+  // per-OS-major-version column at the time, so a version segment here would have
+  // been discarded server-side anyway. Current builds emit "oraclelinux-<major>",
+  // handled by the generic split below now that heretix-api keys vendor by version
+  // (2026-09-01). Checked before that split, which would otherwise misparse the
+  // hyphen inside "oracle-linux" itself as the id/version boundary (id="oracle",
+  // ver="linux") and silently fall through to "".
   if (distro === "oracle-linux") return "oracle-linux"
 
   // distro format: "{id}-{version}" e.g. "almalinux-9", "ubuntu-22.04", "alpine-3.18"
@@ -364,10 +367,18 @@ function distroQualifierToEcosystem(distro: string): string {
     case "ubuntu":      return `Ubuntu:${ver}:LTS`
     case "debian":      return `Debian:${ver}`
     case "alpine":      return `Alpine:v${ver}`
-    case "rocky":       return `Rocky:${ver}`
-    // Older heretix-cli builds (2026-04-15 to 2026-08) emitted "oraclelinux-<major>"
-    // before being reverted to the bare, version-less form handled above.
-    case "oraclelinux": return "oracle-linux"
+    // Current heretix-cli builds emit "rockylinux-<major>" (from ecosystem
+    // "Rocky Linux:N", normalized by stripping the space). "rocky-<major>" is
+    // the legacy qualifier from before 2026-09-01, when heretix-cli sent the
+    // ecosystem as "Rocky:N" — a value that never matched anything in
+    // heretix-api's OSV data (the real ecosystem string is "Rocky Linux:N").
+    // Both map to the same corrected ecosystem; kept for SBOMs from that window.
+    case "rockylinux":  return `Rocky Linux:${ver}`
+    case "rocky":       return `Rocky Linux:${ver}`
+    // "oraclelinux-<major>" is heretix-cli's current, version-qualified form
+    // (restored 2026-09-01 now that heretix-api keys vendor by version — see the
+    // bare "oracle-linux" case above for the version-less form it replaced).
+    case "oraclelinux": return `Oracle Linux:${ver}`
     case "rhel":        return `Red Hat:${ver}`
     case "centos":      return `CentOS:${ver}`
     default:            return ""
