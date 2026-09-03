@@ -162,12 +162,19 @@ export function parseCvssVector(vector: string): ParsedMetric[] {
   const metricSegments = segments[0]?.startsWith("CVSS:") ? segments.slice(1) : segments
 
   const metrics: ParsedMetric[] = []
+  const seenKeys = new Set<string>()
   for (const segment of metricSegments) {
     const sep = segment.indexOf(":")
     if (sep === -1) continue
     const key = segment.slice(0, sep)
     const value = segment.slice(sep + 1)
     if (!key || !value) continue
+    // A well-formed vector never repeats a metric; a source with a malformed
+    // or doubled-up vector string would otherwise render (and React-key) the
+    // same row twice. First occurrence wins, matching how an unrecognized
+    // metric is kept rather than dropped elsewhere in this function.
+    if (seenKeys.has(key)) continue
+    seenKeys.add(key)
 
     const def = dict[key]
     metrics.push({
