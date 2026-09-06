@@ -8,7 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.mts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
@@ -67,6 +70,7 @@
     "eslint-config-next": "^16.3.3",
     "shadcn": "^4.13.0",
     "tailwindcss": "^4.3.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   }
 }
