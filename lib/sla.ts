@@ -99,17 +99,24 @@ export function formatDaysUntilDue(dueDate: Date | null, now: Date = new Date())
   if (!dueDate) return "Unscored"
 
   const diffMs = dueDate.getTime() - now.getTime()
-  const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000))
-  const diffHours = Math.floor((diffMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000))
 
+  // Math.floor rounds a negative diffMs toward -Infinity, not toward zero, so
+  // flooring it directly would inflate every overdue duration by one unit
+  // (e.g. 1 second overdue reads as "1 day"). Take the magnitude first so the
+  // overdue branch floors an always-positive elapsed time, same as the
+  // not-yet-due branch below.
   if (diffMs < 0) {
-    const overdueDays = Math.abs(diffDays)
-    const overdueHours = Math.abs(diffHours)
+    const overdueMs = -diffMs
+    const overdueDays = Math.floor(overdueMs / (24 * 60 * 60 * 1000))
+    const overdueHours = Math.floor((overdueMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000))
     if (overdueDays > 0) {
       return `Overdue by ${overdueDays} day${overdueDays > 1 ? "s" : ""}`
     }
     return `Overdue by ${overdueHours}h`
   }
+
+  const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000))
+  const diffHours = Math.floor((diffMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000))
 
   if (diffDays > 0) {
     return `${diffDays} day${diffDays > 1 ? "s" : ""}`
