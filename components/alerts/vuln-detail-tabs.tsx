@@ -87,6 +87,21 @@ function getZabbixComponents(rawData: AdvisoryVulnerability["rawData"]): string[
   return v.filter((c): c is string => typeof c === "string" && c.length > 0)
 }
 
+// Products as the CNA itself declared them in the CVE Record, which is the only
+// product data available for CVEs NVD has not CPE-enriched. Unlike the advisory
+// tables these names are free-form, so vendor is what tells two identically
+// named products apart ("CMS" is used by 29 different vendors).
+export type CnaAffectedProduct = {
+  vendor: string
+  product: string
+  packageName: string | null
+  versionType: string | null
+  versionStart: string | null
+  versionEnd: string | null
+  lastAffected: string | null
+  affectedVersions: string[]
+}
+
 export type VulnDetail = {
   cveId: string | null
   osvId: string | null
@@ -119,6 +134,13 @@ export type VulnDetail = {
     rawData: OsvRawData
   }>
   advisoryVulnerabilities: AdvisoryVulnerability[]
+  cnaVulnerability: {
+    cveId: string
+    cnaShortName: string
+    datePublished: string | null
+    dateUpdated: string | null
+    affectedProducts: CnaAffectedProduct[]
+  } | null
 }
 
 export function SeverityBadge({ score }: { score: number | null }) {
@@ -708,6 +730,97 @@ export function AdvisoryTab({ detail, loading }: { detail: VulnDetail | null; lo
           )}
         </div>
       ))}
+    </div>
+  )
+}
+
+export function CnaTab({ detail, loading }: { detail: VulnDetail | null; loading: boolean }) {
+  if (loading) return <DetailSkeleton />
+
+  const cna = detail?.cnaVulnerability
+  if (!cna) {
+    return <p className="text-sm text-muted-foreground py-2">No CNA data available.</p>
+  }
+
+  return (
+    <div className="space-y-6 text-sm">
+      <section className="space-y-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Details</h3>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="w-28 text-muted-foreground shrink-0">CNA</span>
+            <Badge variant="outline">{cna.cnaShortName}</Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-28 text-muted-foreground shrink-0">CVE</span>
+            <span className="font-mono text-xs">{cna.cveId}</span>
+          </div>
+          {cna.datePublished && (
+            <div className="flex items-center gap-2">
+              <span className="w-28 text-muted-foreground shrink-0">Published</span>
+              <span>{new Date(cna.datePublished).toLocaleDateString("en-US")}</span>
+            </div>
+          )}
+          {cna.dateUpdated && (
+            <div className="flex items-center gap-2">
+              <span className="w-28 text-muted-foreground shrink-0">Updated</span>
+              <span>{new Date(cna.dateUpdated).toLocaleDateString("en-US")}</span>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {cna.affectedProducts.length > 0 && (
+        <section className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Affected Products ({cna.affectedProducts.length})
+          </h3>
+          <div className="rounded-md border overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="px-3 py-2 text-left font-medium">Vendor / Product</th>
+                  <th className="px-3 py-2 text-left font-medium">Affected Versions</th>
+                  <th className="px-3 py-2 text-left font-medium">Fixed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cna.affectedProducts.map((p, i) => (
+                  <tr key={i} className="border-b last:border-0">
+                    <td className="px-3 py-2">
+                      <div className="font-medium">{p.product}</div>
+                      {/* Free-form CNA product names collide across vendors, so the
+                          vendor is what identifies which product actually matched. */}
+                      <div className="text-muted-foreground">{p.vendor}</div>
+                    </td>
+                    <td className="px-3 py-2 font-mono text-muted-foreground">
+                      {/* Same bound semantics the Advisory table uses: versionEnd is
+                          exclusive, lastAffected inclusive. Most CNA rows for
+                          appliances carry neither and list exact versions instead. */}
+                      {p.versionStart && p.versionEnd
+                        ? `≥ ${p.versionStart}, < ${p.versionEnd}`
+                        : p.versionStart && p.lastAffected
+                        ? `${p.versionStart} – ${p.lastAffected}`
+                        : p.versionStart
+                        ? `≥ ${p.versionStart}`
+                        : p.versionEnd
+                        ? `< ${p.versionEnd}`
+                        : p.lastAffected
+                        ? `≤ ${p.lastAffected}`
+                        : p.affectedVersions.length > 0
+                        ? p.affectedVersions.join(", ")
+                        : "n/a"}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-muted-foreground">
+                      {p.versionEnd ?? "n/a"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   )
 }

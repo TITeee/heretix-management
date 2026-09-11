@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { HelpCircle } from "lucide-react"
 import { ADVISORY_VENDORS, getProductsByVendor, type AdvisoryVendor } from "@/lib/advisory-products"
+import { PackageNameInput } from "@/components/package-name-input"
 
 const ECOSYSTEMS = [
   "Ubuntu:20.04:LTS",
@@ -187,7 +188,17 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
           <TabsContent value="general" className="space-y-4 pt-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Package Name <span className="text-destructive">*</span></label>
-              <Input placeholder="e.g. nginx" value={genName} onChange={(e) => setGenName(e.target.value)} />
+              {/* Suggestions come from the vulnerability data itself, so the name
+                  stored here is one that can actually match. It matters most for
+                  appliances registered with Ecosystem "Other": those are matched
+                  against CNA product names by exact string, where a model number
+                  typed from memory ("BR-6208AC") silently finds nothing. */}
+              <PackageNameInput
+                value={genName}
+                onChange={setGenName}
+                ecosystem={genEcosystem || undefined}
+                placeholder="e.g. nginx"
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Version <span className="text-destructive">*</span></label>
@@ -213,7 +224,9 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
                         <p className="font-medium">Other</p>
                         <p className="opacity-80 leading-relaxed">
                           Ecosystem is stored as empty. OSV ecosystem matching is skipped.
-                          Vulnerability detection relies on CPE-based or advisory-based lookup only.
+                          Vulnerability detection relies on CPE-based lookup, vendor advisories,
+                          and the affected products CNAs declare in the CVE Record — which is
+                          what covers network and firewall appliances.
                           Use this for packages not covered by the listed ecosystems.
                         </p>
                       </div>

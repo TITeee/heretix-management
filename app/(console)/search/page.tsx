@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -22,7 +22,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Search, ShieldAlert } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { SEVERITY_COLORS } from "@/lib/severity"
-import { VulnDetail, NvdTab, OsvTab, AdvisoryTab } from "@/components/alerts/vuln-detail-tabs"
+import { VulnDetail, NvdTab, OsvTab, AdvisoryTab, CnaTab } from "@/components/alerts/vuln-detail-tabs"
+import { PackageNameInput } from "@/components/package-name-input"
 import { ADVISORY_VENDORS, FORTINET_PRODUCTS, getProductsByVendor, type AdvisoryVendor } from "@/lib/advisory-products"
 
 type Vuln = {
@@ -92,41 +93,6 @@ export default function SearchPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detailData, setDetailData] = useState<VulnDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [pkgSuggestions, setPkgSuggestions] = useState<string[]>([])
-  const [showPkgSuggestions, setShowPkgSuggestions] = useState(false)
-  const pkgDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // The exact NVD/OSV package name (e.g. "http_server", not "Apache HTTP
-  // Server") can't be guessed, so suggest real names as the user types instead
-  // of requiring them to look it up elsewhere first.
-  function handlePkgChange(value: string) {
-    setPkg(value)
-    if (pkgDebounceRef.current) clearTimeout(pkgDebounceRef.current)
-    const trimmed = value.trim()
-    if (!trimmed) {
-      setPkgSuggestions([])
-      setShowPkgSuggestions(false)
-      return
-    }
-    pkgDebounceRef.current = setTimeout(async () => {
-      const q = new URLSearchParams({ q: trimmed })
-      if (ecosystem !== "All") q.set("ecosystem", ecosystem)
-      try {
-        const res = await fetch(`/api/search/suggest?${q}`)
-        const data = await res.json()
-        setPkgSuggestions(data.suggestions ?? [])
-        setShowPkgSuggestions(true)
-      } catch {
-        setPkgSuggestions([])
-      }
-    }, 250)
-  }
-
-  function selectPkgSuggestion(name: string) {
-    setPkg(name)
-    setPkgSuggestions([])
-    setShowPkgSuggestions(false)
-  }
 
   async function handleCardClick(externalId: string) {
     setSelectedId(externalId)
@@ -313,33 +279,14 @@ export default function SearchPage() {
       <form onSubmit={handleSearch} className="flex gap-2 flex-wrap">
         {mode === "package" ? (
           <>
-            <div className="relative w-48">
-              <Input
-                placeholder="Package name (e.g. curl)"
-                value={pkg}
-                onChange={(e) => handlePkgChange(e.target.value)}
-                onFocus={() => { if (pkgSuggestions.length > 0) setShowPkgSuggestions(true) }}
-                onBlur={() => { setTimeout(() => setShowPkgSuggestions(false), 150) }}
-                autoComplete="off"
-                className="w-48"
-                required
-              />
-              {showPkgSuggestions && pkgSuggestions.length > 0 && (
-                <ul className="absolute z-10 mt-1 w-full max-h-60 overflow-y-auto rounded-md border bg-popover shadow-md text-sm">
-                  {pkgSuggestions.map((name) => (
-                    <li key={name}>
-                      <button
-                        type="button"
-                        className="w-full px-3 py-1.5 text-left font-mono hover:bg-accent"
-                        onMouseDown={(e) => { e.preventDefault(); selectPkgSuggestion(name) }}
-                      >
-                        {name}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <PackageNameInput
+              value={pkg}
+              onChange={setPkg}
+              ecosystem={ecosystem !== "All" ? ecosystem : undefined}
+              placeholder="Package name (e.g. curl)"
+              className="w-48"
+              required
+            />
             <Input
               placeholder="Version (optional)"
               value={version}
@@ -482,6 +429,9 @@ export default function SearchPage() {
               {(detailData?.advisoryVulnerabilities?.length ?? 0) > 0 && (
                 <TabsTrigger value="advisory">Advisory</TabsTrigger>
               )}
+              {detailData?.cnaVulnerability && (
+                <TabsTrigger value="cna">CNA</TabsTrigger>
+              )}
             </TabsList>
             <TabsContent value="nvd" className="mt-4">
               <NvdTab detail={detailData} loading={detailLoading} />
@@ -491,6 +441,9 @@ export default function SearchPage() {
             </TabsContent>
             <TabsContent value="advisory" className="mt-4">
               <AdvisoryTab detail={detailData} loading={detailLoading} />
+            </TabsContent>
+            <TabsContent value="cna" className="mt-4">
+              <CnaTab detail={detailData} loading={detailLoading} />
             </TabsContent>
           </Tabs>
         </SheetContent>

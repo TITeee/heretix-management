@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from "react"
-import { VulnDetail, DetailSkeleton, NvdTab, OsvTab, AdvisoryTab, SeverityBadge } from "@/components/alerts/vuln-detail-tabs"
+import { VulnDetail, DetailSkeleton, NvdTab, OsvTab, AdvisoryTab, CnaTab, SeverityBadge } from "@/components/alerts/vuln-detail-tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -754,6 +754,9 @@ export function AlertDetailSheet({
             {(vulnDetail?.advisoryVulnerabilities?.length ?? 0) > 0 && (
               <TabsTrigger value="advisory">Advisory</TabsTrigger>
             )}
+            {vulnDetail?.cnaVulnerability && (
+              <TabsTrigger value="cna">CNA</TabsTrigger>
+            )}
             <TabsTrigger value="dependents">Dependents</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
             {aiEnabled && (
@@ -1047,6 +1050,10 @@ export function AlertDetailSheet({
 
           <TabsContent value="advisory" className="flex-1 overflow-y-auto px-6 py-4">
             <AdvisoryTab detail={vulnDetail} loading={loadingDetail} />
+          </TabsContent>
+
+          <TabsContent value="cna" className="flex-1 overflow-y-auto px-6 py-4">
+            <CnaTab detail={vulnDetail} loading={loadingDetail} />
           </TabsContent>
 
           <TabsContent value="dependents" className="flex-1 overflow-y-auto px-6 py-4">
