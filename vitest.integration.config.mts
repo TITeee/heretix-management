@@ -14,7 +14,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    include: ["app/**/*.integration.test.ts"],
+    include: ["app/**/*.integration.test.ts", "lib/**/*.integration.test.ts"],
     env: { DATABASE_URL: testDbUrl },
     // All integration test files share one truncated DB — running them
     // concurrently would race on beforeEach() resets.

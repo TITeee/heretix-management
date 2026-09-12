@@ -137,6 +137,40 @@ describe("POST /api/assets — CycloneDX import", () => {
     const curl = packages.find((p) => p.name === "curl")!
     expect(curl).toMatchObject({ version: "8.0.0", ecosystem: "Alpine:v3.18" })
   })
+
+  it("reads heretix-cli's heretix:category property for a non-runtime OS package, alongside scope=excluded", async () => {
+    const bom = {
+      bomFormat: "CycloneDX",
+      metadata: {
+        component: { "bom-ref": "root", name: "cdx-host", version: "1.0", type: "container" },
+        timestamp: "2026-01-01T00:00:00Z",
+      },
+      components: [
+        {
+          "bom-ref": "linux-libc-dev", type: "library", name: "linux-libc-dev", version: "6.12.107-1",
+          purl: "pkg:deb/debian/linux-libc-dev@6.12.107-1?distro=debian-13", scope: "excluded",
+          properties: [{ name: "heretix:category", value: "kernel" }],
+        },
+        {
+          "bom-ref": "curl", type: "library", name: "curl", version: "8.14.1",
+          purl: "pkg:deb/debian/curl@8.14.1?distro=debian-13",
+        },
+      ],
+    }
+
+    const res = await POST(postRequest(bom))
+    expect(res.status).toBe(201)
+    const asset = await res.json()
+
+    const packages = await prisma.package.findMany({ where: { assetId: asset.id } })
+    const kernelPkg = packages.find((p) => p.name === "linux-libc-dev")!
+    expect(kernelPkg.scope).toBe("excluded")
+    expect(kernelPkg.category).toBe("kernel")
+
+    const curl = packages.find((p) => p.name === "curl")!
+    expect(curl.scope).toBeNull()
+    expect(curl.category).toBeNull()
+  })
 })
 
 describe("POST /api/assets — re-import diff", () => {

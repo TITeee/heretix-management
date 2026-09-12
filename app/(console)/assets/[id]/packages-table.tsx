@@ -63,7 +63,19 @@ type PackageRow = {
   cpe?: string | null
   direct?: boolean | null
   scope?: string | null
+  category?: string | null
   alertCount: number
+}
+
+// scope=excluded covers two different reasons: an npm dev dependency (pruned
+// from a production install), or — per heretix-cli's heretix:category property
+// — an OS package that ships in the image but never runs (kernel headers,
+// compiler/linker toolchain). category is null for the dev-dependency case.
+function nonRuntimeCategory(p: { scope?: string | null; category?: string | null }): "kernel" | "build" | "devonly" | null {
+  if (p.category === "kernel") return "kernel"
+  if (p.category === "build") return "build"
+  if (p.scope === "excluded") return "devonly"
+  return null
 }
 
 type FormState = {
@@ -370,23 +382,25 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
     {
       accessorKey: "scope",
       header: sortableHeader("Scope"),
-      // Dev-only sorts first so it's easy to spot; everything else (required
+      // Non-runtime sorts first so it's easy to spot; everything else (required
       // or unknown — older imports predating this field) is equivalent here.
       sortingFn: (a, b) => {
-        const rank = (v: string | null | undefined) => (v === "excluded" ? 0 : 1)
-        return rank(a.original.scope) - rank(b.original.scope)
+        const rank = (v: string | null) => (v ? 0 : 1)
+        return rank(nonRuntimeCategory(a.original)) - rank(nonRuntimeCategory(b.original))
       },
-      cell: ({ row }) =>
-        row.original.scope === "excluded"
-          ? (
-            <Badge
-              variant="outline"
-              className="text-xs text-amber-700 border-amber-300 dark:text-amber-400 dark:border-amber-800"
-            >
-              Dev-only
-            </Badge>
-          )
-          : null,
+      cell: ({ row }) => {
+        const category = nonRuntimeCategory(row.original)
+        if (!category) return null
+        const label = category === "kernel" ? "Kernel" : category === "build" ? "Build" : "Dev-only"
+        return (
+          <Badge
+            variant="outline"
+            className="text-xs text-amber-700 border-amber-300 dark:text-amber-400 dark:border-amber-800"
+          >
+            {label}
+          </Badge>
+        )
+      },
     },
     {
       accessorKey: "location",
@@ -443,7 +457,9 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
     { value: "false", label: "Indirect" },
   ]
   const scopeOptions = [
-    { value: "excluded", label: "Dev-only" },
+    { value: "kernel", label: "Kernel" },
+    { value: "build", label: "Build" },
+    { value: "devonly", label: "Dev-only" },
     { value: "other", label: "Required" },
   ]
 
@@ -451,7 +467,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
     if (ecosystemFilter.size > 0 && !ecosystemFilter.has(p.ecosystem)) return false
     if (sourceFilter.size > 0 && !sourceFilter.has(p.source)) return false
     if (directFilter.size > 0 && !directFilter.has(String(p.direct))) return false
-    if (scopeFilter.size > 0 && !scopeFilter.has(p.scope === "excluded" ? "excluded" : "other")) return false
+    if (scopeFilter.size > 0 && !scopeFilter.has(nonRuntimeCategory(p) ?? "other")) return false
     return true
   }), [data, ecosystemFilter, sourceFilter, directFilter, scopeFilter])
 

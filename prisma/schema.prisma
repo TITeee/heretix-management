@@ -47,9 +47,14 @@ model Package {
   cpe         String?
   direct      Boolean?
   deps        String[]
-  // null=required/unknown, "excluded"=dev-only per CycloneDX component.scope
-  // (would not survive a production prune, e.g. `pnpm prune --prod`)
+  // null=required/unknown, "excluded"=non-runtime per CycloneDX component.scope.
+  // scope=excluded covers two different reasons, distinguished by category:
+  // an npm dev dependency (would not survive `pnpm prune --prod`), or an OS
+  // package heretix-cli's heretix:category property marks "kernel"/"build" —
+  // present in the image but never executed there (kernel headers, compiler/
+  // linker toolchain). category is null for the npm dev-dependency case.
   scope       String?
+  category    String?
 
   // A package is identified by its ecosystem, name and version, matching what a
   // vulnerability lookup is keyed on and what a PURL encodes. npm and pnpm resolve

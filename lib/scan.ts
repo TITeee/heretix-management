@@ -79,14 +79,21 @@ export async function scanAsset(
   const pkgs = asset.packages.filter(
     (p) => p.name.trim().length > 0 && p.version.trim().length > 0
   )
-  const cpePkgs = pkgs.filter((p) => p.cpe && p.cpe.trim().length > 0)
-  const normalPkgs = pkgs.filter((p) => !p.cpe || p.cpe.trim().length === 0)
+  // scope=excluded covers both npm dev-only packages and, as of heretix-cli's
+  // kernel/build-toolchain classification, OS packages that ship in the image
+  // but never run (kernel headers, compilers, linkers). Neither contributes to
+  // the image's actual attack surface, so they are never sent to heretix-api.
+  const runtimePkgs = pkgs.filter((p) => p.scope !== "excluded")
+  const excludedPkgs = pkgs.filter((p) => p.scope === "excluded")
+  const cpePkgs = runtimePkgs.filter((p) => p.cpe && p.cpe.trim().length > 0)
+  const normalPkgs = runtimePkgs.filter((p) => !p.cpe || p.cpe.trim().length === 0)
 
   logger.info("scan started", {
     assetId,
     totalPackages: pkgs.length,
     normalPackages: normalPkgs.length,
     cpePackages: cpePkgs.length,
+    excludedPackages: excludedPkgs.length,
   })
 
   try {
@@ -119,6 +126,15 @@ export async function scanAsset(
     const seen = new Set<string>()
     /** Packages whose result set is known to be complete, so absences are meaningful. */
     const reconcilable = new Set<string>()
+
+    // Excluded packages are never queried, but they are still a complete (empty)
+    // result: nothing runs from them, so any alert an earlier scan raised against
+    // one — before it was classified excluded, or before this version of the
+    // scan existed — is closed below exactly like a package heretix-api stopped
+    // reporting on.
+    for (const p of excludedPkgs) {
+      reconcilable.add(packageKey(p.name, p.version))
+    }
 
     let newAlertCount = 0
     let reopenedCount = 0

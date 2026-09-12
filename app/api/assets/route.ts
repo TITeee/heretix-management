@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
       direct?: boolean | null
       deps?: string[]
       scope?: string | null
+      category?: string | null
     }) => ({
       name: p.name,
       version: p.version,
@@ -99,6 +100,7 @@ export async function POST(req: NextRequest) {
       direct: p.direct ?? null,
       deps: p.deps ?? [],
       scope: p.scope ?? null,
+      category: p.category ?? null,
     }))
 
     const existing = await prisma.asset.findFirst({ where: { hostname } })
@@ -136,7 +138,7 @@ export async function POST(req: NextRequest) {
         where: { assetId: existing.id, source: { not: "manual" } },
       })
 
-      type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[]; scope: string | null }
+      type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[]; scope: string | null; category: string | null }
       const { toCreate, toUpdateMeta, toDelete, supersededVersions } = diffPackages(
         existingPkgs,
         incomingPackages as IncomingPkg[]
@@ -160,6 +162,7 @@ export async function POST(req: NextRequest) {
         ex.location !== inc.location ||
         ex.rawVersion !== inc.rawVersion ||
         ex.scope !== inc.scope ||
+        ex.category !== inc.category ||
         JSON.stringify(ex.deps) !== JSON.stringify(inc.deps ?? [])
       )
 
@@ -176,7 +179,7 @@ export async function POST(req: NextRequest) {
         ...metaChanged.map(({ existing: ex, incoming: inc }) =>
           prisma.package.update({
             where: { id: ex.id },
-            data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [], scope: inc.scope },
+            data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [], scope: inc.scope, category: inc.category },
           })
         ),
         ...(historyEntries.length > 0
@@ -496,6 +499,12 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
     const deps = ref
       ? (depsMap.get(ref) ?? []).map(depRef => refToPurl.get(depRef) ?? depRef)
       : []
+    // heretix-cli marks a kernel-header or build-toolchain OS package with
+    // this property (and mirrors it into scope=excluded, same as an npm dev
+    // dependency) — kept distinct from scope so the UI can tell "not shipped
+    // to production" (dev-only) apart from "shipped, but never executed"
+    // (kernel/build), rather than showing both as one generic "Dev-only".
+    const categoryProp = c.properties?.find(p => p.name === "heretix:category")
     return {
       name: name ?? c.name ?? "",
       version: c.version ?? "",
@@ -506,6 +515,7 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
       direct,
       deps,
       scope: c.scope === "excluded" ? "excluded" : null,
+      category: categoryProp?.value ?? null,
     }
   }).filter(p => p.name !== "").filter(p => {
     // Some scanners (Syft on Bitnami images, for one) report the same package
