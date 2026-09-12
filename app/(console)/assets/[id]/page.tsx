@@ -16,6 +16,7 @@ import { ScanHistoryModal } from "./scan-history-modal"
 import { PackageHistoryModal } from "./package-history-modal"
 import { DependencyGraph } from "./dependency-graph"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { AlertSummaryBadges, type AlertSummary } from "@/components/alerts/alert-summary-badges"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -47,6 +48,19 @@ export default async function AssetDetailPage({
 
   const openAlerts = await prisma.alert.count({
     where: { assetId: id, status: { in: ["open", "in_progress"] } },
+  })
+
+  const severityCounts = await prisma.alert.groupBy({
+    by: ["severity"],
+    where: { assetId: id, status: { in: ["open", "in_progress"] } },
+    _count: { id: true },
+  })
+  const alertSummary: AlertSummary = Object.fromEntries(
+    severityCounts.map((s) => [s.severity ?? "UNKNOWN", s._count.id])
+  )
+
+  const kevCount = await prisma.alert.count({
+    where: { assetId: id, status: { in: ["open", "in_progress"] }, isKev: true },
   })
 
   // Mirrors the exporter: accepted_risk stays internal, so it does not enable the button.
@@ -184,6 +198,12 @@ export default async function AssetDetailPage({
             )}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Alert Summary */}
+      <div className="rounded-lg border p-4 space-y-2 w-fit min-w-64">
+        <h2 className="text-sm font-semibold">Open Alert Summary</h2>
+        <AlertSummaryBadges summary={alertSummary} kevCount={kevCount} assetId={id} />
       </div>
 
       {/* Packages / Dependency Graph tabs */}

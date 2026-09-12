@@ -5,7 +5,7 @@ import { DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
 export default async function AlertsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ assetId?: string; status?: string; severity?: string; packageName?: string; packageVersion?: string }>
+  searchParams: Promise<{ assetId?: string; status?: string; severity?: string; kev?: string; packageName?: string; packageVersion?: string }>
 }) {
   const params = await searchParams
   const alerts = await prisma.alert.findMany({
@@ -14,6 +14,10 @@ export default async function AlertsPage({
       ...(params.status ? { status: params.status } : {}),
       ...(params.packageName ? { packageName: params.packageName } : {}),
       ...(params.packageVersion ? { packageVersion: params.packageVersion } : {}),
+      // "UNKNOWN" is how AlertSummaryBadges labels an alert with no severity
+      // recorded, so it maps to severity: null rather than the literal string.
+      ...(params.severity ? { severity: params.severity === "UNKNOWN" ? null : params.severity } : {}),
+      ...(params.kev ? { isKev: true } : {}),
     },
     orderBy: [{ cvssScore: "desc" }, { detectedAt: "desc" }],
     include: {

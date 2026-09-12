@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
-import { SEVERITY_COLORS } from "@/lib/severity"
+import { AlertSummaryBadges, type AlertSummary } from "@/components/alerts/alert-summary-badges"
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
   BreadcrumbLink, BreadcrumbSeparator,
@@ -11,8 +11,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Plus, Trash2, Search } from "lucide-react"
-
-type AlertSummary = Record<string, number>
 
 type AssetItem = {
   id: string
@@ -39,33 +37,10 @@ type TagDetail = {
   assetTags: AssetTagItem[]
   packageTags: PackageTagItem[]
   alertSummary: AlertSummary
+  kevCount: number
   assetAlertCounts: Record<string, number>
   packageAlertCounts: Record<string, number>
   packageEcosystems: Record<string, string>
-}
-
-const SEVERITY_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"]
-
-function severityColor(s: string): string {
-  return SEVERITY_COLORS[(s.toLowerCase() as keyof typeof SEVERITY_COLORS)] ?? SEVERITY_COLORS.na
-}
-
-function AlertSummaryBadges({ summary }: { summary: AlertSummary }) {
-  const entries = SEVERITY_ORDER.filter(s => summary[s] > 0)
-  if (entries.length === 0) return <span className="text-sm text-muted-foreground">No open alerts</span>
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      {entries.map(s => (
-        <span
-          key={s}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold"
-          style={{ backgroundColor: severityColor(s), color: s === "UNKNOWN" ? "#374151" : "#fff" }}
-        >
-          {s}: {summary[s]}
-        </span>
-      ))}
-    </div>
-  )
 }
 
 function AssetSearchAdd({ tagId, existingIds, onAdded }: {
@@ -285,9 +260,9 @@ export function TagDetailClient({ id }: { id: string }) {
       </div>
 
       {/* Alert Summary */}
-      <div className="rounded-lg border p-4 space-y-2 w-1/3 min-w-64">
+      <div className="rounded-lg border p-4 space-y-2 w-fit min-w-64">
         <h2 className="text-sm font-semibold">Open Alert Summary</h2>
-        <AlertSummaryBadges summary={tag.alertSummary} />
+        <AlertSummaryBadges summary={tag.alertSummary} kevCount={tag.kevCount} />
       </div>
 
       {/* Asset Tag Detail */}

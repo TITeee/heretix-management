@@ -21,6 +21,7 @@ export async function GET(
 
   // Alert aggregation
   let alertSummary: Record<string, number> = {}
+  let kevCount = 0
   if (tag.type === "asset") {
     const assetIds = tag.assetTags.map(at => at.assetId)
     const alerts = await prisma.alert.groupBy({
@@ -29,6 +30,9 @@ export async function GET(
       _count: { id: true },
     })
     alertSummary = Object.fromEntries(alerts.map(a => [a.severity ?? "UNKNOWN", a._count.id]))
+    kevCount = await prisma.alert.count({
+      where: { assetId: { in: assetIds }, status: { in: ["open", "in_progress"] }, isKev: true },
+    })
   } else {
     const packageNames = tag.packageTags.map(pt => pt.packageName)
     const alerts = await prisma.alert.groupBy({
@@ -37,6 +41,9 @@ export async function GET(
       _count: { id: true },
     })
     alertSummary = Object.fromEntries(alerts.map(a => [a.severity ?? "UNKNOWN", a._count.id]))
+    kevCount = await prisma.alert.count({
+      where: { packageName: { in: packageNames }, status: { in: ["open", "in_progress"] }, isKev: true },
+    })
   }
 
   // Open alert counts per asset
@@ -71,7 +78,7 @@ export async function GET(
     packageEcosystems = Object.fromEntries(pkgs.map(p => [p.name, p.ecosystem ?? ""]))
   }
 
-  return NextResponse.json({ ...tag, alertSummary, assetAlertCounts, packageAlertCounts, packageEcosystems })
+  return NextResponse.json({ ...tag, alertSummary, kevCount, assetAlertCounts, packageAlertCounts, packageEcosystems })
 }
 
 export async function PATCH(
