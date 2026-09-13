@@ -88,6 +88,11 @@ export async function scanAsset(
   const cpePkgs = runtimePkgs.filter((p) => p.cpe && p.cpe.trim().length > 0)
   const normalPkgs = runtimePkgs.filter((p) => !p.cpe || p.cpe.trim().length === 0)
 
+  // heretix-api echoes back the package name/version it matched against, not the
+  // Package row itself, so sourcePackage (display-only, never part of alert
+  // identity) has to be looked up rather than carried through the search call.
+  const sourcePackageByKey = new Map(pkgs.map((p) => [packageKey(p.name, p.version), p.sourcePackage]))
+
   logger.info("scan started", {
     assetId,
     totalPackages: pkgs.length,
@@ -116,6 +121,7 @@ export async function scanAsset(
         epssPercentile: true,
         fixedVersion: true,
         detectedAt: true,
+        sourcePackage: true,
       },
     })
     const alertsByFinding = new Map(
@@ -227,7 +233,8 @@ export async function scanAsset(
       packageVersion: string,
       ecosystem: string,
       fallbackSource: string,
-      v: VulnSearchResult
+      v: VulnSearchResult,
+      sourcePackage: string | null
     ) => {
       const externalId = v.externalId || v.id
       const key = findingKey(packageName, packageVersion, externalId)
@@ -237,6 +244,10 @@ export async function scanAsset(
       if (existing) {
         await updateMetadataIfChanged(existing, v)
         await reopenIfAutoResolved(existing)
+        if (existing.sourcePackage !== sourcePackage) {
+          await prisma.alert.update({ where: { id: existing.id }, data: { sourcePackage } })
+          existing.sourcePackage = sourcePackage
+        }
         return
       }
 
@@ -245,7 +256,8 @@ export async function scanAsset(
       const renamed = findByAlias(packageName, packageVersion, v)
       if (renamed) {
         const { prior, alias } = renamed
-        await prisma.alert.update({ where: { id: prior.id }, data: { externalId } })
+        await prisma.alert.update({ where: { id: prior.id }, data: { externalId, sourcePackage } })
+        prior.sourcePackage = sourcePackage
         await prisma.alertEvent.create({
           data: {
             alertId: prior.id,
@@ -285,6 +297,7 @@ export async function scanAsset(
           packageVersion,
           ecosystem,
           externalId,
+          sourcePackage,
           sources: v.sources?.length ? v.sources : [v.source || fallbackSource],
           cvssScore: v.cvssScore ?? null,
           cvssVector: v.cvssVector ?? null,
@@ -336,7 +349,7 @@ export async function scanAsset(
           reconcilable.add(packageKey(r.package, r.version))
         }
         for (const v of r.vulnerabilities) {
-          await record(r.package, r.version, r.ecosystem ?? "", "osv", v)
+          await record(r.package, r.version, r.ecosystem ?? "", "osv", v, sourcePackageByKey.get(packageKey(r.package, r.version)) ?? null)
         }
       }
     }
@@ -347,7 +360,7 @@ export async function scanAsset(
         reconcilable.add(packageKey(p.name, p.version))
       }
       for (const v of result.results) {
-        await record(p.name, p.version, "", "nvd", v)
+        await record(p.name, p.version, "", "nvd", v, p.sourcePackage)
       }
     }
 

@@ -88,3 +88,58 @@ describe("scanAsset — scope=excluded packages", () => {
     expect(updated.resolveReason).toBe("Auto-resolved: no longer detected by scan")
   })
 })
+
+describe("scanAsset — Alert.sourcePackage (display-only grouping label)", () => {
+  beforeEach(async () => {
+    await resetDb()
+    mockedBatchSearch.mockReset().mockResolvedValue([])
+    mockedSearchByCPE.mockReset().mockResolvedValue({ results: [] })
+  })
+
+  afterAll(async () => {
+    await prisma.$disconnect()
+  })
+
+  it("copies the matched package's sourcePackage onto a newly created alert", async () => {
+    const asset = await createAsset()
+    await prisma.package.create({
+      data: {
+        assetId: asset.id, name: "libbinutils", version: "2.44-3", rawVersion: "2.44-3", ecosystem: "Debian:13",
+        source: "sbom", sourcePackage: "binutils", deps: [],
+      },
+    })
+    mockedBatchSearch.mockResolvedValue([{
+      package: "libbinutils", version: "2.44-3", ecosystem: "Debian:13",
+      vulnerabilities: [{
+        id: "CVE-2026-0002", externalId: "CVE-2026-0002", source: "osv", sources: ["osv"],
+        severity: "HIGH", cvssScore: 7.5, cvssVector: null, summary: null, publishedAt: null,
+        approximateMatch: false, isKev: false, epssScore: null, epssPercentile: null, fixedVersion: null,
+      }],
+    }])
+
+    await scanAsset(asset.id)
+
+    const alert = await prisma.alert.findFirstOrThrow({ where: { assetId: asset.id, packageName: "libbinutils" } })
+    expect(alert.sourcePackage).toBe("binutils")
+  })
+
+  it("leaves sourcePackage null when the package has no source-package split", async () => {
+    const asset = await createAsset()
+    await prisma.package.create({
+      data: { assetId: asset.id, name: "lodash", version: "4.17.20", rawVersion: "4.17.20", ecosystem: "npm", source: "sbom", deps: [] },
+    })
+    mockedBatchSearch.mockResolvedValue([{
+      package: "lodash", version: "4.17.20", ecosystem: "npm",
+      vulnerabilities: [{
+        id: "CVE-2026-0003", externalId: "CVE-2026-0003", source: "osv", sources: ["osv"],
+        severity: "MEDIUM", cvssScore: 5.0, cvssVector: null, summary: null, publishedAt: null,
+        approximateMatch: false, isKev: false, epssScore: null, epssPercentile: null, fixedVersion: null,
+      }],
+    }])
+
+    await scanAsset(asset.id)
+
+    const alert = await prisma.alert.findFirstOrThrow({ where: { assetId: asset.id, packageName: "lodash" } })
+    expect(alert.sourcePackage).toBeNull()
+  })
+})

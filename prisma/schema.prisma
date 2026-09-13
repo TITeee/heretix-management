@@ -55,6 +55,12 @@ model Package {
   // linker toolchain). category is null for the npm dev-dependency case.
   scope       String?
   category    String?
+  // The upstream source package this binary package was split from (dpkg
+  // "Source:", rpm SourceRpm, apk "o:"), from heretix-cli's heretix:source-package
+  // property. Null when the ecosystem has no such split (npm, PyPI, ...) or the
+  // binary package name already is the source name. Used only to group sibling
+  // packages in the UI — never in alert identity or matching.
+  sourcePackage String?
 
   // A package is identified by its ecosystem, name and version, matching what a
   // vulnerability lookup is keyed on and what a PURL encodes. npm and pnpm resolve
@@ -98,6 +104,12 @@ model Alert {
   resolveReason     String?
   ignoreReason      String?
   vexJustification  String?
+  // Denormalized copy of the matched Package's sourcePackage, refreshed on
+  // every scan. Display-only: groups sibling findings (e.g. binutils's eight
+  // binary packages) into one row in the Alerts table. Never part of alert
+  // identity, matching, or the unique constraint below — packageName stays
+  // the real installed package name throughout.
+  sourcePackage     String?
   detectedAt        DateTime       @default(now())
   dueDate           DateTime?
   resolvedAt     DateTime?

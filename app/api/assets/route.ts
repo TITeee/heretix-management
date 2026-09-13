@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
       deps?: string[]
       scope?: string | null
       category?: string | null
+      sourcePackage?: string | null
     }) => ({
       name: p.name,
       version: p.version,
@@ -101,6 +102,7 @@ export async function POST(req: NextRequest) {
       deps: p.deps ?? [],
       scope: p.scope ?? null,
       category: p.category ?? null,
+      sourcePackage: p.sourcePackage ?? null,
     }))
 
     const existing = await prisma.asset.findFirst({ where: { hostname } })
@@ -138,7 +140,7 @@ export async function POST(req: NextRequest) {
         where: { assetId: existing.id, source: { not: "manual" } },
       })
 
-      type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[]; scope: string | null; category: string | null }
+      type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[]; scope: string | null; category: string | null; sourcePackage: string | null }
       const { toCreate, toUpdateMeta, toDelete, supersededVersions } = diffPackages(
         existingPkgs,
         incomingPackages as IncomingPkg[]
@@ -163,6 +165,7 @@ export async function POST(req: NextRequest) {
         ex.rawVersion !== inc.rawVersion ||
         ex.scope !== inc.scope ||
         ex.category !== inc.category ||
+        ex.sourcePackage !== inc.sourcePackage ||
         JSON.stringify(ex.deps) !== JSON.stringify(inc.deps ?? [])
       )
 
@@ -179,7 +182,7 @@ export async function POST(req: NextRequest) {
         ...metaChanged.map(({ existing: ex, incoming: inc }) =>
           prisma.package.update({
             where: { id: ex.id },
-            data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [], scope: inc.scope, category: inc.category },
+            data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [], scope: inc.scope, category: inc.category, sourcePackage: inc.sourcePackage },
           })
         ),
         ...(historyEntries.length > 0
@@ -505,6 +508,10 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
     // to production" (dev-only) apart from "shipped, but never executed"
     // (kernel/build), rather than showing both as one generic "Dev-only".
     const categoryProp = c.properties?.find(p => p.name === "heretix:category")
+    // The upstream source package a binary package was split from (dpkg
+    // Source:/Section:, rpm SourceRpm, apk o:) — used only to group sibling
+    // findings in the Alerts table UI, never in alert identity or matching.
+    const sourcePackageProp = c.properties?.find(p => p.name === "heretix:source-package")
     return {
       name: name ?? c.name ?? "",
       version: c.version ?? "",
@@ -516,6 +523,7 @@ function convertCycloneDXToInventory(bom: CycloneDXBom) {
       deps,
       scope: c.scope === "excluded" ? "excluded" : null,
       category: categoryProp?.value ?? null,
+      sourcePackage: sourcePackageProp?.value ?? null,
     }
   }).filter(p => p.name !== "").filter(p => {
     // Some scanners (Syft on Bitnami images, for one) report the same package

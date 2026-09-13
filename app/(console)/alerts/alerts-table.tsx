@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ArrowUpDown, CircleHelp, Download, X } from "lucide-react"
+import { ArrowUpDown, ChevronDown, ChevronRight, CircleHelp, Download, X } from "lucide-react"
 import { FaTriangleExclamation, FaVirus } from "react-icons/fa6"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -49,12 +49,20 @@ export type Alert = {
   fixedVersion?: string | null
   packageDirect?: boolean | null
   packageExists?: boolean
+  sourcePackage?: string | null
   detectedAt: Date
   dueDate: Date | null
   updatedAt: Date
   resolvedAt: Date | null
   asset: { id: string; name: string; hostname: string }
   tags: { id: string; name: string; color: string | null }[]
+  // Display-only: set on the representative row of a source-package group
+  // (e.g. binutils's eight binary packages sharing one CVE) so the table can
+  // show one row instead of one per sibling. Never persisted — computed in
+  // the browser from sourcePackage, and every member stays a real, separately
+  // addressable Alert underneath (selection, export, and the detail sheet all
+  // still operate on the full list).
+  _groupMembers?: Alert[]
 }
 
 function StatusSelect({ alertId, currentStatus, onStatusChange }: {
@@ -111,6 +119,32 @@ function StatusSelect({ alertId, currentStatus, onStatusChange }: {
 
 
 
+function GroupedPackageCell({ sourcePackage, version, members }: {
+  sourcePackage: string
+  version: string
+  members: Alert[]
+}) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setExpanded(v => !v) }}
+        className="flex items-center gap-1 font-medium hover:underline"
+      >
+        {expanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
+        {sourcePackage} <span className="text-muted-foreground font-normal">(+{members.length - 1})</span>
+      </button>
+      <div className="text-xs text-muted-foreground">{version}</div>
+      {expanded && (
+        <ul className="mt-1 text-xs text-muted-foreground list-disc list-inside">
+          {members.map(m => <li key={m.id}>{m.packageName}</li>)}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function buildColumns(onStatusChange: (id: string, status: string) => void): ColumnDef<Alert>[] {
   return [
   {
@@ -160,24 +194,36 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
   {
     accessorKey: "packageName",
     header: "Package",
-    cell: ({ row }) => (
-      <div>
-        <div className="flex items-center gap-1.5">
-          <span className="font-medium">{row.original.packageName}</span>
-          {row.original.packageExists === false && (
-            <span title="This package is no longer in the asset's inventory. The alert stays open until a scan or manual review confirms the finding no longer applies.">
-              <Badge
-                variant="outline"
-                className="text-xs text-amber-700 border-amber-300 dark:text-amber-400 dark:border-amber-800"
-              >
-                Not in inventory
-              </Badge>
-            </span>
-          )}
+    cell: ({ row }) => {
+      const members = row.original._groupMembers
+      if (members && members.length > 1) {
+        return (
+          <GroupedPackageCell
+            sourcePackage={row.original.sourcePackage ?? row.original.packageName}
+            version={row.original.packageVersion}
+            members={members}
+          />
+        )
+      }
+      return (
+        <div>
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium">{row.original.packageName}</span>
+            {row.original.packageExists === false && (
+              <span title="This package is no longer in the asset's inventory. The alert stays open until a scan or manual review confirms the finding no longer applies.">
+                <Badge
+                  variant="outline"
+                  className="text-xs text-amber-700 border-amber-300 dark:text-amber-400 dark:border-amber-800"
+                >
+                  Not in inventory
+                </Badge>
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground">{row.original.packageVersion}</div>
         </div>
-        <div className="text-xs text-muted-foreground">{row.original.packageVersion}</div>
-      </div>
-    ),
+      )
+    },
   },
   { accessorKey: "ecosystem", header: "Ecosystem" },
   {
@@ -416,6 +462,26 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
     return true
   }), [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter, inventoryFilter, dueFilter])
 
+  // Collapses sibling findings from the same upstream source package (e.g.
+  // binutils splits into eight binary packages on Debian, each reporting the
+  // same CVE) into one row. Nothing is hidden: the representative row lists
+  // every member, and selection/export/the detail sheet all still act on the
+  // real underlying alerts, never the group itself.
+  const groupedData = useMemo(() => {
+    const groups = new Map<string, Alert[]>()
+    for (const alert of filteredData) {
+      const key = `${alert.assetId}::${alert.sourcePackage ?? alert.packageName}::${alert.packageVersion}::${alert.externalId}`
+      const group = groups.get(key)
+      if (group) group.push(alert)
+      else groups.set(key, [alert])
+    }
+    return [...groups.values()].map(members => {
+      if (members.length === 1) return members[0]
+      const [first, ...rest] = [...members].sort((a, b) => a.packageName.localeCompare(b.packageName))
+      return { ...first, _groupMembers: [first, ...rest] }
+    })
+  }, [filteredData])
+
   const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0 || dependencyFilter.size > 0 || inventoryFilter.size > 0 || dueFilter.size > 0
 
   function handleStatusChange(alertId: string, newStatus: string) {
@@ -464,7 +530,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
   }
 
   function handleExportCSV() {
-    const rows = exportRef.current?.() ?? filteredData
+    const rows = (exportRef.current?.() ?? filteredData).flatMap(a => a._groupMembers ?? [a])
     const headers = [
       "Vuln ID", "Severity", "CVSS Score", "CVSS Vector",
       "EPSS Score", "EPSS Percentile", "KEV", "Approximate Match",
@@ -503,7 +569,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
   }
 
   function handleExportJSON() {
-    const rows = exportRef.current?.() ?? filteredData
+    const rows = (exportRef.current?.() ?? filteredData).flatMap(a => a._groupMembers ?? [a])
     const out = rows.map(a => ({
       vulnId: a.externalId,
       severity: a.severity,
@@ -621,7 +687,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
 
       <DataTable
         columns={columns}
-        data={filteredData}
+        data={groupedData}
         filterColumn="packageName"
         filterPlaceholder="Search by package name..."
         secondFilterColumn="externalId"
@@ -632,7 +698,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
         onRowClick={(row) => { setSelected(row); setOpen(true) }}
         enableRowSelection
         getRowId={(row) => row.id}
-        onRowSelectionChange={setSelectedAlerts}
+        onRowSelectionChange={(rows) => setSelectedAlerts(rows.flatMap(r => r._groupMembers ?? [r]))}
         initialSorting={[{ id: "detectedAt", desc: true }]}
         initialColumnVisibility={{ updatedAt: false, sources: false, dueDate: false }}
         exportRef={exportRef}
@@ -690,6 +756,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
       <AlertDetailSheet
         key={selected?.id}
         alert={selected}
+        groupMembers={selected?._groupMembers?.map(m => m.packageName)}
         open={open}
         onOpenChange={handleOpenChange}
         onStatusChange={handleStatusChange}

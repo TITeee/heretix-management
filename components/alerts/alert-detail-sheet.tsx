@@ -551,11 +551,16 @@ function AlertAiChatTab({ alertId, open, aiEnabled }: { alertId: string; open: b
 
 export function AlertDetailSheet({
   alert,
+  groupMembers,
   open,
   onOpenChange,
   onStatusChange: notifyStatusChange,
 }: {
   alert: SheetAlert | null
+  // Sibling binary packages the Alerts table collapsed this row's finding
+  // into (e.g. binutils's other seven packages) — display-only, so a reader
+  // isn't left thinking the fix applies to packageName alone.
+  groupMembers?: string[]
   open: boolean
   onOpenChange: (v: boolean) => void
   onStatusChange: (alertId: string, status: string) => void
@@ -744,6 +749,11 @@ export function AlertDetailSheet({
             {alert.packageName} {alert.packageVersion}
             <Badge variant="secondary" className="text-xs font-normal">{alert.ecosystem}</Badge>
           </SheetDescription>
+          {groupMembers && groupMembers.length > 1 && (
+            <p className="text-xs text-muted-foreground">
+              Also affects: {groupMembers.filter(m => m !== alert.packageName).join(", ")}
+            </p>
+          )}
         </SheetHeader>
 
         <Tabs defaultValue="overview" className="flex flex-col flex-1 min-h-0">
