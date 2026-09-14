@@ -13,7 +13,7 @@
 - **依存グラフ** *（Beta）* — アセット詳細の **Dependency Graph** タブで脆弱パッケージとその依存元パッケージを可視化（1〜8ホップ選択可）。dagre による自動レイアウト。脆弱=赤、直接依存=青。lockfile ベースの依存データが必要（npm/pnpm は完全対応、Go・PyPI は部分対応）。heretix-cli の SBOM・inventory.json に加え、Syft・trivy・cdxgen 等の標準 CycloneDX SBOM にも対応
 - **手動アセット登録** — ネットワーク機器・FW を GUI から直接登録
 - **タグ** — アセット・パッケージ向けにカラーコード付きタグを作成（例: "Internet Facing"、"Public Endpoint"）。アセット・パッケージ詳細ページから割り当て、Tags ページとダッシュボードでタグごとの重要度集計を確認可能
-- **手動パッケージ管理** — パッケージマネージャ外でインストールしたソフトウェアを手動で追加・編集・削除。Advisory タブで Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix 製品をドロップダウン選択して登録可能
+- **手動パッケージ管理** — パッケージマネージャ外でインストールしたソフトウェアを手動で追加・編集・削除。Advisory タブで Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Check Point / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix 製品をドロップダウン選択して登録可能
 - **パッケージ更新履歴** — インポート時の追加・更新・削除の変更履歴をアセット詳細で参照
 - **脆弱性スキャン** — heretix-api のバッチ検索でアセットの脆弱性を検出・アラート記録（新規 Alert の作成のみ。既存 Alert の更新・自動解決は行わない）。[ossf/malicious-packages](https://github.com/ossf/malicious-packages) によるマルウェアパッケージ検知（`MAL-` アラート）にも対応
 - **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度 / Tags / **Dependency**（Direct/Indirect））・一括ステータス変更・**CSV / JSON エクスポート**。Direct/Indirect 分類は、lockfile ベースの依存データ（主に npm/pnpm）か、SBOM 内の明示的な direct マーカー（heretix-cli 独自の `cdx:direct` プロパティ）のどちらかが無いと判定できない。Syft の dpkg/apt カタロガーのようなサードパーティ製 OS パッケージ SBOM はこの情報を一切持たない — `bom.dependencies` にスキャン対象のコンテナ/イメージ自身のエントリが存在しないため、「直接インストールされたか」を推測する材料が無く、OS パッケージは全て未分類として扱われる（推測はしない）。手動追加パッケージも同様に未分類
@@ -36,7 +36,7 @@
 
     Accepted risk を出力しないのは意図的です。忠実な表現である `state: exploitable` + `response: will_not_fix` は消費側に対処可能な情報を与えない一方、抑制挙動だけを変えてしまうためです。
   - **過去の判断の再利用**: 同一 finding（脆弱性 + パッケージ + バージョン + エコシステム）を他アセットで判断済みの場合、その内容をアラート画面に提示し、**Apply this judgment** ボタンでワンクリック適用。自動適用はしません。ビルド成果物の性質を表すのは `code_not_present` と `protected_by_compiler` の 2 つだけで、残り 7 つは配置環境（ネットワーク配置・ランタイム保護・設定・呼び出し元コードからの到達可能性）に依存するため、再確認が必要な場合は警告を表示し、タグの異なるアセットも明示します
-- **脆弱性検索** — パッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列、または **Advisory モード**（Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix のベンダーアドバイザリ検索）で直接検索
+- **脆弱性検索** — パッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列、または **Advisory モード**（Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Check Point / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix のベンダーアドバイザリ検索）で直接検索
 - **ユーザー管理** — ユーザーの追加・編集・削除（admin ロールのみ表示・操作可能）
 - **監査ログ** — admin 専用ページ。ログイン・ユーザー管理・設定変更・アセット操作を最新 500 件表示。サイドバーの **Audit Log** からアクセス（admin のみ）
 - **設定** — タブ構成: **API**（heretix-api 接続 URL・API Token 設定・疎通確認）、**Notifications**（Slack Webhook — 新規検知・重要度変更・新規KEV検出時に通知。最小重要度・アセットタグでフィルタ可能、テスト送信ボタンあり）、**SLA**（有効/無効切替・期限設定）、**About**（バージョン情報）
@@ -191,7 +191,7 @@ pnpm dev
 1. サイドバーの **Assets** → **Add Manually** を開く
 2. Name・Hostname・Type を入力して **Create Asset**
 3. アセット詳細ページで **Add Package** → **Advisory タブ** を選択
-   - Vendor（Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix）と製品名をドロップダウンで選択し、バージョンを入力
+   - Vendor（Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Check Point / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix）と製品名をドロップダウンで選択し、バージョンを入力
 4. **Run Scan** で脆弱性を検出（heretix-api の Vendor Advisory データを使用）
 5. ファームウェアアップデート後はパッケージの **Edit** でバージョンを変更して再スキャン
 
@@ -200,7 +200,7 @@ pnpm dev
 1. アセット詳細ページのパッケージテーブル右上の **Add Package** をクリック
 2. タブを選択して入力:
    - **General** — パッケージ名・バージョン・エコシステムを入力（Linux/npm/PyPI/Go/Packagist 等）
-   - **Advisory** — Vendor（Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix）と製品名をドロップダウンで選択し、バージョンを入力（FW・ネットワーク機器向け）
+   - **Advisory** — Vendor（Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Check Point / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix）と製品名をドロップダウンで選択し、バージョンを入力（FW・ネットワーク機器向け）
    - **CPE** — CPE 2.3 文字列を直接入力
 3. `manual` バッジが付いたパッケージは編集・削除が可能
 4. Alerts 列のバッジをクリックするとそのパッケージのアラート一覧に遷移
@@ -238,7 +238,7 @@ pnpm dev
 
 ### 5. 脆弱性検索
 
-サイドバーの **Search** でパッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列を指定して直接検索。**Advisory モード**ではベンダーと製品を選択して Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix のアドバイザリを検索可能。
+サイドバーの **Search** でパッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列を指定して直接検索。**Advisory モード**ではベンダーと製品を選択して Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Check Point / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix のアドバイザリを検索可能。
 
 ## ディレクトリ構成
 

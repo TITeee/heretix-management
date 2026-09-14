@@ -131,6 +131,37 @@ export const ORACLE_CPU_PRODUCTS = [
   "Financial Services",
 ]
 
+// Matched against AdvisoryAffectedProduct.product by exact string (searchAdvisory()
+// in heretix-api has no aliasing), copied verbatim from Check Point's own
+// securityAdvisories API response (checkpoint-fetcher.ts's product.name) rather
+// than the marketing names — e.g. "Mobile Access / SSL VPN" carries the
+// slash-and-spaces exactly as Check Point writes it.
+export const CHECKPOINT_PRODUCTS = [
+  "CloudGuard Network",
+  "CloudGuard Network for AWS",
+  "CloudGuard Network for Azure",
+  "ClusterXL",
+  "HTTPS Inspection",
+  "Identity Awareness",
+  "Mobile Access",
+  "Mobile Access / SSL VPN",
+  "Multi-Domain Security Management",
+  "Quantum Appliances",
+  "Quantum Maestro",
+  "Quantum Scalable Chassis",
+  "Quantum Security Gateways",
+  "Quantum Security Management",
+  "Quantum Smart-1",
+  "Quantum Spark Appliances",
+  "Remote Access VPN",
+  "Security Gateway",
+  "Security Gateways",
+  "Security Management",
+  "Security Management Server",
+  "Site-to-Site VPN",
+  "SSL Network Extender",
+]
+
 export type AdvisoryVendor =
   | "fortinet"
   | "paloalto"
@@ -140,6 +171,7 @@ export type AdvisoryVendor =
   | "cisco"
   | "sonicwall"
   | "broadcom"
+  | "checkpoint"
   | "apache"
   | "nginx"
   | "tomcat"
@@ -157,6 +189,7 @@ export const ADVISORY_VENDORS: { value: AdvisoryVendor; label: string }[] = [
   { value: "sophos", label: "Sophos" },
   { value: "sonicwall", label: "SonicWall" },
   { value: "broadcom", label: "Broadcom/VMware" },
+  { value: "checkpoint", label: "Check Point" },
   { value: "oracle", label: "Oracle" },
   { value: "splunk", label: "Splunk" },
   { value: "apache", label: "Apache HTTP Server" },
@@ -173,6 +206,7 @@ export function getProductsByVendor(vendor: AdvisoryVendor): string[] {
   if (vendor === "cisco") return CISCO_PRODUCTS
   if (vendor === "sonicwall") return SONICWALL_PRODUCTS
   if (vendor === "broadcom") return BROADCOM_PRODUCTS
+  if (vendor === "checkpoint") return CHECKPOINT_PRODUCTS
   if (vendor === "apache") return APACHE_PRODUCTS
   if (vendor === "nginx") return NGINX_PRODUCTS
   if (vendor === "tomcat") return TOMCAT_PRODUCTS
