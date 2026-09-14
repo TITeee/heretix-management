@@ -65,8 +65,13 @@ export type Alert = {
   _groupMembers?: Alert[]
 }
 
-function StatusSelect({ alertId, currentStatus, onStatusChange }: {
-  alertId: string
+function StatusSelect({ alertIds, currentStatus, onStatusChange }: {
+  // One id for a normal row, or every sibling's id when the row is a
+  // collapsed source-package group — a grouped row must act on all of them,
+  // the same way bulk actions and export already resolve through
+  // _groupMembers, or changing status here would silently touch only the
+  // representative alert while its siblings stay open.
+  alertIds: string[]
   currentStatus: string
   onStatusChange?: (id: string, status: string) => void
 }) {
@@ -77,13 +82,15 @@ function StatusSelect({ alertId, currentStatus, onStatusChange }: {
   async function onChange(value: string | null) {
     if (!value) return
     setStatus(value)
-    onStatusChange?.(alertId, value)
+    for (const id of alertIds) onStatusChange?.(id, value)
     setLoading(true)
-    await fetch(`/api/alerts/${alertId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: value }),
-    })
+    await Promise.all(alertIds.map(id =>
+      fetch(`/api/alerts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: value }),
+      })
+    ))
     setLoading(false)
     router.refresh()
   }
@@ -304,7 +311,12 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
     header: "Status",
     cell: ({ row }) => (
       <div onClick={(e) => e.stopPropagation()}>
-        <StatusSelect key={row.original.status} alertId={row.original.id} currentStatus={row.original.status} onStatusChange={onStatusChange} />
+        <StatusSelect
+          key={row.original.status}
+          alertIds={row.original._groupMembers?.map(m => m.id) ?? [row.original.id]}
+          currentStatus={row.original.status}
+          onStatusChange={onStatusChange}
+        />
       </div>
     ),
   },
