@@ -11,7 +11,7 @@ import { buttonVariants } from "@/components/ui/button-variants"
 import { cn } from "@/lib/utils"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
-import { SeverityBadge } from "@/components/alerts/vuln-detail-tabs"
+import { SEVERITY_COLORS, getAlertSeverityTier } from "@/lib/severity"
 import { AlertDetailSheet, STATUS_ICON_MAP, StatusIcon } from "@/components/alerts/alert-detail-sheet"
 import { formatDaysUntilDue, getSlaStatus } from "@/lib/sla"
 import {
@@ -153,6 +153,24 @@ function GroupedPackageCell({ sourcePackage, version, members }: {
   )
 }
 
+// Colors by the same severity tier the rest of the app buckets alerts by
+// (getAlertSeverityTier), not cvssScore alone — a qualitative severity with
+// no score yet would otherwise render as N/A here while counting as its real
+// tier everywhere else (per-package badges, Open Alert Summary, severity=
+// filters). Still shows the numeric score as the label when one exists.
+function AlertSeverityBadge({ severity, score }: { severity: string | null; score: number | null }) {
+  const tier = getAlertSeverityTier(severity, score)
+  const label = score != null ? score.toFixed(1) : (severity ?? "n/a")
+  return (
+    <Badge
+      style={{ backgroundColor: SEVERITY_COLORS[tier] }}
+      className={tier === "na" ? "text-neutral-900" : "text-white"}
+    >
+      {label}
+    </Badge>
+  )
+}
+
 function buildColumns(onStatusChange: (id: string, status: string) => void): ColumnDef<Alert>[] {
   return [
   {
@@ -162,7 +180,7 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
         CVSS <ArrowUpDown className="ml-1 h-3 w-3" />
       </Button>
     ),
-    cell: ({ row }) => <SeverityBadge score={row.original.cvssScore} />,
+    cell: ({ row }) => <AlertSeverityBadge severity={row.original.severity} score={row.original.cvssScore} />,
   },
   {
     accessorKey: "isKev",
@@ -443,8 +461,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
     if (assetFilter.size > 0 && !assetFilter.has(alert.assetId)) return false
     if (statusFilter.size > 0 && !statusFilter.has(alert.status)) return false
     if (cvssFilter.size > 0) {
-      const score = alert.cvssScore ?? 0
-      const tier = score >= 9.0 ? "critical" : score >= 7.0 ? "high" : score >= 4.0 ? "medium" : "low"
+      const tier = getAlertSeverityTier(alert.severity, alert.cvssScore)
       if (!cvssFilter.has(tier)) return false
     }
     if (kevFilter.size > 0) {

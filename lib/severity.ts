@@ -37,3 +37,19 @@ export function getSeverityTier(score: number | null): SeverityTier {
   if (score >= 4) return "medium"
   return "low"
 }
+
+// Some sources (e.g. GHSA advisories, CNA records) set a qualitative severity
+// without a numeric CVSS score. Falling back to getSeverityTier(score) alone
+// would misclassify those as N/A even though the vendor already told us the
+// tier, so the severity string — the same field the rest of the app buckets
+// by (per-package badges, tag/asset Open Alert Summary, severity= filters) —
+// takes priority whenever it's set.
+export function getAlertSeverityTier(severity: string | null, score: number | null): SeverityTier {
+  switch (severity?.toUpperCase()) {
+    case "CRITICAL": return "critical"
+    case "HIGH": return "high"
+    case "MEDIUM": return "medium"
+    case "LOW": return "low"
+    default: return getSeverityTier(score)
+  }
+}
