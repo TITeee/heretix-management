@@ -131,11 +131,20 @@ export const ORACLE_CPU_PRODUCTS = [
   "Financial Services",
 ]
 
-// Matched against AdvisoryAffectedProduct.product by exact string (searchAdvisory()
-// in heretix-api has no aliasing), copied verbatim from Check Point's own
-// securityAdvisories API response (checkpoint-fetcher.ts's product.name) rather
-// than the marketing names — e.g. "Mobile Access / SSL VPN" carries the
-// slash-and-spaces exactly as Check Point writes it.
+// Matched against AdvisoryAffectedProduct.product by exact string, copied
+// verbatim from Check Point's own securityAdvisories API response
+// (checkpoint-fetcher.ts's product.name) rather than the marketing names —
+// e.g. "Mobile Access / SSL VPN" carries the slash-and-spaces exactly as
+// Check Point writes it.
+//
+// "Security Gateway" and "Security Management" are each one entry here even
+// though Check Point's feed spells them several ways across advisories/years
+// (dropped "Quantum" prefix, singular/plural) — heretix-api aliases all those
+// spellings together (product-aliases.ts), same as this file already does for
+// "VMware vCenter Server" and "Sophos Intercept X" above, so only the
+// canonical name needs to appear in the dropdown. "Multi-Domain Security
+// Management" is a genuinely separate product line, not a spelling of
+// "Security Management", and stays its own entry.
 export const CHECKPOINT_PRODUCTS = [
   "CloudGuard Network",
   "CloudGuard Network for AWS",
@@ -149,15 +158,11 @@ export const CHECKPOINT_PRODUCTS = [
   "Quantum Appliances",
   "Quantum Maestro",
   "Quantum Scalable Chassis",
-  "Quantum Security Gateways",
-  "Quantum Security Management",
   "Quantum Smart-1",
   "Quantum Spark Appliances",
   "Remote Access VPN",
   "Security Gateway",
-  "Security Gateways",
   "Security Management",
-  "Security Management Server",
   "Site-to-Site VPN",
   "SSL Network Extender",
 ]
