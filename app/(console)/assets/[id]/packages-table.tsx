@@ -22,7 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ArrowUpDown, Pencil, Trash2, X } from "lucide-react"
+import { SEVERITY_COLORS } from "@/lib/severity"
+import { ArrowUpDown, ExternalLink, Pencil, Trash2, X } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
@@ -65,6 +66,7 @@ type PackageRow = {
   scope?: string | null
   category?: string | null
   alertCount: number
+  alertSeverities: { critical: number; high: number; medium: number; low: number; na: number }
 }
 
 // scope=excluded covers two different reasons: an npm dev dependency (pruned
@@ -413,14 +415,34 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
     },
     {
       id: "alerts",
-      accessorFn: (row) => row.alertCount,
+      // Sorted by how severe the worst finding is, not by total count — "which
+      // packages have criticals" is the more useful sort for triage than raw
+      // volume, and a package's own name/version is already there for anyone
+      // sorting by inspection instead.
+      accessorFn: (row) => {
+        const s = row.alertSeverities
+        return s.critical * 1_000_000 + s.high * 10_000 + s.medium * 100 + s.low
+      },
       header: sortableHeader("Alerts"),
       cell: ({ row }) => {
+        const { critical, high, medium, low, na } = row.original.alertSeverities
         const count = row.original.alertCount
-        const href = `/alerts?assetId=${assetId}&packageName=${encodeURIComponent(row.original.name)}&packageVersion=${encodeURIComponent(row.original.version)}`
-        return count > 0
-          ? <Link href={href}><Badge variant="destructive" className="cursor-pointer">{count}</Badge></Link>
-          : <Badge variant="outline">0</Badge>
+        if (count === 0) return <Badge variant="outline">0</Badge>
+        const severityHref = (severity: string) =>
+          `/alerts?assetId=${assetId}&packageName=${encodeURIComponent(row.original.name)}&packageVersion=${encodeURIComponent(row.original.version)}&severity=${severity}`
+        const totalHref = `/alerts?assetId=${assetId}&packageName=${encodeURIComponent(row.original.name)}&packageVersion=${encodeURIComponent(row.original.version)}`
+        return (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {critical > 0 && <Link href={severityHref("CRITICAL")}><Badge style={{ backgroundColor: SEVERITY_COLORS.critical }} className="text-white cursor-pointer">{critical}</Badge></Link>}
+            {high > 0 && <Link href={severityHref("HIGH")}><Badge style={{ backgroundColor: SEVERITY_COLORS.high }} className="text-white cursor-pointer">{high}</Badge></Link>}
+            {medium > 0 && <Link href={severityHref("MEDIUM")}><Badge style={{ backgroundColor: SEVERITY_COLORS.medium }} className="text-white cursor-pointer">{medium}</Badge></Link>}
+            {low > 0 && <Link href={severityHref("LOW")}><Badge style={{ backgroundColor: SEVERITY_COLORS.low }} className="text-white cursor-pointer">{low}</Badge></Link>}
+            {na > 0 && <Link href={severityHref("UNKNOWN")}><Badge style={{ backgroundColor: SEVERITY_COLORS.na }} className="text-neutral-900 cursor-pointer">{na}</Badge></Link>}
+            <Link href={totalHref} title={`All ${count} alerts for this package`}>
+              <ExternalLink className="h-4 w-4 text-foreground" />
+            </Link>
+          </div>
+        )
       },
     },
     {
@@ -512,6 +534,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
         data={filteredData}
         filterColumn="name"
         filterPlaceholder="Search packages..."
+        initialSorting={[{ id: "alerts", desc: true }]}
       />
     </div>
   )
