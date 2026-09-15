@@ -63,6 +63,7 @@ export function AssetsTable({ data }: { data: AssetRow[] }) {
         filterColumn="name"
         filterPlaceholder="Search by name or hostname..."
         onRowClick={(row) => router.push(`/assets/${row.id}`)}
+        initialColumnVisibility={{ scannedAt: false }}
       />
     </div>
   )

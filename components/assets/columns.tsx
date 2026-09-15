@@ -6,6 +6,7 @@ import { FaDocker, FaServer, FaWindows, FaLinux, FaUserPen } from "react-icons/f
 import { Button } from "@/components/ui/button"
 import { SEVERITY_COLORS } from "@/lib/severity"
 import { Badge } from "@/components/ui/badge"
+import { TagBadge } from "@/components/tags/tag-badge"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import {
@@ -163,14 +164,7 @@ export const assetColumns: ColumnDef<AssetRow>[] = [
       return (
         <div className="flex gap-1 flex-wrap">
           {tags.map(tag => (
-            <Badge
-              key={tag.id}
-              variant="outline"
-              className="text-xs font-medium"
-              style={tag.color ? { color: tag.color, borderColor: tag.color } : undefined}
-            >
-              {tag.name}
-            </Badge>
+            <TagBadge key={tag.id} tag={tag} />
           ))}
         </div>
       )
@@ -190,7 +184,7 @@ export const assetColumns: ColumnDef<AssetRow>[] = [
       const total = critical + high + medium + low + na
       if (total === 0) return <Badge variant="outline">0</Badge>
       return (
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex gap-1 flex-nowrap">
           {critical > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.critical }} className="text-white">{critical}</Badge>}
           {high > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.high }} className="text-white">{high}</Badge>}
           {medium > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.medium }} className="text-white">{medium}</Badge>}

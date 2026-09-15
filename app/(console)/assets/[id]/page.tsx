@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { Bell, FileDown } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { TagBadge } from "@/components/tags/tag-badge"
 import Link from "next/link"
 import { ScanButton } from "./scan-button"
 import { ImportVexButton } from "./import-vex-button"
@@ -206,13 +207,7 @@ export default async function AssetDetailPage({
               <div className="flex gap-1 flex-wrap">
                 {tags.map((tag) => (
                   <Link key={tag.id} href={`/tags/${tag.id}`} title={tag.description ?? undefined}>
-                    <Badge
-                      variant="outline"
-                      className="text-xs font-medium hover:bg-accent"
-                      style={tag.color ? { color: tag.color, borderColor: tag.color } : undefined}
-                    >
-                      {tag.name}
-                    </Badge>
+                    <TagBadge tag={tag} className="hover:bg-accent" />
                   </Link>
                 ))}
               </div>

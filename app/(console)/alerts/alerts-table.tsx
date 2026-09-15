@@ -5,6 +5,7 @@ import { ColumnDef } from "@tanstack/react-table"
 import { DataTable } from "@/components/data-table/data-table"
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter"
 import { Badge } from "@/components/ui/badge"
+import { TagBadge } from "@/components/tags/tag-badge"
 import { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { cn } from "@/lib/utils"
@@ -293,14 +294,7 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
       return (
         <div className="flex gap-1 flex-wrap">
           {tags.map(tag => (
-            <Badge
-              key={tag.id}
-              variant="outline"
-              className="text-xs font-medium"
-              style={tag.color ? { color: tag.color, borderColor: tag.color } : undefined}
-            >
-              {tag.name}
-            </Badge>
+            <TagBadge key={tag.id} tag={tag} />
           ))}
         </div>
       )
