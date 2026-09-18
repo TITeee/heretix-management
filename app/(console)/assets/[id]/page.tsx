@@ -11,6 +11,7 @@ import Link from "next/link"
 import { ScanButton } from "./scan-button"
 import { ImportVexButton } from "./import-vex-button"
 import { EditAssetDialog } from "./edit-asset-dialog"
+import { DeleteAssetButton } from "./delete-asset-button"
 import { AddPackageDialog } from "./add-package-dialog"
 import { PackagesTable } from "./packages-table"
 import { ScanHistoryModal } from "./scan-history-modal"
@@ -113,6 +114,12 @@ export default async function AssetDetailPage({
     .map((at) => at.tag)
     .sort((a, b) => a.name.localeCompare(b.name))
 
+  const ecosystemCounts = new Map<string, number>()
+  for (const p of asset.packages) {
+    ecosystemCounts.set(p.ecosystem, (ecosystemCounts.get(p.ecosystem) ?? 0) + 1)
+  }
+  const ecosystemBreakdown = [...ecosystemCounts.entries()].sort((a, b) => b[1] - a[1])
+
   return (
     <div className="space-y-6">
       <Breadcrumb>
@@ -135,6 +142,7 @@ export default async function AssetDetailPage({
         </div>
         <div className="flex items-center gap-2">
           <EditAssetDialog asset={{ id: asset.id, name: asset.name, hostname: asset.hostname, osName: asset.osName, osVersionId: asset.osVersionId }} />
+          <DeleteAssetButton assetId={asset.id} assetName={asset.name || asset.hostname} />
           <a
             {...(vexCount > 0 ? { href: `/api/vex?assetId=${id}&download=true` } : {})}
             aria-disabled={vexCount === 0}
@@ -170,7 +178,19 @@ export default async function AssetDetailPage({
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Packages</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-bold">{asset.packages.length}</CardContent>
+          <CardContent className="flex items-center gap-5">
+            <div className="text-2xl font-bold">{asset.packages.length}</div>
+            {ecosystemBreakdown.length > 0 && (
+              <div className="flex flex-col text-xs">
+                {ecosystemBreakdown.map(([eco, count]) => (
+                  <span key={eco} className="flex gap-2">
+                    <span>{eco}</span>
+                    <span>{count}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">

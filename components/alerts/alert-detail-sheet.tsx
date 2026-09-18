@@ -20,14 +20,15 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Clock, TrendingUp, TrendingDown, AlertTriangle, History, ShieldCheck, GitBranch, CircleHelp, Sparkles, Info } from "lucide-react"
+import { Clock, TrendingUp, TrendingDown, AlertTriangle, History, ShieldCheck, GitBranch, CircleHelp, Sparkles, Info, CircleAlert, CircleCheck, CircleMinus, User } from "lucide-react"
 import { ReactFlow, Node, Edge, Background, Controls, MarkerType, useNodesState, useEdgesState } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { applyDagreLayout } from "@/lib/dagre-layout"
-import { FaTriangleExclamation, FaVirus, FaCircleExclamation, FaClock, FaCircleMinus, FaCircleCheck } from "react-icons/fa6"
+import { FaTriangleExclamation, FaVirus, FaCircleExclamation } from "react-icons/fa6"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { getSlaStatus, formatDaysUntilDue } from "@/lib/sla"
+import { STATUS_LABELS, STATUS_COLORS } from "@/lib/severity"
 import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
 import { IGNORE_REASONS, IGNORE_REASON_HINTS, isIgnoreReason } from "@/lib/vex"
 
@@ -84,10 +85,10 @@ export type VexSuggestion = {
 }
 
 export const STATUS_ICON_MAP: Record<string, { icon: React.ComponentType<{ className?: string }>; className: string }> = {
-  open:        { icon: FaCircleExclamation, className: "h-3.5 w-3.5 text-red-500" },
-  in_progress: { icon: FaClock,            className: "h-3.5 w-3.5 text-blue-500" },
-  resolved:    { icon: FaCircleCheck,      className: "h-3.5 w-3.5 text-green-600" },
-  ignored:     { icon: FaCircleMinus,      className: "h-3.5 w-3.5 text-muted-foreground" },
+  open:        { icon: CircleAlert, className: "h-3.5 w-3.5 text-red-500" },
+  in_progress: { icon: Clock,       className: "h-3.5 w-3.5 text-blue-500" },
+  resolved:    { icon: CircleCheck, className: "h-3.5 w-3.5 text-green-600" },
+  ignored:     { icon: CircleMinus, className: "h-3.5 w-3.5 text-muted-foreground" },
 }
 
 export function StatusIcon({ status }: { status: string }) {
@@ -95,6 +96,40 @@ export function StatusIcon({ status }: { status: string }) {
   if (!entry) return null
   const Icon = entry.icon
   return <Icon className={entry.className} />
+}
+
+// Strips the icon's size classes, leaving just its color, so a label can be
+// tinted to match without inheriting the icon's h-*/w-* sizing.
+export function statusColorClass(status: string): string {
+  return STATUS_ICON_MAP[status]?.className.replace(/h-\S+ w-\S+ /, "") ?? ""
+}
+
+// Pale status-tinted trigger background, shared by every Status select so the
+// alert detail panel's picker matches the alerts table's.
+export function statusSelectStyle(status: string): React.CSSProperties {
+  const color = STATUS_COLORS[status as keyof typeof STATUS_COLORS] ?? "#888"
+  return {
+    backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`,
+    borderColor: `color-mix(in srgb, ${color} 40%, transparent)`,
+  }
+}
+
+function UserBadge({ name }: { name: string }) {
+  return (
+    <Badge className="text-xs px-1.5 py-0 gap-1">
+      <User className="h-3 w-3" />
+      {name}
+    </Badge>
+  )
+}
+
+export function StatusOptionLabel({ status, label }: { status: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <StatusIcon status={status} />
+      <span className={statusColorClass(status)}>{label}</span>
+    </span>
+  )
 }
 
 type AlertEvent = {
@@ -114,10 +149,7 @@ const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: str
   status_changed: {
     icon: FaCircleExclamation,
     iconClass: "text-blue-500",
-    label: (data) => {
-      const STATUS_LABELS: Record<string, string> = { open: "Open", in_progress: "In Progress", resolved: "Resolved", ignored: "Ignored" }
-      return `Status changed to "${STATUS_LABELS[data.to as string] ?? data.to}"`
-    },
+    label: (data) => `Status changed to "${STATUS_LABELS[data.to as string] ?? data.to}"`,
     getIcon: (data) => {
       const entry = STATUS_ICON_MAP[data.to as string]
       return entry ? { icon: entry.icon, iconClass: entry.className.replace(/h-\S+ w-\S+ /, "") } : { icon: FaCircleExclamation, iconClass: "text-blue-500" }
@@ -374,7 +406,7 @@ function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open
               {event.type === "status_changed" && (
                 <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                   {!!event.data?.userName && (
-                    <Badge className="text-xs px-1.5 py-0">{String(event.data.userName)}</Badge>
+                    <UserBadge name={String(event.data.userName)} />
                   )}
                   {isIgnoreReason(event.data?.ignoreReason) && (
                     <p className="text-xs text-muted-foreground">{IGNORE_REASONS[event.data.ignoreReason]}</p>
@@ -399,7 +431,7 @@ function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open
               {event.type === "notes_saved" && (
                 <div className="mt-1 space-y-1">
                   {!!event.data?.userName && (
-                    <Badge className="text-xs px-1.5 py-0">{String(event.data.userName)}</Badge>
+                    <UserBadge name={String(event.data.userName)} />
                   )}
                   {!!event.data?.notes && (
                     <div className="border-l-2 border-border pl-2 py-0.5 bg-muted/40 rounded-sm">
@@ -411,7 +443,7 @@ function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open
               {event.type === "vex_justification_set" && (
                 <div className="mt-1 space-y-1">
                   {!!event.data?.userName && (
-                    <Badge className="text-xs px-1.5 py-0">{String(event.data.userName)}</Badge>
+                    <UserBadge name={String(event.data.userName)} />
                   )}
                   {!!event.data?.justification && (
                     <div className="border-l-2 border-border pl-2 py-0.5 bg-muted/40 rounded-sm">
@@ -923,17 +955,19 @@ export function AlertDetailSheet({
                 <div className="flex items-center gap-2">
                   <span className="w-28 text-sm text-muted-foreground shrink-0">Status</span>
                   <Select value={status} onValueChange={onStatusChange} disabled={savingStatus}>
-                    <SelectTrigger className="h-8 w-40 text-sm">
+                    <SelectTrigger className="h-8 w-36 text-sm" style={statusSelectStyle(status)}>
                       <span className="flex items-center gap-1.5">
                         <StatusIcon status={status} />
-                        <SelectValue />
+                        <span className={statusColorClass(status)}>
+                          <SelectValue>{STATUS_LABELS[status] ?? status}</SelectValue>
+                        </span>
                       </span>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="open"><span className="flex items-center gap-1.5"><StatusIcon status="open" />Open</span></SelectItem>
-                      <SelectItem value="in_progress"><span className="flex items-center gap-1.5"><StatusIcon status="in_progress" />In Progress</span></SelectItem>
-                      <SelectItem value="resolved"><span className="flex items-center gap-1.5"><StatusIcon status="resolved" />Resolved</span></SelectItem>
-                      <SelectItem value="ignored"><span className="flex items-center gap-1.5"><StatusIcon status="ignored" />Ignored</span></SelectItem>
+                      <SelectItem value="open"><StatusOptionLabel status="open" label="Open" /></SelectItem>
+                      <SelectItem value="in_progress"><StatusOptionLabel status="in_progress" label="In Progress" /></SelectItem>
+                      <SelectItem value="resolved"><StatusOptionLabel status="resolved" label="Resolved" /></SelectItem>
+                      <SelectItem value="ignored"><StatusOptionLabel status="ignored" label="Ignored" /></SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

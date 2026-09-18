@@ -11,8 +11,8 @@ import { buttonVariants } from "@/components/ui/button-variants"
 import { cn } from "@/lib/utils"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
-import { SEVERITY_COLORS, getAlertSeverityTier } from "@/lib/severity"
-import { AlertDetailSheet, STATUS_ICON_MAP, StatusIcon } from "@/components/alerts/alert-detail-sheet"
+import { SEVERITY_COLORS, STATUS_LABELS, getAlertSeverityTier } from "@/lib/severity"
+import { AlertDetailSheet, StatusIcon, statusColorClass, statusSelectStyle, StatusOptionLabel } from "@/components/alerts/alert-detail-sheet"
 import { formatDaysUntilDue, getSlaStatus } from "@/lib/sla"
 import {
   Select,
@@ -98,21 +98,23 @@ function StatusSelect({ alertIds, currentStatus, onStatusChange }: {
 
   return (
     <Select value={status} onValueChange={onChange} disabled={loading}>
-      <SelectTrigger className="h-7 w-36 text-xs">
+      <SelectTrigger className="h-7 w-32 text-xs" style={statusSelectStyle(status)}>
         <span className="flex items-center gap-1.5">
           <StatusIcon status={status} />
-          <SelectValue />
+          <span className={statusColorClass(status)}>
+            <SelectValue>{STATUS_LABELS[status] ?? status}</SelectValue>
+          </span>
         </span>
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="open"><span className="flex items-center gap-1.5"><StatusIcon status="open" />Open</span></SelectItem>
-        <SelectItem value="in_progress"><span className="flex items-center gap-1.5"><StatusIcon status="in_progress" />In Progress</span></SelectItem>
-        <SelectItem value="resolved"><span className="flex items-center gap-1.5"><StatusIcon status="resolved" />Resolved</span></SelectItem>
+        <SelectItem value="open"><StatusOptionLabel status="open" label="Open" /></SelectItem>
+        <SelectItem value="in_progress"><StatusOptionLabel status="in_progress" label="In Progress" /></SelectItem>
+        <SelectItem value="resolved"><StatusOptionLabel status="resolved" label="Resolved" /></SelectItem>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger render={
               <SelectItem value="ignored" disabled className="data-disabled:pointer-events-auto">
-                <span className="flex items-center gap-1.5"><StatusIcon status="ignored" />Ignored</span>
+                <StatusOptionLabel status="ignored" label="Ignored" />
               </SelectItem>
             } />
             <TooltipContent side="right">
@@ -747,18 +749,22 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
                   <SelectTrigger className="h-8 w-44 text-sm">
                     <span className="flex items-center gap-1.5">
                       {bulkStatus && <StatusIcon status={bulkStatus} />}
-                      <SelectValue placeholder="Change status..." />
+                      <SelectValue>
+                        {bulkStatus
+                          ? <span className={statusColorClass(bulkStatus)}>{STATUS_LABELS[bulkStatus] ?? bulkStatus}</span>
+                          : <span className="text-muted-foreground">Change status...</span>}
+                      </SelectValue>
                     </span>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="open"><span className="flex items-center gap-1.5"><StatusIcon status="open" />Open</span></SelectItem>
-                    <SelectItem value="in_progress"><span className="flex items-center gap-1.5"><StatusIcon status="in_progress" />In Progress</span></SelectItem>
-                    <SelectItem value="resolved"><span className="flex items-center gap-1.5"><StatusIcon status="resolved" />Resolved</span></SelectItem>
+                    <SelectItem value="open"><StatusOptionLabel status="open" label="Open" /></SelectItem>
+                    <SelectItem value="in_progress"><StatusOptionLabel status="in_progress" label="In Progress" /></SelectItem>
+                    <SelectItem value="resolved"><StatusOptionLabel status="resolved" label="Resolved" /></SelectItem>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger render={
                           <SelectItem value="ignored" disabled className="data-disabled:pointer-events-auto">
-                            <span className="flex items-center gap-1.5"><StatusIcon status="ignored" />Ignored</span>
+                            <StatusOptionLabel status="ignored" label="Ignored" />
                           </SelectItem>
                         } />
                         <TooltipContent side="right">

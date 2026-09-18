@@ -6,22 +6,17 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X } from "lucide-react"
-import { FaCircleExclamation, FaClock, FaCircleCheck, FaCircleMinus } from "react-icons/fa6"
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter"
-import { AlertDetailSheet, type SheetAlert } from "@/components/alerts/alert-detail-sheet"
+import { AlertDetailSheet, type SheetAlert, STATUS_ICON_MAP as SHARED_STATUS_ICONS } from "@/components/alerts/alert-detail-sheet"
+import { STATUS_LABELS } from "@/lib/severity"
 
-const STATUS_LABELS: Record<string, string> = {
-  open: "Open",
-  in_progress: "In Progress",
-  resolved: "Resolved",
-  ignored: "Ignored",
-}
-
+// Same icon glyphs as the alerts table's status badges, just smaller to fit this
+// timeline's denser rows.
 const STATUS_ICON_MAP: Record<string, { icon: React.ComponentType<{ className?: string }>; className: string }> = {
-  open:        { icon: FaCircleExclamation, className: "h-3 w-3 text-red-500" },
-  in_progress: { icon: FaClock,            className: "h-3 w-3 text-blue-500" },
-  resolved:    { icon: FaCircleCheck,      className: "h-3 w-3 text-green-600" },
-  ignored:     { icon: FaCircleMinus,      className: "h-3 w-3 text-muted-foreground" },
+  open:        { icon: SHARED_STATUS_ICONS.open.icon,        className: "h-3 w-3 text-red-500" },
+  in_progress: { icon: SHARED_STATUS_ICONS.in_progress.icon, className: "h-3 w-3 text-blue-500" },
+  resolved:    { icon: SHARED_STATUS_ICONS.resolved.icon,    className: "h-3 w-3 text-green-600" },
+  ignored:     { icon: SHARED_STATUS_ICONS.ignored.icon,     className: "h-3 w-3 text-muted-foreground" },
 }
 
 function StatusLabel({ value }: { value: string }) {
