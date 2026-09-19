@@ -427,17 +427,17 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
       cell: ({ row }) => {
         const { critical, high, medium, low, na } = row.original.alertSeverities
         const count = row.original.alertCount
-        if (count === 0) return <Badge variant="outline">0</Badge>
+        if (count === 0) return <Badge variant="outline" className="rounded-md">0</Badge>
         const severityHref = (severity: string) =>
           `/alerts?assetId=${assetId}&packageName=${encodeURIComponent(row.original.name)}&packageVersion=${encodeURIComponent(row.original.version)}&severity=${severity}`
         const totalHref = `/alerts?assetId=${assetId}&packageName=${encodeURIComponent(row.original.name)}&packageVersion=${encodeURIComponent(row.original.version)}`
         return (
           <div className="flex items-center gap-1.5 flex-wrap">
-            {critical > 0 && <Link href={severityHref("CRITICAL")}><Badge style={{ backgroundColor: SEVERITY_COLORS.critical }} className="text-white cursor-pointer">{critical}</Badge></Link>}
-            {high > 0 && <Link href={severityHref("HIGH")}><Badge style={{ backgroundColor: SEVERITY_COLORS.high }} className="text-white cursor-pointer">{high}</Badge></Link>}
-            {medium > 0 && <Link href={severityHref("MEDIUM")}><Badge style={{ backgroundColor: SEVERITY_COLORS.medium }} className="text-white cursor-pointer">{medium}</Badge></Link>}
-            {low > 0 && <Link href={severityHref("LOW")}><Badge style={{ backgroundColor: SEVERITY_COLORS.low }} className="text-white cursor-pointer">{low}</Badge></Link>}
-            {na > 0 && <Link href={severityHref("UNKNOWN")}><Badge style={{ backgroundColor: SEVERITY_COLORS.na }} className="text-neutral-900 cursor-pointer">{na}</Badge></Link>}
+            {critical > 0 && <Link href={severityHref("CRITICAL")}><Badge style={{ backgroundColor: SEVERITY_COLORS.critical }} className="text-white cursor-pointer rounded-md">{critical}</Badge></Link>}
+            {high > 0 && <Link href={severityHref("HIGH")}><Badge style={{ backgroundColor: SEVERITY_COLORS.high }} className="text-white cursor-pointer rounded-md">{high}</Badge></Link>}
+            {medium > 0 && <Link href={severityHref("MEDIUM")}><Badge style={{ backgroundColor: SEVERITY_COLORS.medium }} className="text-white cursor-pointer rounded-md">{medium}</Badge></Link>}
+            {low > 0 && <Link href={severityHref("LOW")}><Badge style={{ backgroundColor: SEVERITY_COLORS.low }} className="text-white cursor-pointer rounded-md">{low}</Badge></Link>}
+            {na > 0 && <Link href={severityHref("UNKNOWN")}><Badge style={{ backgroundColor: SEVERITY_COLORS.na }} className="text-neutral-900 cursor-pointer rounded-md">{na}</Badge></Link>}
             <Link href={totalHref} title={`All ${count} alerts for this package`}>
               <ExternalLink className="h-4 w-4 text-foreground" />
             </Link>

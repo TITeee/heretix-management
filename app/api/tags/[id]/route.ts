@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
+import { buildAlertSummary } from "@/components/alerts/alert-summary-badges"
 
 export async function GET(
   _req: NextRequest,
@@ -29,7 +30,7 @@ export async function GET(
       where: { assetId: { in: assetIds }, status: { in: ["open", "in_progress"] } },
       _count: { id: true },
     })
-    alertSummary = Object.fromEntries(alerts.map(a => [a.severity ?? "UNKNOWN", a._count.id]))
+    alertSummary = buildAlertSummary(alerts)
     kevCount = await prisma.alert.count({
       where: { assetId: { in: assetIds }, status: { in: ["open", "in_progress"] }, isKev: true },
     })
@@ -40,7 +41,7 @@ export async function GET(
       where: { packageName: { in: packageNames }, status: { in: ["open", "in_progress"] } },
       _count: { id: true },
     })
-    alertSummary = Object.fromEntries(alerts.map(a => [a.severity ?? "UNKNOWN", a._count.id]))
+    alertSummary = buildAlertSummary(alerts)
     kevCount = await prisma.alert.count({
       where: { packageName: { in: packageNames }, status: { in: ["open", "in_progress"] }, isKev: true },
     })

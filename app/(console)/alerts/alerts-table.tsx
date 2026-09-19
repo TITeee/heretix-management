@@ -162,7 +162,10 @@ function GroupedPackageCell({ sourcePackage, version, members }: {
 // filters). Still shows the numeric score as the label when one exists.
 function AlertSeverityBadge({ severity, score }: { severity: string | null; score: number | null }) {
   const tier = getAlertSeverityTier(severity, score)
-  const label = score != null ? score.toFixed(1) : (severity ?? "n/a")
+  // tier === "na" here means severity didn't match a known tier either (not just
+  // that it's null) — an unrecognized word like GHSA's "MODERATE" must fall back
+  // to "n/a" too rather than leaking the raw string next to an N/A-colored badge.
+  const label = score != null ? score.toFixed(1) : tier !== "na" ? severity! : "n/a"
   return (
     <Badge
       style={{ backgroundColor: SEVERITY_COLORS[tier] }}
