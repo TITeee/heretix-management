@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
 import { FaTriangleExclamation } from "react-icons/fa6"
-import { SEVERITY_COLORS } from "@/lib/severity"
+import { SEVERITY_COLORS, getAlertSeverityTier } from "@/lib/severity"
 
 export type AlertSummary = Record<string, number>
 
@@ -23,7 +23,7 @@ export function buildAlertSummary(rows: { severity: string | null; _count: { id:
 }
 
 function severityColor(s: string): string {
-  return SEVERITY_COLORS[(s.toLowerCase() as keyof typeof SEVERITY_COLORS)] ?? SEVERITY_COLORS.na
+  return SEVERITY_COLORS[getAlertSeverityTier(s, null)]
 }
 
 // Only linked when scoped to a single asset — a tag's summary spans many

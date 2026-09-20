@@ -7,58 +7,19 @@ import { Button } from "@/components/ui/button"
 import { SEVERITY_COLORS } from "@/lib/severity"
 import { Badge } from "@/components/ui/badge"
 import { TagBadge } from "@/components/tags/tag-badge"
+import { DeleteAssetDialog } from "@/components/assets/delete-asset-dialog"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog"
 
 function DeleteButton({ assetId, assetName }: { assetId: string; assetName: string }) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-
-  async function handleDelete() {
-    setLoading(true)
-    try {
-      await fetch(`/api/assets/${assetId}`, { method: "DELETE" })
-      setOpen(false)
-      router.refresh()
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setOpen(true)}
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
-      <DialogContent showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>Delete Asset</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete <strong>{assetName}</strong>? This action cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-          <Button variant="destructive" onClick={handleDelete} disabled={loading}>
-            {loading ? "Deleting..." : "Delete"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <DeleteAssetDialog assetId={assetId} assetName={assetName} onDeleted={() => router.refresh()}>
+      {(open) => (
+        <Button variant="ghost" size="sm" onClick={open}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      )}
+    </DeleteAssetDialog>
   )
 }
 

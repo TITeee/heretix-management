@@ -1,11 +1,3 @@
-// export const SEVERITY_COLORS = {
-//   critical: "#ef4444",
-//   high:     "#fb923c",
-//   medium:   "#fde047",
-//   low:      "#60a5fa",
-//   na:       "#d1d5db",
-// } as const
-
 export const SEVERITY_COLORS = {
   critical: "#4c0519",
   high:     "#9f1239",

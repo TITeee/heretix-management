@@ -1,13 +1,18 @@
 import { Badge } from "@/components/ui/badge"
-import { SEVERITY_COLORS } from "@/lib/severity"
+import { SEVERITY_COLORS, getSeverityTier } from "@/lib/severity"
+
+const TIER_LABELS = { critical: "Critical", high: "High", medium: "Medium", low: "Low", na: "n/a" } as const
 
 export function SeverityBadge({ score }: { score: number | null }) {
-  // See the note on the same case in components/alerts/vuln-detail-tabs.tsx.
-  if (!score) return <Badge style={{ backgroundColor: SEVERITY_COLORS.na }} className="text-neutral-900">n/a</Badge>
-  if (score >= 9) return <Badge style={{ backgroundColor: SEVERITY_COLORS.critical }} className="text-white">Critical</Badge>
-  if (score >= 7) return <Badge style={{ backgroundColor: SEVERITY_COLORS.high }} className="text-white">High</Badge>
-  if (score >= 4) return <Badge style={{ backgroundColor: SEVERITY_COLORS.medium }} className="text-white">Medium</Badge>
-  return <Badge style={{ backgroundColor: SEVERITY_COLORS.low }} className="text-white">Low</Badge>
+  const tier = getSeverityTier(score)
+  return (
+    <Badge
+      style={{ backgroundColor: SEVERITY_COLORS[tier] }}
+      className={tier === "na" ? "text-neutral-900" : "text-white"}
+    >
+      {TIER_LABELS[tier]}
+    </Badge>
+  )
 }
 
 export function StatusBadge({ status }: { status: string }) {
