@@ -3,10 +3,11 @@ import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import bcrypt from "bcryptjs"
 import { createAuditLog } from "@/lib/audit"
+import { withApiErrorHandling } from "@/lib/api-handler"
 
 type Ctx = { params: Promise<{ id: string }> }
 
-export async function PATCH(req: NextRequest, ctx: Ctx) {
+export const PATCH = withApiErrorHandling("users.update", async (req: NextRequest, ctx: Ctx) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (session.user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -52,9 +53,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     detail: isPasswordReset ? undefined : changedFields.join(", "),
   })
   return NextResponse.json(user)
-}
+})
 
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
+export const DELETE = withApiErrorHandling("users.delete", async (_req: NextRequest, ctx: Ctx) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (session.user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -72,4 +73,4 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     action: "user_deleted", target: target?.email,
   })
   return NextResponse.json({ ok: true })
-}
+})

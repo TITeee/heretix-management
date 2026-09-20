@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { createAuditLog } from "@/lib/audit"
+import { withApiErrorHandling } from "@/lib/api-handler"
 
 // Keys any signed-in user may read — a non-admin only needs the AI Insight
 // feature flag (checked from the alert detail panel); everything else here
 // is either a secret (API keys, the Slack webhook URL) or admin-only config.
 const NON_ADMIN_READABLE_KEYS = new Set(["AI_ENABLED"])
 
-export async function GET() {
+export const GET = withApiErrorHandling("settings.get", async () => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -20,9 +21,9 @@ export async function GET() {
       .map((s) => [s.key, s.value])
   )
   return NextResponse.json(map)
-}
+})
 
-export async function PATCH(req: NextRequest) {
+export const PATCH = withApiErrorHandling("settings.update", async (req: NextRequest) => {
   const session = await auth()
   if (!session || session.user?.role !== "admin") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -48,4 +49,4 @@ export async function PATCH(req: NextRequest) {
   })
 
   return NextResponse.json({ ok: true })
-}
+})

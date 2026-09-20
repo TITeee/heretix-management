@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
+import { withApiErrorHandling } from "@/lib/api-handler"
 
 const PURL_TYPE_MAP: Record<string, string> = {
   golang: "Go", composer: "Packagist", pypi: "PyPI",
@@ -75,7 +76,7 @@ type VexEntry = {
   analysis?: { state?: string; justification?: string; detail?: string }
 }
 
-export async function POST(req: NextRequest) {
+export const POST = withApiErrorHandling("vex.import", async (req: NextRequest) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -213,4 +214,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ applied, skipped, notFound, unsupportedRange })
-}
+})

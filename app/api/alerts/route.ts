@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
+import { withApiErrorHandling } from "@/lib/api-handler"
 
-export async function GET(req: NextRequest) {
+export const GET = withApiErrorHandling("alerts.list", async (req: NextRequest) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -31,4 +32,4 @@ export async function GET(req: NextRequest) {
   })
 
   return NextResponse.json(alerts)
-}
+})

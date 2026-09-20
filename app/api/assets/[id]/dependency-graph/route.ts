@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { buildPURL } from "@/lib/purl"
+import { withApiErrorHandling } from "@/lib/api-handler"
 
 export type GraphNode = {
   id: string         // PURL
@@ -24,10 +25,10 @@ export type DependencyGraphData = {
   edges: GraphEdge[]
 }
 
-export async function GET(
+export const GET = withApiErrorHandling("assets.dependencyGraph", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -119,4 +120,4 @@ export async function GET(
   }
 
   return NextResponse.json({ hasDepsData: true, nodes, edges: includedEdges } satisfies DependencyGraphData)
-}
+})

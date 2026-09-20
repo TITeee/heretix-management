@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
+import { withApiErrorHandling } from "@/lib/api-handler"
 
-export async function POST(
+export const POST = withApiErrorHandling("assets.packages.create", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -44,4 +45,4 @@ export async function POST(
   })
 
   return NextResponse.json(pkg, { status: 201 })
-}
+})

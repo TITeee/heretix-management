@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { isIgnoreReason, IGNORE_REASONS, REASON_REQUIRES_JUSTIFICATION } from "@/lib/vex"
+import { withApiErrorHandling } from "@/lib/api-handler"
 
-export async function PATCH(
+export const PATCH = withApiErrorHandling("alerts.update", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -134,4 +135,4 @@ export async function PATCH(
   }
 
   return NextResponse.json(alert)
-}
+})

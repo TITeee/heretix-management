@@ -3,8 +3,9 @@ import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import bcrypt from "bcryptjs"
 import { createAuditLog } from "@/lib/audit"
+import { withApiErrorHandling } from "@/lib/api-handler"
 
-export async function GET() {
+export const GET = withApiErrorHandling("users.list", async () => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (session.user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -14,9 +15,9 @@ export async function GET() {
     orderBy: { createdAt: "asc" },
   })
   return NextResponse.json(users)
-}
+})
 
-export async function POST(req: NextRequest) {
+export const POST = withApiErrorHandling("users.create", async (req: NextRequest) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (session.user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -46,4 +47,4 @@ export async function POST(req: NextRequest) {
     detail: `role: ${role || "operator"}`,
   })
   return NextResponse.json(user, { status: 201 })
-}
+})

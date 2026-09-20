@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { EXPORTABLE_REASONS, vexStateFor } from "@/lib/vex"
 import { findCpeForCve } from "@/lib/heretix-api"
+import { withApiErrorHandling } from "@/lib/api-handler"
 
 // Reverse-maps from OSV ecosystem name to PURL type + namespace
 function buildPURL(name: string, version: string, ecosystem: string): string {
@@ -44,7 +45,7 @@ type VexComponent = {
   cpe?: string
 }
 
-export async function GET(req: NextRequest) {
+export const GET = withApiErrorHandling("vex.export", async (req: NextRequest) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -178,4 +179,4 @@ export async function GET(req: NextRequest) {
   }
 
   return new NextResponse(body, { headers })
-}
+})
