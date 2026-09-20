@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
+import { assertPublicHttpUrl } from "@/lib/url-guard"
 
 export async function POST(req: NextRequest) {
   const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!session || session.user?.role !== "admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
 
   const { url, apiKey } = await req.json()
   if (!url) return NextResponse.json({ error: "url is required" }, { status: 400 })
+
+  try {
+    await assertPublicHttpUrl(url)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Invalid URL"
+    return NextResponse.json({ error: msg }, { status: 400 })
+  }
 
   const headers: Record<string, string> = {}
   if (apiKey) headers["x-api-key"] = apiKey

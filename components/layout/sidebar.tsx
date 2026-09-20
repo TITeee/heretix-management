@@ -92,16 +92,18 @@ export function AppSidebar({ userRole }: { userRole?: string }) {
 
       <SidebarFooter>
         <SidebarMenu className="group-data-[collapsible=icon]:items-center">
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<Link href="/settings" />}
-              isActive={pathname.startsWith("/settings")}
-              tooltip={mounted ? "Settings" : undefined}
-            >
-              <Settings />
-              <span>Settings</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          {isAdmin && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                render={<Link href="/settings" />}
+                isActive={pathname.startsWith("/settings")}
+                tooltip={mounted ? "Settings" : undefined}
+              >
+                <Settings />
+                <span>Settings</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarFooter>
 

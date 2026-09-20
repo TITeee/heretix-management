@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs"
 import { authConfig } from "@/lib/auth.config"
 import { logger } from "@/lib/logger"
 import { createAuditLog } from "@/lib/audit"
+import { isLoginRateLimited, recordLoginFailure, clearLoginRateLimit } from "@/lib/rate-limit"
 
 declare module "next-auth" {
   interface User {
@@ -38,8 +39,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           request.headers.get("x-real-ip") ??
           "unknown"
 
+        if (isLoginRateLimited(email, ip)) {
+          logger.warn("login failed", { email, reason: "rate_limited", ip })
+          await createAuditLog({ userEmail: email, action: "login_failed", detail: `rate limited (IP: ${ip})` })
+          return null
+        }
+
         const user = await prisma.user.findUnique({ where: { email } })
         if (!user) {
+          recordLoginFailure(email, ip)
           logger.warn("login failed", { email, reason: "user_not_found", ip })
           await createAuditLog({ userEmail: email, action: "login_failed", detail: `user not found (IP: ${ip})` })
           return null
@@ -47,11 +55,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const valid = await bcrypt.compare(credentials.password as string, user.password)
         if (!valid) {
+          recordLoginFailure(email, ip)
           logger.warn("login failed", { email, reason: "invalid_password", ip })
           await createAuditLog({ userId: user.id, userEmail: email, action: "login_failed", detail: `invalid password (IP: ${ip})` })
           return null
         }
 
+        clearLoginRateLimit(email)
         logger.info("login success", { email, ip })
         await createAuditLog({ userId: user.id, userEmail: email, action: "login", detail: `IP: ${ip}` })
         return { id: user.id, email: user.email, name: user.name, role: user.role }

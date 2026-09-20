@@ -4,7 +4,9 @@ import { callAnthropic, AIError } from "@/lib/ai"
 
 export async function POST(req: NextRequest) {
   const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!session || session.user?.role !== "admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
 
   const { apiKey, model } = await req.json()
   if (!apiKey) return NextResponse.json({ error: "apiKey is required" }, { status: 400 })
