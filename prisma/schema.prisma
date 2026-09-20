@@ -122,6 +122,11 @@ model Alert {
   @@index([isKev])
   @@index([epssScore])
   @@index([dueDate])
+  // status is filtered on in nearly every alert query (dashboard cards, tag
+  // detail counts, per-asset severity summaries) but wasn't indexed on its
+  // own — only reachable via the composite unique index above, which needs
+  // assetId as the leading column to help.
+  @@index([status])
 }
 
 model AlertEvent {

@@ -21,8 +21,14 @@ export default async function AlertsPage({
     },
     orderBy: [{ cvssScore: "desc" }, { detectedAt: "desc" }],
     include: {
+      // Only id/name/hostname reach the client (see the destructure below);
+      // `include` here would pull every Asset scalar (osId, scannedAt,
+      // sbomTool, timestamps, ...) into every alert row for nothing.
       asset: {
-        include: {
+        select: {
+          id: true,
+          name: true,
+          hostname: true,
           assetTags: { include: { tag: { select: { id: true, name: true, color: true } } } }
         }
       }

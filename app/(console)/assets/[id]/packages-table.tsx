@@ -459,7 +459,7 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
 }
 
 export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: string }) {
-  const columns = buildColumns(assetId)
+  const columns = useMemo(() => buildColumns(assetId), [assetId])
 
   const [ecosystemFilter, setEcosystemFilter] = useState<Set<string>>(new Set())
   const [sourceFilter, setSourceFilter] = useState<Set<string>>(new Set())

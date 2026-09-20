@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
 import { batchSearch, searchByCPE, type VulnSearchResult } from "@/lib/heretix-api"
 import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
@@ -149,6 +151,14 @@ export async function scanAsset(
     const newAlertsList: AlertSummary[] = []
     const severityChangedList: AlertSummary[] = []
     const kevAddedList: AlertSummary[] = []
+    // A first scan of a new asset can report thousands of brand-new findings;
+    // writing each with its own create() + create() pair is the dominant cost
+    // of a scan. Collected here and flushed with two createMany calls once
+    // both search loops are done, instead of two round-trips per finding.
+    // ids are generated up front (rather than left to the DB default) so the
+    // "detected" AlertEvent rows can be built in the same pass.
+    const pendingNewAlerts: Prisma.AlertCreateManyInput[] = []
+    const pendingNewEvents: Prisma.AlertEventCreateManyInput[] = []
 
     // A match under the id already reported does not, by itself, mean nothing
     // changed: heretix-api's own data for that id can move between scans (a CVSS
@@ -290,42 +300,67 @@ export async function scanAsset(
         slaConfig
       )
 
-      const alert = await prisma.alert.create({
-        data: {
-          assetId,
-          packageName,
-          packageVersion,
-          ecosystem,
-          externalId,
-          sourcePackage,
-          sources: v.sources?.length ? v.sources : [v.source || fallbackSource],
-          cvssScore: v.cvssScore ?? null,
-          cvssVector: v.cvssVector ?? null,
-          severity: v.severity ?? null,
-          summary: v.summary ?? null,
-          isKev: v.isKev ?? false,
-          epssScore: v.epssScore ?? null,
-          epssPercentile: v.epssPercentile ?? null,
-          fixedVersion: v.fixedVersion ?? null,
-          approximateMatch: v.approximateMatch ?? false,
-          detectedAt,
-          dueDate,
-        },
+      const id = randomUUID()
+      const cvssScore = v.cvssScore ?? null
+      const cvssVector = v.cvssVector ?? null
+      const severity = v.severity ?? null
+      const isKev = v.isKev ?? false
+      const epssScore = v.epssScore ?? null
+      const epssPercentile = v.epssPercentile ?? null
+      const fixedVersion = v.fixedVersion ?? null
+
+      pendingNewAlerts.push({
+        id,
+        assetId,
+        packageName,
+        packageVersion,
+        ecosystem,
+        externalId,
+        sourcePackage,
+        sources: v.sources?.length ? v.sources : [v.source || fallbackSource],
+        cvssScore,
+        cvssVector,
+        severity,
+        summary: v.summary ?? null,
+        isKev,
+        epssScore,
+        epssPercentile,
+        fixedVersion,
+        approximateMatch: v.approximateMatch ?? false,
+        detectedAt,
+        dueDate,
       })
-      alertsByFinding.set(key, alert)
-      await prisma.alertEvent.create({
-        data: {
-          alertId: alert.id,
-          type: "detected",
-          data: { cvssScore: v.cvssScore ?? null, severity: v.severity ?? null },
-        },
+      pendingNewEvents.push({
+        alertId: id,
+        type: "detected",
+        data: { cvssScore, severity },
+      })
+      // Mirrors the shape of existingAlerts' select — this entry can be found
+      // again later in the same scan via findByAlias, so it needs to look
+      // like a real one to updateMetadataIfChanged/reopenIfAutoResolved.
+      alertsByFinding.set(key, {
+        id,
+        packageName,
+        packageVersion,
+        externalId,
+        status: "open",
+        resolveReason: null,
+        cvssScore,
+        cvssVector,
+        severity,
+        isKev,
+        epssScore,
+        epssPercentile,
+        fixedVersion,
+        detectedAt,
+        sourcePackage,
       })
       newAlertsList.push({
         packageName,
         packageVersion,
         externalId,
-        severity: v.severity ?? null,
-        cvssScore: v.cvssScore ?? null,
+        severity,
+        cvssScore,
       })
       newAlertCount++
     }
@@ -364,31 +399,36 @@ export async function scanAsset(
       }
     }
 
+    if (pendingNewAlerts.length > 0) {
+      await prisma.alert.createMany({ data: pendingNewAlerts })
+      await prisma.alertEvent.createMany({ data: pendingNewEvents })
+    }
+
     // Close the alerts the scan no longer reports. Only packages that were actually
     // queried and came back with a complete result set take part: a package that left
     // the inventory, was skipped, or hit the result cap says nothing about whether its
     // findings still apply, and a partial answer must never close a real finding.
     const resolveReason = `${AUTO_RESOLVE_PREFIX}no longer detected by scan`
     const resolvedAt = new Date()
-    let resolvedCount = 0
-    for (const a of existingAlerts) {
-      if (a.status !== "open" && a.status !== "in_progress") continue
-      if (!reconcilable.has(packageKey(a.packageName, a.packageVersion))) continue
-      if (seen.has(findingKey(a.packageName, a.packageVersion, a.externalId))) continue
-
-      await prisma.alert.update({
-        where: { id: a.id },
+    const toResolve = existingAlerts.filter((a) =>
+      (a.status === "open" || a.status === "in_progress") &&
+      reconcilable.has(packageKey(a.packageName, a.packageVersion)) &&
+      !seen.has(findingKey(a.packageName, a.packageVersion, a.externalId))
+    )
+    if (toResolve.length > 0) {
+      await prisma.alert.updateMany({
+        where: { id: { in: toResolve.map((a) => a.id) } },
         data: { status: "resolved", resolvedAt, resolveReason },
       })
-      await prisma.alertEvent.create({
-        data: {
+      await prisma.alertEvent.createMany({
+        data: toResolve.map((a) => ({
           alertId: a.id,
           type: "status_changed",
           data: { from: a.status, to: "resolved", reason: resolveReason },
-        },
+        })),
       })
-      resolvedCount++
     }
+    const resolvedCount = toResolve.length
 
     await prisma.scanJob.update({
       where: { id: job.id },

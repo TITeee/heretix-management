@@ -16,7 +16,7 @@ import { AddPackageDialog } from "./add-package-dialog"
 import { PackagesTable } from "./packages-table"
 import { ScanHistoryModal } from "./scan-history-modal"
 import { PackageHistoryModal } from "./package-history-modal"
-import { DependencyGraph } from "./dependency-graph"
+import { DependencyGraphLoader } from "./dependency-graph-loader"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { AlertSummaryBadges, buildAlertSummary, type AlertSummary } from "@/components/alerts/alert-summary-badges"
 import {
@@ -37,7 +37,23 @@ export default async function AssetDetailPage({
   const asset = await prisma.asset.findUnique({
     where: { id },
     include: {
-      packages: true,
+      // rawVersion/deps/sourcePackage aren't used on this page (the
+      // dependency graph fetches its own data separately) — select only
+      // what packagesWithAlerts/PackagesTable actually read.
+      packages: {
+        select: {
+          id: true,
+          name: true,
+          version: true,
+          ecosystem: true,
+          source: true,
+          location: true,
+          cpe: true,
+          direct: true,
+          scope: true,
+          category: true,
+        },
+      },
       _count: { select: { alerts: true } },
       scanJobs: { orderBy: { createdAt: "desc" }, take: 5 },
       packageHistories: { orderBy: { changedAt: "desc" }, take: 50 },
@@ -258,7 +274,7 @@ export default async function AssetDetailPage({
           <PackagesTable data={packagesWithAlerts} assetId={id} />
         </TabsContent>
         <TabsContent value="graph">
-          <DependencyGraph assetId={id} />
+          <DependencyGraphLoader assetId={id} />
         </TabsContent>
       </Tabs>
     </div>
