@@ -242,7 +242,7 @@ export function DataTable<TData, TValue>({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {[10, 25, 50].map((s) => (
+              {[10, 15, 25, 50].map((s) => (
                 <SelectItem key={s} value={String(s)}>{s} / page</SelectItem>
               ))}
             </SelectContent>

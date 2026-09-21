@@ -25,13 +25,11 @@ export function TopPackagesChart({ data }: { data: { name: string; count: number
     )
   }
 
-  const height = Math.max(100, data.length * 36 + 16)
-
   return (
     <ChartContainer
       config={chartConfig}
       className="w-full"
-      style={{ height }}
+      style={{ height: 280 }}
     >
       <BarChart
         accessibilityLayer

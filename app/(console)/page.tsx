@@ -4,12 +4,15 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Server, Bell, ShieldAlert, CheckCircle2, Package, Info, Tag as TagIcon } from "lucide-react"
 import { FaTriangleExclamation } from "react-icons/fa6"
 import Link from "next/link"
-import { AlertsTrend } from "@/components/dashboard/alerts-trend"
+import { AlertsTrend, type AlertsTrendData } from "@/components/dashboard/alerts-trend"
 import { TopAssetsChart, type AssetBarData } from "@/components/dashboard/top-assets-chart"
 import { TopPackagesChart } from "@/components/dashboard/top-packages-chart"
 import { KevHighlights } from "@/components/dashboard/kev-highlights"
 import { RecentAlertsClient } from "@/components/dashboard/recent-alerts-client"
 import { TagSeverityDonut } from "@/components/dashboard/tag-severity-donut"
+import { SeverityDonut } from "@/components/dashboard/severity-donut"
+import { StatusDonut } from "@/components/dashboard/status-donut"
+import { MttrChart, type MttrBarData } from "@/components/dashboard/mttr-chart"
 import { CriticalPackagesCard } from "@/components/dashboard/critical-packages-card"
 import { ProductionAssetsCard } from "@/components/dashboard/production-assets-card"
 import { DashboardTabs } from "@/components/dashboard/dashboard-tabs"
@@ -27,29 +30,65 @@ function getMonday(date: Date): Date {
   return d
 }
 
-function buildWeeklyTrend(
-  alerts: { detectedAt: Date }[]
-): { week: string; count: number }[] {
-  const now = new Date()
-  const currentMonday = getMonday(now)
-
-  const weeks = Array.from({ length: 8 }, (_, i) => {
+function weekStarts(): Date[] {
+  const currentMonday = getMonday(new Date())
+  return Array.from({ length: 8 }, (_, i) => {
     const start = new Date(currentMonday)
     start.setDate(start.getDate() - (7 - i) * 7)
-    return {
-      start,
-      label: start.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-      count: 0,
-    }
+    return start
   })
+}
 
-  for (const alert of alerts) {
-    const monday = getMonday(new Date(alert.detectedAt))
-    const idx = weeks.findIndex((w) => w.start.getTime() === monday.getTime())
-    if (idx !== -1) weeks[idx].count++
+function bucketByWeek(dates: Date[], starts: Date[]): number[] {
+  const counts = starts.map(() => 0)
+  for (const date of dates) {
+    const monday = getMonday(new Date(date))
+    const idx = starts.findIndex((s) => s.getTime() === monday.getTime())
+    if (idx !== -1) counts[idx]++
+  }
+  return counts
+}
+
+function buildAlertsTrend(
+  openedAlerts: { detectedAt: Date }[],
+  resolvedAlerts: { resolvedAt: Date | null }[]
+): AlertsTrendData[] {
+  const starts = weekStarts()
+  const labels = starts.map((s) => s.toLocaleDateString(undefined, { month: "short", day: "numeric" }))
+  const openedCounts = bucketByWeek(openedAlerts.map((a) => a.detectedAt), starts)
+  const resolvedCounts = bucketByWeek(
+    resolvedAlerts.flatMap((a) => (a.resolvedAt ? [a.resolvedAt] : [])),
+    starts
+  )
+  return labels.map((week, i) => ({ week, opened: openedCounts[i], resolved: resolvedCounts[i] }))
+}
+
+function buildMttrData(
+  alerts: { detectedAt: Date; resolvedAt: Date | null; cvssScore: number | null }[]
+): MttrBarData[] {
+  const tiers = ["Critical", "High", "Medium", "Low", "N/A"] as const
+  const sums: Record<(typeof tiers)[number], { totalDays: number; count: number }> = {
+    Critical: { totalDays: 0, count: 0 },
+    High: { totalDays: 0, count: 0 },
+    Medium: { totalDays: 0, count: 0 },
+    Low: { totalDays: 0, count: 0 },
+    "N/A": { totalDays: 0, count: 0 },
   }
 
-  return weeks.map((w) => ({ week: w.label, count: w.count }))
+  for (const alert of alerts) {
+    if (!alert.resolvedAt) continue
+    const days = (alert.resolvedAt.getTime() - alert.detectedAt.getTime()) / (24 * 60 * 60 * 1000)
+    const s = alert.cvssScore
+    const tier = !s ? "N/A" : s >= 9 ? "Critical" : s >= 7 ? "High" : s >= 4 ? "Medium" : "Low"
+    sums[tier].totalDays += days
+    sums[tier].count++
+  }
+
+  return tiers.map((tier) => ({
+    tier,
+    avgDays: sums[tier].count > 0 ? sums[tier].totalDays / sums[tier].count : 0,
+    count: sums[tier].count,
+  }))
 }
 
 function buildTagSeverity(alerts: { cvssScore: number | null }[]) {
@@ -141,6 +180,9 @@ async function getDashboardData() {
     kevCount,
     allTags,
     slaDueAlerts,
+    resolvedTrendAlerts,
+    statusGroups,
+    mttrAlerts,
   ] = await Promise.all([
     prisma.asset.count(),
     prisma.alert.count(),
@@ -198,12 +240,31 @@ async function getDashboardData() {
       where: { status: { in: ["open", "in_progress"] } },
       select: { dueDate: true, cvssScore: true },
     }),
+    // Resolved-alerts trend (for the New vs Resolved chart)
+    prisma.alert.findMany({
+      select: { resolvedAt: true },
+      where: { resolvedAt: { gte: eightWeeksAgo } },
+    }),
+    // Status breakdown across every alert, regardless of status
+    prisma.alert.groupBy({ by: ["status"], _count: { id: true } }),
+    // MTTR: resolved alerts with a resolution timestamp
+    prisma.alert.findMany({
+      select: { detectedAt: true, resolvedAt: true, cvssScore: true },
+      where: { status: "resolved", resolvedAt: { not: null } },
+    }),
   ])
 
-  const trendData = buildWeeklyTrend(trendAlerts)
+  const trendData = buildAlertsTrend(trendAlerts, resolvedTrendAlerts)
   const topAssetsData = buildTopAssets(topAssetAlerts)
   const topPackagesData = topPkgGroups.map((g) => ({ name: g.packageName, count: g._count.id }))
   const slaSeverityData = buildSlaSeverityData(slaDueAlerts)
+  // Reuses the same open/in_progress alert set already fetched for Top Vulnerable Assets.
+  const overallSeverity = buildTagSeverity(topAssetAlerts)
+  const statusBreakdown = statusGroups.map((g) => ({
+    status: g.status,
+    count: (g._count as { id: number }).id,
+  }))
+  const mttrData = buildMttrData(mttrAlerts)
 
   // ── Tags tab: fetch all asset/package relationships for every tag ─────────
   const assetTagIds = allTags.filter((t) => t.type === "asset").map((t) => t.id)
@@ -355,29 +416,11 @@ async function getDashboardData() {
     packages: tag.type === "package" ? buildPackageItems([...new Set(pkgNamesByTagId.get(tag.id) ?? [])]) : undefined,
   }))
 
-  // Count open/in_progress alerts by direct/indirect dependency
-  const openAlertPkgs = await prisma.alert.findMany({
-    where: { status: { in: ["open", "in_progress"] } },
-    select: { assetId: true, packageName: true, packageVersion: true },
-  })
-  // One OR condition per open alert used to build the query, which blows past
-  // Postgres's parameter limit once alert counts grow large. Fetching every package
-  // for the affected assets and matching in memory instead scales with asset count.
-  const depPkgs = await prisma.package.findMany({
-    where: { assetId: { in: [...new Set(openAlertPkgs.map(a => a.assetId))] } },
-    select: { assetId: true, name: true, version: true, direct: true },
-  })
-  const depMap = new Map(depPkgs.map(p => [`${p.assetId}::${p.name}::${p.version}`, p.direct]))
-  const directAlerts = openAlertPkgs.filter(a => depMap.get(`${a.assetId}::${a.packageName}::${a.packageVersion}`) === true).length
-  const indirectAlerts = openAlertPkgs.filter(a => depMap.get(`${a.assetId}::${a.packageName}::${a.packageVersion}`) === false).length
-
   return {
     totalAssets,
     totalAlerts,
     openAlerts,
     criticalAlerts,
-    directAlerts,
-    indirectAlerts,
     recentAlerts,
     trendData,
     topAssetsData,
@@ -389,6 +432,9 @@ async function getDashboardData() {
     kevCount,
     tagData,
     slaSeverityData,
+    overallSeverity,
+    statusBreakdown,
+    mttrData,
   }
 }
 
@@ -400,8 +446,6 @@ export default async function DashboardPage() {
     totalAlerts,
     openAlerts,
     criticalAlerts,
-    directAlerts,
-    indirectAlerts,
     recentAlerts,
     trendData,
     topAssetsData,
@@ -413,6 +457,9 @@ export default async function DashboardPage() {
     kevCount,
     tagData,
     slaSeverityData,
+    overallSeverity,
+    statusBreakdown,
+    mttrData,
   } = await getDashboardData()
 
   return (
@@ -450,7 +497,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Assets</CardTitle>
-            <Server className="h-4 w-4 text-muted-foreground" />
+            <Server className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{totalAssets}</div>
@@ -459,7 +506,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Packages</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <Package className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{totalPackages}</div>
@@ -468,7 +515,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Alerts</CardTitle>
-            <Bell className="h-4 w-4 text-muted-foreground" />
+            <Bell className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{totalAlerts}</div>
@@ -477,22 +524,16 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Open Alerts</CardTitle>
-            <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+            <ShieldAlert className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{openAlerts}</div>
-            {(directAlerts > 0 || indirectAlerts > 0) && (
-              <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
-                <span className="text-destructive font-medium">{directAlerts} direct</span>
-                <span>{indirectAlerts} indirect</span>
-              </div>
-            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Critical Alerts</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-destructive">{criticalAlerts}</div>
@@ -501,7 +542,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">KEV Alerts</CardTitle>
-            <FaTriangleExclamation className="h-4 w-4 text-muted-foreground" />
+            <FaTriangleExclamation className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-destructive">{kevCount}</div>
@@ -509,8 +550,8 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* Charts row 1: SLA by Severity + C1 + C2 — Tag severity */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* Charts row 1: SLA + MTTR + overall severity + status breakdown */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-1.5 text-sm font-medium">
@@ -539,6 +580,56 @@ export default async function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-1.5 text-sm font-medium">
+              MTTR (Mean Time to Resolve)
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger render={
+                    <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                      <Info className="h-4.5 w-4.5" />
+                    </button>
+                  } />
+                  <TooltipContent side="right" className="max-w-xs text-left">
+                    <p>Average days from detection to resolution for resolved alerts, by severity.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <MttrChart data={mttrData} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Alert Severity Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SeverityDonut {...overallSeverity} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Alert Status Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <StatusDonut data={statusBreakdown} />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts row 2: Top assets + tag severity + top packages */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Top Vulnerable Assets</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TopAssetsChart data={topAssetsData} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
               <TagIcon className="h-4 w-4 shrink-0" style={{ color: "#dc2626" }} />
               Internet Facing Severity
@@ -559,18 +650,6 @@ export default async function DashboardPage() {
             <TagSeverityDonut {...publicEndpointSeverity} />
           </CardContent>
         </Card>
-      </div>
-
-      {/* Charts row 3: B1 + B2 */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Top Vulnerable Assets</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TopAssetsChart data={topAssetsData} />
-          </CardContent>
-        </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Top Vulnerable Packages</CardTitle>
@@ -581,10 +660,10 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* New Alerts trend */}
+      {/* New vs Resolved alerts trend */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">New Alerts (8 weeks)</CardTitle>
+          <CardTitle className="text-sm font-medium">New vs Resolved Alerts (8 weeks)</CardTitle>
         </CardHeader>
         <CardContent>
           <AlertsTrend data={trendData} />
@@ -593,19 +672,17 @@ export default async function DashboardPage() {
 
       {/* B3: KEV Highlights + Recent Alerts */}
       <div className="grid gap-4 md:grid-cols-2">
-        {kevAlerts.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">KEV Alerts (Known Exploited)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <KevHighlights alerts={kevAlerts} />
-            </CardContent>
-          </Card>
-        )}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">KEV Alerts (Known Exploited)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <KevHighlights alerts={kevAlerts} />
+          </CardContent>
+        </Card>
 
         {/* Recent Alerts */}
-        <Card className={kevAlerts.length === 0 ? "md:col-span-2" : ""}>
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">Recent Alerts</CardTitle>
           </CardHeader>

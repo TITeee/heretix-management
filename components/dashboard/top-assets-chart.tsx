@@ -1,6 +1,6 @@
 "use client"
 
-import { Bar, BarChart, CartesianGrid, Rectangle, XAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, Rectangle, XAxis, YAxis } from "recharts"
 import type { BarShapeProps } from "recharts/types/cartesian/Bar"
 import {
   type ChartConfig,
@@ -31,7 +31,10 @@ export type AssetBarData = {
 
 const TIERS = ["critical", "high", "medium", "low", "na"] as const
 
-function isTopSegment(row: AssetBarData, tier: (typeof TIERS)[number]) {
+// Rounds the outer (right) edge of whichever segment is the last non-zero
+// one in the stack, so the bar gets a rounded end regardless of which
+// tiers are present for a given asset.
+function isLastSegment(row: AssetBarData, tier: (typeof TIERS)[number]) {
   const idx = TIERS.indexOf(tier)
   return row[tier] > 0 && TIERS.slice(idx + 1).every((t) => row[t] === 0)
 }
@@ -46,16 +49,22 @@ export function TopAssetsChart({ data }: { data: AssetBarData[] }) {
   }
 
   return (
-    <ChartContainer config={chartConfig}>
-      <BarChart accessibilityLayer data={data}>
-        <CartesianGrid vertical={false} />
-        <XAxis
+    // Horizontal layout: with 10 assets, a vertical (category x-axis) chart doesn't
+    // have enough width per bar to fit a name label, so recharts silently drops
+    // ticks that would overlap. Laying the bars out horizontally gives each asset
+    // its own row with the full card width for the name.
+    <ChartContainer config={chartConfig} className="w-full" style={{ height: 280 }}>
+      <BarChart accessibilityLayer data={data} layout="vertical" margin={{ right: 8, left: 0, top: 4, bottom: 4 }}>
+        <CartesianGrid horizontal={false} />
+        <XAxis type="number" hide />
+        <YAxis
           dataKey="name"
+          type="category"
+          width={96}
           tickLine={false}
-          tickMargin={10}
           axisLine={false}
           tickFormatter={(v: string) => (v.length > 14 ? v.slice(0, 13) + "…" : v)}
-          tick={{ fill: "var(--foreground)" }}
+          tick={{ fill: "var(--foreground)", fontSize: 11 }}
         />
         <ChartTooltip content={<ChartTooltipContent hideLabel />} />
         {/* @ts-expect-error recharts/shadcn type mismatch */}
@@ -70,7 +79,7 @@ export function TopAssetsChart({ data }: { data: AssetBarData[] }) {
             shape={(props: BarShapeProps) => (
               <Rectangle
                 {...props}
-                radius={isTopSegment(props.payload as AssetBarData, tier) ? [4, 4, 0, 0] : 0}
+                radius={isLastSegment(props.payload as AssetBarData, tier) ? [0, 4, 4, 0] : 0}
               />
             )}
           />

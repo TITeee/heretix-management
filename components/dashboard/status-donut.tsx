@@ -1,6 +1,6 @@
 "use client"
 
-import { PieChart, Pie, Cell } from "recharts"
+import { PieChart, Pie, Cell, Label } from "recharts"
 import {
   type ChartConfig,
   ChartContainer,
@@ -35,11 +35,39 @@ export function StatusDonut({ data }: { data: { status: string; count: number }[
     )
   }
 
+  const total = chartData.reduce((sum, d) => sum + d.value, 0)
+
   return (
     <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[294px]">
       <PieChart>
         <ChartTooltip content={<ChartTooltipContent hideLabel />} />
         <Pie data={chartData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} dataKey="value">
+          <Label
+            content={({ viewBox }) => {
+              if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                return (
+                  <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle">
+                    <tspan
+                      x={viewBox.cx}
+                      y={(viewBox.cy ?? 0) - 8}
+                      className="fill-foreground"
+                      style={{ fontSize: "2rem", fontWeight: "bold" }}
+                    >
+                      {total}
+                    </tspan>
+                    <tspan
+                      x={viewBox.cx}
+                      y={(viewBox.cy ?? 0) + 14}
+                      className="fill-muted-foreground"
+                      style={{ fontSize: "0.875rem" }}
+                    >
+                      alerts
+                    </tspan>
+                  </text>
+                )
+              }
+            }}
+          />
           {chartData.map((entry) => (
             <Cell
               key={entry.status}
