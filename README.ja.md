@@ -13,7 +13,7 @@
   - **Tags** — タグに紐づくパッケージ・アセットを重要度カラーのカードで一覧表示
 - **アセット管理** — `inventory.json` または **CycloneDX BOM** インポート（差分更新、スコープ付き npm / Go モジュール / OS パッケージの PURL パース対応）、ホスト一覧・詳細表示、アセット編集・削除
 - **依存グラフ** *（Beta）* — アセット詳細の **Dependency Graph** タブで脆弱パッケージとその依存元パッケージを可視化（1〜8ホップ選択可）。dagre による自動レイアウト。脆弱=赤、直接依存=青。lockfile ベースの依存データが必要（npm/pnpm は完全対応、Go・PyPI は部分対応）。heretix-cli の SBOM・inventory.json に加え、Syft・trivy・cdxgen 等の標準 CycloneDX SBOM にも対応
-- **手動アセット登録** — ネットワーク機器・FW を GUI から直接登録
+- **手動アセット登録** — ネットワーク機器・FW をGUIから1台ずつ登録できるほか、**Import CSV**(`Assets` → `Import CSV`)で一括登録も可能。1行=1資産+1 Advisoryパッケージで、同じhostnameを複数行に書けば1資産に複数パッケージを追加できる。Advisoryタブと同じベンダー/製品カタログで全行を事前検証し、確定前に行ごとのcreate/update/skipをプレビュー表示。既存hostnameへはスキップがデフォルトだが、既存資産へのパッケージ追加を明示的に選択することもできる
 - **タグ** — アセット・パッケージ向けにカラーコード付きタグを作成（例: "Internet Facing"、"Public Endpoint"）。アセット・パッケージ詳細ページから割り当て、Tags ページとダッシュボードでタグごとの重要度集計を確認可能
 - **手動パッケージ管理** — パッケージマネージャ外でインストールしたソフトウェアを手動で追加・編集・削除。Advisory タブで Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Check Point / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix 製品をドロップダウン選択して登録可能
 - **パッケージ更新履歴** — インポート時の追加・更新・削除の変更履歴をアセット詳細で参照
@@ -301,6 +301,7 @@ heretix-management/
 |---|---|---|
 | GET | `/api/assets` | アセット一覧 |
 | POST | `/api/assets` | アセット作成・更新（inventory.json または CycloneDX BOM、差分インポート） |
+| POST | `/api/assets/import-csv` | パース済みCSVからアセット+Advisoryパッケージを一括登録（`commit: false`でドライランプレビュー） |
 | GET | `/api/assets/[id]` | アセット詳細 |
 | PATCH | `/api/assets/[id]` | アセット情報更新（name / hostname / osName / osVersionId） |
 | DELETE | `/api/assets/[id]` | アセット削除 |

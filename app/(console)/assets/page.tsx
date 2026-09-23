@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db"
 import { AssetsTable } from "./assets-table"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { Plus } from "lucide-react"
+import { Plus, FileSpreadsheet } from "lucide-react"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -62,6 +62,11 @@ export default async function AssetsPage() {
           <Link href="/assets/new-manual">
             <Button variant="outline" size="sm">
               <Plus className="mr-1 h-4 w-4" /> Add Manually
+            </Button>
+          </Link>
+          <Link href="/assets/import-csv">
+            <Button variant="outline" size="sm">
+              <FileSpreadsheet className="mr-1 h-4 w-4" /> Import CSV
             </Button>
           </Link>
           <Link href="/assets/new">

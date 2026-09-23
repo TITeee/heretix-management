@@ -15,7 +15,7 @@ This repository, heretix-management, is the web console: it imports server packa
   - **Tags** — Cards for packages and assets linked to tags, color-coded by severity
 - **Asset Management** — Import `inventory.json` or **CycloneDX BOM** (incremental updates, PURL parsing with scoped npm / Go module / OS package support), asset list & detail views, edit & delete
 - **Dependency Graph** *(Beta)* — Visual dependency graph on the Asset detail page (Dependency Graph tab). Shows vulnerable packages (red) and their upstream dependents (configurable 1–8 hops), with automatic layout via dagre. Available for packages with lockfile-based dependency data (npm/pnpm fully supported; Go and PyPI partially). Works with SBOM or inventory.json from heretix-cli, and with standard CycloneDX SBOMs from tools such as Syft, trivy, and cdxgen
-- **Manual Asset Registration** — Register network devices and firewalls directly via GUI
+- **Manual Asset Registration** — Register network devices and firewalls directly via GUI, one at a time, or in bulk via **Import CSV** (`Assets` → `Import CSV`): one row per asset+Advisory-package, repeat a hostname to add more than one package to the same asset. Validates every row against the same vendor/product catalog as the Advisory tab before importing, previews create/update/skip per row with nothing written until confirmed, and can optionally add packages to an asset whose hostname already exists instead of skipping it
 - **Tags** — Create color-coded tags for assets or packages (e.g. "Internet Facing", "Public Endpoint"), assign them from the asset/package detail pages, and view aggregated severity counts per tag on the Tags page and Dashboard
 - **Manual Package Management** — Add, edit, and delete software installed outside the package manager. The Advisory tab supports Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Check Point, Oracle, Splunk, Apache HTTP Server, Nginx, Apache Tomcat, and Zabbix products via dropdown selection
 - **Package Change History** — View added/updated/removed package history per asset at import time
@@ -303,6 +303,7 @@ heretix-management/
 |---|---|---|
 | GET | `/api/assets` | List assets |
 | POST | `/api/assets` | Create/update asset (inventory.json or CycloneDX BOM incremental import) |
+| POST | `/api/assets/import-csv` | Bulk-register assets + Advisory packages from a parsed CSV (`commit: false` for a dry-run preview) |
 | GET | `/api/assets/[id]` | Asset detail |
 | PATCH | `/api/assets/[id]` | Update asset info (name / hostname / osName / osVersionId) |
 | DELETE | `/api/assets/[id]` | Delete asset |

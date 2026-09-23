@@ -1,0 +1,3 @@
+name,hostname,asset_type,vendor,product,version,tags
+FW-Tokyo-01,fw-tokyo-01.example.com,host,fortinet,FortiOS,7.4.3,Internet Facing
+VPN-Osaka-01,vpn-osaka-01.example.com,host,paloalto,PAN-OS,10.2.4,
