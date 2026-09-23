@@ -1,13 +1,15 @@
 # heretix-management
 
-脆弱性管理コンソール。[heretix-cli](../heretix-cli) で収集したサーバのパッケージ情報をインポートし、heretix-api を使って脆弱性を検出・追跡・対応管理する Web アプリケーション。
+**[heretix](https://titeee.github.io/heretix-web/)** プロジェクトの一部 — サーバ・コンテナ・ネットワーク機器（ファイアウォール・VPN）を横断してCVEを一元管理する、セルフホスト型の脆弱性管理スイートです（Apache-2.0）。
+
+このリポジトリ heretix-management は、その中の Web コンソールです。[heretix-cli](../heretix-cli) で収集したサーバのパッケージ情報をインポートし、heretix-api を使って脆弱性を検出・追跡・対応管理します。
 
 ![Alert Management](docs/alerts.png)
 
 ## 機能
 
 - **ダッシュボード** — Overview / Tags の2タブ構成
-  - **Overview** — 総アセット数・アラート数（直接/間接依存の内訳付き）・重要度別サマリー、タグ別重要度ドーナツチャート（Internet Facing / Public Endpoint）、アラートトレンド（8週）、脆弱アセット Top 10・脆弱パッケージ Top 10、KEV ハイライト
+  - **Overview** — サマリーカード（アセット数・パッケージ数・総アラート数・Open・Critical・KEV）、重要度別 SLA 状況、重要度別 MTTR（平均解決日数）、全体のアラート重要度分布・ステータス内訳、脆弱アセット Top 10・脆弱パッケージ Top 10、タグ別重要度ドーナツチャート（Internet Facing / Public Endpoint）、新規vs解決アラートトレンド（8週）、KEV ハイライト、直近アラート
   - **Tags** — タグに紐づくパッケージ・アセットを重要度カラーのカードで一覧表示
 - **アセット管理** — `inventory.json` または **CycloneDX BOM** インポート（差分更新、スコープ付き npm / Go モジュール / OS パッケージの PURL パース対応）、ホスト一覧・詳細表示、アセット編集・削除
 - **依存グラフ** *（Beta）* — アセット詳細の **Dependency Graph** タブで脆弱パッケージとその依存元パッケージを可視化（1〜8ホップ選択可）。dagre による自動レイアウト。脆弱=赤、直接依存=青。lockfile ベースの依存データが必要（npm/pnpm は完全対応、Go・PyPI は部分対応）。heretix-cli の SBOM・inventory.json に加え、Syft・trivy・cdxgen 等の標準 CycloneDX SBOM にも対応
@@ -21,8 +23,9 @@
 - **SLA / 期限管理** — CVSS重要度（Critical / High / Medium / Low）ごとにSLA期限を設定可能。CISA KEV 該当アラートには固定の期限を別途適用。検知時に各 Alert の期限を自動計算し、CVSS や KEV ステータスが変わると再計算。Alerts テーブルには **Due** 列とフィルタ（Overdue / Urgent / Warning / OK）を表示し、Alert 詳細パネルにも期限とステータスに応じた色分けを表示。SLA機能自体は Settings から無効化可能（無効化すると Due 列・フィルタは非表示）
 - **アラートメタデータ更新** — open / in_progress の全 Alert に対して heretix-api から最新の CVSS スコア・重要度・EPSS・KEV 情報を再取得して更新（新規 Alert の作成は行わない）
 - **Alert Activity** — 全アセット・全アラートの変更イベント（検知・ステータス変更・メタデータ更新）を1つのテーブルで一覧表示。イベント種別・アセットでフィルタ可能。Alerts ページの **Activity** ボタンからアクセス
-- **アラート詳細** — 行クリックでスライドパネルを表示。Overview・NVD・OSV・Advisory・**Dependents** *（Beta）*（脆弱パッケージへの依存パスをインタラクティブグラフで表示）・Timeline タブ
+- **アラート詳細** — 行クリックでスライドパネルを表示。Overview・NVD・OSV・Advisory（Advisory データがある場合のみ）・CNA（CVE Record データ、取得できた場合のみ）・**Dependents** *（Beta）*（脆弱パッケージへの依存パスをインタラクティブグラフで表示）・Timeline・**AI Insight**（AI機能が有効な場合のみ）タブ
 - **アラート対応履歴** — 検知・ステータス変更・メモ保存（更新者名とメモ内容を記録）・CVSSスコア変更・重要度変更・KEV追加・VEX justification 変更を自動記録し、Timeline タブで時系列表示
+- **AI Insight** *（任意）* — Alert 詳細パネルの AI Insight タブで、特定のアラートについて Claude とチャットできる機能。アラートの CVSS/EPSS/KEV 情報に加え、同じ脆弱性が他アセットでどう対応されたかの履歴もアシスタントに渡され、トリアージを補助する。デフォルトでは無効。**Settings → AI** で Anthropic の API キーとモデルを設定し、疎通確認できる
 - **VEX（Vulnerability Exploitability eXchange）対応** *（Beta）* — Producer・Consumer 両方のワークフローに対応:
   - **エクスポート**（`GET /api/vex`・**Export VEX** ボタン）: Ignored アラートを CycloneDX 1.6 VEX JSON として出力。`trivy image myapp --vex vex.json` でスキャン時の誤検知抑制に活用可能
   - **インポート**（`POST /api/vex/import`・**Import VEX** ボタン）: ベンダー公開 VEX や外部ツール生成の CycloneDX VEX を読み込み、マッチするアラートに自動適用。Timeline に `vex_imported` イベントを記録。影響バージョンは PURL（`pkg:npm/lodash@4.17.20`）と `affects[].versions[]` の両方から解決する。VERS 範囲記法（`vers:npm/>=4.0.0|<4.17.21`）は評価せず件数を報告する（判定を誤ると悪用可能な脆弱性を自動で無視してしまうため）
@@ -39,7 +42,7 @@
 - **脆弱性検索** — パッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列、または **Advisory モード**（Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Check Point / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix のベンダーアドバイザリ検索）で直接検索
 - **ユーザー管理** — ユーザーの追加・編集・削除（admin ロールのみ表示・操作可能）
 - **監査ログ** — admin 専用ページ。ログイン・ユーザー管理・設定変更・アセット操作を最新 500 件表示。サイドバーの **Audit Log** からアクセス（admin のみ）
-- **設定** — タブ構成: **API**（heretix-api 接続 URL・API Token 設定・疎通確認）、**Notifications**（Slack Webhook — 新規検知・重要度変更・新規KEV検出時に通知。最小重要度・アセットタグでフィルタ可能、テスト送信ボタンあり）、**SLA**（有効/無効切替・期限設定）、**About**（バージョン情報）
+- **設定** — タブ構成: **API**（heretix-api 接続 URL・API Token 設定・疎通確認）、**Notifications**（Slack Webhook — 新規検知・重要度変更・新規KEV検出時に通知。最小重要度・アセットタグでフィルタ可能、テスト送信ボタンあり）、**AI**（AI Insight チャット用の Anthropic API キー・モデル設定、疎通確認）、**SLA**（有効/無効切替・期限設定）、**About**（バージョン情報）
 - **定期実行** — サーバー起動時に node-cron でスケジューラを起動。Refresh Metadata（デフォルト 12:00 UTC）→ Run Scan 全アセット（デフォルト 13:00 UTC）を毎日自動実行。`CRON_REFRESH` / `CRON_SCAN` 環境変数で時刻変更可能
 - **構造化ログ** — スキャン進捗（開始・完了・失敗）および認証イベント（ログイン成功・失敗）を JSON 形式で標準出力に記録。Docker 運用時は `docker logs` で収集可能
 
@@ -306,10 +309,14 @@ heretix-management/
 | GET | `/api/alerts/events` | 全アラートイベント一覧 |
 | GET | `/api/alerts/[id]/dependents` | 脆弱パッケージへの依存パス一覧（npm/pnpm） |
 | GET | `/api/alerts/[id]/vex-suggestions` | 同一 finding を他アセットで判断済みの VEX 内容 |
+| GET | `/api/alerts/[id]/chat` | アラートの AI Insight チャット履歴 |
+| POST | `/api/alerts/[id]/chat` | アラートの AI Insight アシスタントにメッセージ送信 |
 | GET | `/api/assets/[id]/dependency-graph` | 依存グラフのノード・エッジデータ |
+| GET | `/api/packages` | 手動パッケージ登録フォームの候補検索 |
 | GET | `/api/vex` | CycloneDX VEX JSON エクスポート（`?assetId=`、`?download=true`） |
 | POST | `/api/vex/import` | CycloneDX VEX をインポートしてアラートに自動適用 |
 | GET | `/api/search` | 脆弱性検索（heretix-api プロキシ） |
+| GET | `/api/search/suggest` | Vulnerability Search 画面の候補検索 |
 | GET | `/api/tags` | タグ一覧 |
 | POST | `/api/tags` | タグ作成 |
 | GET | `/api/tags/[id]` | タグ詳細（紐づくアセット・パッケージ含む） |
@@ -321,8 +328,10 @@ heretix-management/
 | PATCH | `/api/settings` | 設定更新 |
 | POST | `/api/settings/test` | heretix-api 疎通確認 |
 | POST | `/api/settings/slack-test` | Slack テスト通知送信 |
+| POST | `/api/settings/ai-test` | AI（Anthropic）疎通確認 |
 | GET | `/api/settings/sla` | SLA設定取得 |
 | POST | `/api/settings/sla` | SLA設定更新 |
+| POST | `/api/settings/sla/recalculate` | SLA設定変更後に既存アラートの期限を再計算 |
 | GET | `/api/users` | ユーザー一覧（admin のみ） |
 | POST | `/api/users` | ユーザー作成（admin のみ） |
 | PATCH | `/api/users/[id]` | ユーザー更新（admin のみ） |

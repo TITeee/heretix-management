@@ -1,6 +1,8 @@
 # heretix-management
 
-A vulnerability management console that imports server package information collected by [heretix-cli](../heretix-cli) and uses heretix-api to detect, track, and manage vulnerabilities.
+Part of the **[heretix](https://titeee.github.io/heretix-web/)** project — a self-hosted suite that tracks CVEs across servers, containers, and network appliances (firewalls, VPNs) in one inventory (Apache-2.0).
+
+This repository, heretix-management, is the web console: it imports server package information collected by [heretix-cli](../heretix-cli) and uses heretix-api to detect, track, and manage vulnerabilities.
 
 [日本語版 README](./README.ja.md)
 
@@ -9,7 +11,7 @@ A vulnerability management console that imports server package information colle
 ## Features
 
 - **Dashboard** — Two-tab layout: Overview / Tags
-  - **Overview** — Total assets & alerts, severity summary (with direct/indirect dependency breakdown), tag severity donut charts (Internet Facing / Public Endpoint), 8-week alert trend, Top 10 vulnerable assets & packages, KEV highlights
+  - **Overview** — Summary cards (assets, packages, alerts, open, critical, KEV), SLA status by severity, Mean Time to Resolve (MTTR) by severity, overall alert severity distribution and status breakdown, Top 10 vulnerable assets & packages, tag severity donut charts (Internet Facing / Public Endpoint), 8-week New vs. Resolved alert trend, KEV highlights, recent alerts
   - **Tags** — Cards for packages and assets linked to tags, color-coded by severity
 - **Asset Management** — Import `inventory.json` or **CycloneDX BOM** (incremental updates, PURL parsing with scoped npm / Go module / OS package support), asset list & detail views, edit & delete
 - **Dependency Graph** *(Beta)* — Visual dependency graph on the Asset detail page (Dependency Graph tab). Shows vulnerable packages (red) and their upstream dependents (configurable 1–8 hops), with automatic layout via dagre. Available for packages with lockfile-based dependency data (npm/pnpm fully supported; Go and PyPI partially). Works with SBOM or inventory.json from heretix-cli, and with standard CycloneDX SBOMs from tools such as Syft, trivy, and cdxgen
@@ -23,8 +25,9 @@ A vulnerability management console that imports server package information colle
 - **SLA / Due Date** — Configurable SLA thresholds by CVSS severity (Critical / High / Medium / Low), with a fixed override for CISA KEV alerts. Each Alert's due date is calculated automatically on detection and recalculated when CVSS or KEV status changes. The Alerts table shows a **Due** column and filter (Overdue / Urgent / Warning / OK), and the Alert Detail panel shows the due date with status coloring. SLA tracking can be disabled entirely in Settings, which hides the Due column and filter
 - **Alert Metadata Refresh** — Re-fetches the latest CVSS score, severity, EPSS, and KEV data from heretix-api for all open/in-progress Alerts (does not create new Alerts)
 - **Alert Activity** — View all alert events (detections, status changes, metadata updates) across all assets in a single table. Filter by event type or asset. Accessible via the **Activity** button on the Alerts page
-- **Alert Detail Panel** — Click a row to open a slide-over panel with Overview (basic info, memo, resolution reason), NVD, OSV, Advisory, **Dependents** *(Beta)* (interactive graph showing packages that depend on the vulnerable package, with dependency paths), and Timeline tabs
+- **Alert Detail Panel** — Click a row to open a slide-over panel with Overview (basic info, memo, resolution reason), NVD, OSV, Advisory (shown when advisory data exists), CNA (CVE Record data, shown when available), **Dependents** *(Beta)* (interactive graph showing packages that depend on the vulnerable package, with dependency paths), Timeline, and **AI Insight** (shown when the AI Assistant is enabled) tabs
 - **Alert Timeline** — Automatically records detection, status changes, memo saves (with author name and memo content), CVSS score changes, severity changes, KEV additions, and VEX justification changes in the Timeline tab
+- **AI Insight** *(optional)* — Claude-powered chat about a specific alert, in the Alert Detail Panel's AI Insight tab. The assistant is given the alert's CVSS/EPSS/KEV data plus how the same vulnerability was resolved on other assets, to help with triage. Disabled by default; configure the Anthropic API key and model, and test the connection, in **Settings → AI**
 - **VEX (Vulnerability Exploitability eXchange)** *(Beta)* — CycloneDX VEX support for producer and consumer workflows:
   - **Export** (`GET /api/vex`, **Export VEX** button): Outputs ignored alerts as CycloneDX 1.6 VEX JSON. Compatible with `trivy image myapp --vex vex.json`
   - **Import** (`POST /api/vex/import`, **Import VEX** button): Ingest a CycloneDX VEX document and auto-apply status changes to matching alerts. Records a `vex_imported` event in the Timeline for audit trail. Affected versions are read from the PURL (`pkg:npm/lodash@4.17.20`) or from `affects[].versions[]`; VERS ranges (`vers:npm/>=4.0.0|<4.17.21`) are reported back rather than evaluated, since misjudging one would silently ignore an exploitable finding
@@ -41,7 +44,7 @@ A vulnerability management console that imports server package information colle
 - **Vulnerability Search** — Search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or **Advisory mode** (Vendor Advisory search for Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Check Point, Oracle, Splunk, Apache HTTP Server, Nginx, Apache Tomcat, and Zabbix products)
 - **User Management** — Add, edit, and delete users (admin role only)
 - **Audit Log** — Admin-only page showing the last 500 events: login, user management, settings changes, asset operations. Accessible from the sidebar (admin only)
-- **Settings** — Tabbed configuration: **API** (heretix-api URL/token, connection test), **Notifications** (Slack webhook — notify on new detections, severity changes, or new KEV alerts, filterable by minimum severity and asset tags, with a test-send button), **SLA** (enable/disable and configure thresholds), **About** (version info)
+- **Settings** — Tabbed configuration: **API** (heretix-api URL/token, connection test), **Notifications** (Slack webhook — notify on new detections, severity changes, or new KEV alerts, filterable by minimum severity and asset tags, with a test-send button), **AI** (Anthropic API key and model for the AI Insight chat, connection test), **SLA** (enable/disable and configure thresholds), **About** (version info)
 - **Scheduled Jobs** — On server start, node-cron registers daily jobs: Refresh Metadata (default 12:00 UTC) → Run Scan for all assets (default 13:00 UTC). Override with `CRON_REFRESH` / `CRON_SCAN` environment variables
 - **Structured Logging** — Scan progress (started, completed, failed) and auth events (login success/failure) are logged as JSON to stdout. Collect with `docker logs` in Docker deployments
 
@@ -308,10 +311,14 @@ heretix-management/
 | GET | `/api/alerts/events` | List all alert events across all alerts |
 | GET | `/api/alerts/[id]/dependents` | Dependency paths to the vulnerable package (npm/pnpm) |
 | GET | `/api/alerts/[id]/vex-suggestions` | Prior VEX judgments for the same finding on other assets |
+| GET | `/api/alerts/[id]/chat` | AI Insight chat history for an alert |
+| POST | `/api/alerts/[id]/chat` | Send a message to the AI Insight assistant for an alert |
 | GET | `/api/assets/[id]/dependency-graph` | Dependency graph nodes and edges for visualization |
+| GET | `/api/packages` | Package name autocomplete for manual package entry |
 | GET | `/api/vex` | Export CycloneDX VEX JSON (`?assetId=`, `?download=true`) |
 | POST | `/api/vex/import` | Import CycloneDX VEX and apply to matching alerts |
 | GET | `/api/search` | Vulnerability search (heretix-api proxy) |
+| GET | `/api/search/suggest` | Package name autocomplete for Vulnerability Search |
 | GET | `/api/tags` | List tags |
 | POST | `/api/tags` | Create tag |
 | GET | `/api/tags/[id]` | Tag detail (with tagged assets/packages) |
@@ -323,8 +330,10 @@ heretix-management/
 | PATCH | `/api/settings` | Update settings |
 | POST | `/api/settings/test` | Test heretix-api connectivity |
 | POST | `/api/settings/slack-test` | Send a test Slack notification |
+| POST | `/api/settings/ai-test` | Test AI (Anthropic) connectivity |
 | GET | `/api/settings/sla` | Get SLA configuration |
 | POST | `/api/settings/sla` | Update SLA configuration |
+| POST | `/api/settings/sla/recalculate` | Recalculate due dates for existing alerts after an SLA config change |
 | GET | `/api/users` | List users (admin only) |
 | POST | `/api/users` | Create user (admin only) |
 | PATCH | `/api/users/[id]` | Update user (admin only) |
