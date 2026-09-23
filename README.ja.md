@@ -169,6 +169,12 @@ pnpm dev
 
 > **注意:** Docker 環境ではコンテナ起動時に `prisma migrate deploy` が自動でスキーマとタグを更新するため、seed の再実行は不要です。
 
+> **注意(マイグレーション `add_asset_hostname_unique`):** 今回のアップデートで `Asset.hostname` にユニーク制約が追加されます。既存の資産に同一hostnameが重複している場合、データを壊す代わりにスキーマ更新自体が失敗します。アップグレード前に以下で重複を確認してください:
+> ```sql
+> SELECT hostname, count(*) FROM "Asset" GROUP BY hostname HAVING count(*) > 1;
+> ```
+> 重複があれば名前を変更するか削除してから、上記のアップグレード手順を進めてください。
+
 ## 使い方
 
 ### 1. アセットの登録

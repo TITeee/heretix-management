@@ -18,7 +18,11 @@ model User {
 model Asset {
   id               String           @id @default(cuid())
   name             String
-  hostname         String
+  // The de facto identity key used everywhere an asset is matched by an
+  // inventory.json/CycloneDX upload or the manual-create form (see the
+  // README's "Matching key" note) — enforced here so a race between two
+  // requests can't silently create two assets for the same host.
+  hostname         String           @unique
   assetType        String           @default("host")
   osId             String
   osVersionId      String

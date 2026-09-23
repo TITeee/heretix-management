@@ -171,6 +171,12 @@ pnpm dev
 
 > **Note:** Docker deployments handle steps 3–5 automatically on container start via `prisma migrate deploy` and do not require re-running the seed script.
 
+> **Note (migration `add_asset_hostname_unique`):** This update adds a unique constraint on `Asset.hostname`. If any existing assets share a hostname, the schema update will fail rather than corrupt data. Check for duplicates before upgrading:
+> ```sql
+> SELECT hostname, count(*) FROM "Asset" GROUP BY hostname HAVING count(*) > 1;
+> ```
+> Rename or delete the duplicates, then continue with the upgrade steps above.
+
 ## Usage
 
 ### 1. Registering Assets
