@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterAll, vi } from "vitest"
 import { NextRequest } from "next/server"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
 import { resetDb } from "@/lib/test-utils/db"
 import { auth } from "@/lib/auth"
@@ -18,7 +19,7 @@ function importRequest(assetId: string, body: unknown) {
   })
 }
 
-async function createAssetWithAlert(overrides: Partial<Parameters<typeof prisma.alert.create>[0]["data"]> = {}) {
+async function createAssetWithAlert(overrides: Partial<Prisma.AlertUncheckedCreateInput> = {}) {
   const asset = await prisma.asset.create({
     data: { name: "host-1", hostname: "host-1", osId: "ubuntu", osVersionId: "22.04", osName: "Ubuntu 22.04" },
   })
