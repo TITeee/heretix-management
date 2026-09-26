@@ -240,11 +240,11 @@ export default function SettingsPage() {
 
       <Tabs defaultValue="api" className="w-full">
         <TabsList>
-          <TabsTrigger value="api">API</TabsTrigger>
-          <TabsTrigger value="api-tokens">API Tokens</TabsTrigger>
+          <TabsTrigger value="api">Vulnerability API</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="sla">SLA</TabsTrigger>
+          <TabsTrigger value="access-tokens">Access Tokens</TabsTrigger>
           <TabsTrigger value="about">About</TabsTrigger>
         </TabsList>
 
@@ -623,7 +623,7 @@ export default function SettingsPage() {
       </Card>
         </TabsContent>
 
-        <TabsContent value="api-tokens" className="space-y-6">
+        <TabsContent value="access-tokens" className="space-y-6">
           <ApiTokensTab />
         </TabsContent>
 

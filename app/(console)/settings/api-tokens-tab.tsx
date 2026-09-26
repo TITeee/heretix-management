@@ -126,8 +126,8 @@ export function ApiTokensTab() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>API Tokens</CardTitle>
-          <CardDescription>Only administrators can manage API tokens.</CardDescription>
+          <CardTitle>Access Tokens</CardTitle>
+          <CardDescription>Only administrators can manage access tokens.</CardDescription>
         </CardHeader>
       </Card>
     )
@@ -137,7 +137,7 @@ export function ApiTokensTab() {
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Create API Token</CardTitle>
+          <CardTitle>Create Access Token</CardTitle>
           <CardDescription>
             For automation such as CI uploading SBOMs. A token can only call the endpoints its scopes allow.
             It cannot sign in to the console or reach alerts, users, or settings.
@@ -214,7 +214,7 @@ export function ApiTokensTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle>API Tokens</CardTitle>
+          <CardTitle>Access Tokens</CardTitle>
           <CardDescription>Send as <code>Authorization: Bearer &lt;token&gt;</code>.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -273,7 +273,7 @@ export function ApiTokensTab() {
       <Dialog open={!!revokeTarget} onOpenChange={(open) => { if (!open) setRevokeTarget(null) }}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Revoke API Token</DialogTitle>
+            <DialogTitle>Revoke Access Token</DialogTitle>
             <DialogDescription>
               Revoke <strong>{revokeTarget?.name}</strong>? Anything using it will stop working immediately.
               This cannot be undone.
@@ -291,7 +291,7 @@ export function ApiTokensTab() {
       <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Delete API Token</DialogTitle>
+            <DialogTitle>Delete Access Token</DialogTitle>
             <DialogDescription>
               Delete <strong>{deleteTarget?.name}</strong> from the list? It already no longer works.
               Its creation and revocation stay in the audit log.
