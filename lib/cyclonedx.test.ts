@@ -144,6 +144,17 @@ describe("convertCycloneDXToInventory — Syft", () => {
     expect(pkg(inv, "openssl-libs")).toMatchObject({ ecosystem: "Rocky Linux:9", sourcePackage: "openssl" })
   })
 
+  it("drops RPM gpg-pubkey entries, which are imported signing keys rather than packages", () => {
+    const inv = convertCycloneDXToInventory({
+      components: [
+        { "bom-ref": "k1", type: "library", name: "gpg-pubkey", version: "b86b3716-61e69f29", purl: "pkg:rpm/almalinux/gpg-pubkey@b86b3716-61e69f29?distro=almalinux-9.8" },
+        { "bom-ref": "k2", type: "library", name: "gpg-pubkey", version: "b86b3716-61e69f29", purl: "pkg:rpm/alma/gpg-pubkey@b86b3716-61e69f29?arch=None&distro=alma-9.8" },
+        { "bom-ref": "p1", type: "library", name: "bash", version: "5.1.8-9.el9", purl: "pkg:rpm/almalinux/bash@5.1.8-9.el9?arch=x86_64&distro=almalinux-9.8" },
+      ],
+    })
+    expect(inv.packages.map(p => p.name)).toEqual(["bash"])
+  })
+
   it("falls back to the operating-system component when a purl has no distro qualifier", () => {
     const inv = convertCycloneDXToInventory({
       components: [

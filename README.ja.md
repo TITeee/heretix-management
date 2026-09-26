@@ -206,8 +206,12 @@ trivy fs    --format cyclonedx --output sbom.json ./my-project
 syft myapp:1.0 -o cyclonedx-json=sbom.json --source-name myapp
 ```
 
-- **hostname:** `metadata.component.name`（イメージ参照（タグ込み）またはスキャンしたパス）が使われます。Syft は `--source-name` で heretix-cli の `--name` と同様にタグをまたいで名前を固定できます。Trivy には同等のオプションが無いため、タグごとに別アセットになります。
+- **hostname:** `metadata.component.name` が使われますが、イメージの場合は2つのツールで入る値が異なります:
+  - **Trivy** はタグ込みのイメージ参照（`myapp:1.0`）を使うため、タグごとに別アセットになります。上書きするオプションはありません。
+  - **Syft** はタグを除いたイメージ名（`myapp`。タグは `metadata.component.version` に入る）を使うため、新しいタグで再スキャンすると同じアセットが更新されます。同じイメージの別タグ（例: `myapp:prod` と `myapp:staging`）を別アセットとして管理したい場合は、それぞれに `--source-name` を指定してください。
+  - ディレクトリスキャンでは、どちらもスキャンしたパスになります。
 - **OS パッケージ:** 両ツールとも OS のポイントリリース（`rocky-9.3`、`debian-12.15`、`alpine-3.20.10`）を記録しますが、インポート時に heretix-api が照合する ecosystem（`Rocky Linux:9`、`Debian:12`、`Alpine:v3.20`）へ正規化されます。
+- **Direct/Indirect:** Trivy の lockfile スキャン（`trivy fs`）は判定されます。Syft はスキャン対象プロジェクトからの依存エッジを出力しないため、未分類のままです。
 - **これらのツールでは使えない情報:** カーネル/ビルドツールチェーンの分類（`heretix:category`）は heretix-cli のみが出力します。SBOM に含まれる脆弱性情報（Trivy の `--scanners vuln`）は無視され、検出は常に heretix-api で行います。
 - **Windows 版 Syft** は Linux コンテナイメージを正しくスキャンできません（イメージレイヤーの展開に失敗し、展開済みファイルシステムからも OS を検出できない）。Linux/macOS か Syft の Docker イメージで実行してください。
 

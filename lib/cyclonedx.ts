@@ -71,6 +71,10 @@ const NON_PACKAGE_COMPONENT_TYPES = new Set([
 
 function isPackageComponent(c: CycloneDXComponent): boolean {
   if (c.type && NON_PACKAGE_COMPONENT_TYPES.has(c.type)) return false
+  // gpg-pubkey entries record an imported RPM signing key, not an installed
+  // package — no real version, never in any advisory. Trivy and Syft both
+  // list them; heretix-cli drops them at collection time.
+  if (c.name === "gpg-pubkey" && c.purl?.startsWith("pkg:rpm/")) return false
   // No purl and no version is not something a vulnerability lookup can act on;
   // it is a component the scanner listed for provenance, not an installed package.
   return !!c.purl || !!c.version

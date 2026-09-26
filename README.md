@@ -208,8 +208,12 @@ trivy fs    --format cyclonedx --output sbom.json ./my-project
 syft myapp:1.0 -o cyclonedx-json=sbom.json --source-name myapp
 ```
 
-- **Hostname:** taken from `metadata.component.name` — the image reference (including its tag) or the scanned path. Syft's `--source-name` fixes it to one name across tag bumps, like heretix-cli's `--name`; Trivy has no equivalent, so each tag becomes its own asset.
+- **Hostname:** taken from `metadata.component.name`, which the two tools fill differently for an image:
+  - **Trivy** uses the full image reference including its tag (`myapp:1.0`), so each tag becomes its own asset. Trivy has no option to override it.
+  - **Syft** uses the image name without the tag (`myapp`; the tag goes in `metadata.component.version`), so re-scanning a new tag updates the same asset. To keep two tags of one image apart (e.g. `myapp:prod` and `myapp:staging`), give each its own `--source-name`.
+  - For a directory scan, both use the scanned path.
 - **OS packages:** both tools record the OS point release (`rocky-9.3`, `debian-12.15`, `alpine-3.20.10`); it is normalized on import to the ecosystem heretix-api matches on (`Rocky Linux:9`, `Debian:12`, `Alpine:v3.20`).
+- **Direct/Indirect:** Trivy's lockfile scans (`trivy fs`) are classified; Syft records no dependency edges from the scanned project, so its packages stay unclassified.
 - **Not available** from these tools: the kernel/build-toolchain classification (`heretix:category`), which only heretix-cli emits. Vulnerabilities embedded in the SBOM (Trivy's `--scanners vuln`) are ignored — detection always goes through heretix-api.
 - **Syft on Windows** cannot scan Linux container images correctly (image layers fail to extract, and the OS is not detected from an extracted filesystem either); run Syft on Linux/macOS or in its Docker image.
 
