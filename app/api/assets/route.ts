@@ -7,6 +7,9 @@ import { carryForwardAlerts } from "@/lib/alerts"
 import { PURL_TYPE_MAP } from "@/lib/purl"
 import { convertCycloneDXToInventory } from "@/lib/cyclonedx"
 import { withApiErrorHandling } from "@/lib/api-handler"
+import { authenticate } from "@/lib/api-auth"
+import { auditIdentity, type ApiTokenScope } from "@/lib/api-token"
+import { scanAsset } from "@/lib/scan"
 
 export const GET = withApiErrorHandling("assets.list", async (req: NextRequest) => {
   const session = await auth()
@@ -31,8 +34,14 @@ export const GET = withApiErrorHandling("assets.list", async (req: NextRequest) 
 })
 
 export const POST = withApiErrorHandling("assets.create", async (req: NextRequest) => {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  // ?scan=true runs a vulnerability scan right after the import, so a CI job
+  // gets its findings in one request instead of waiting for the daily scan.
+  const scanAfterImport = req.nextUrl.searchParams.get("scan") === "true"
+  const requiredScopes: ApiTokenScope[] = scanAfterImport ? ["import", "scan"] : ["import"]
+  const authResult = await authenticate(req, requiredScopes)
+  if ("response" in authResult) return authResult.response
+  const { actor } = authResult
+  const audit = auditIdentity(actor)
 
   const body = await req.json()
 
@@ -48,6 +57,11 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
 
   // Simple creation (no inventory) — used by Add Manually
   if (!inventory) {
+    // An import token imports inventories; creating an empty asset by hand is
+    // a console action, outside what the "import" scope grants.
+    if (actor.via === "token") {
+      return NextResponse.json({ error: "An inventory or CycloneDX SBOM is required" }, { status: 400 })
+    }
     if (!simpleHostname) {
       return NextResponse.json({ error: "hostname is required" }, { status: 400 })
     }
@@ -66,7 +80,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
       },
     })
     await createAuditLog({
-      userId: session.user.id, userEmail: session.user.email,
+      ...audit,
       action: "asset_created", target: asset.name || asset.hostname,
       detail: `hostname: ${asset.hostname}`,
     })
@@ -80,8 +94,11 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
   // With an inventory, `hostname` overrides the one in the file. Assets are
   // matched by hostname, and a scanner decides what that is: Trivy names an
   // image with its tag ("myapp:1.0"), so without an override every tag becomes
-  // a separate asset, with no way to track one image across versions.
-  const hostnameOverride = typeof simpleHostname === "string" ? simpleHostname.trim() : ""
+  // a separate asset, with no way to track one image across versions. It can
+  // also come as ?hostname=, for a raw SBOM posted as the whole body (CI).
+  const hostnameOverride =
+    (typeof simpleHostname === "string" ? simpleHostname.trim() : "") ||
+    (req.nextUrl.searchParams.get("hostname")?.trim() ?? "")
 
   // Guards blank as well as missing: "" is truthy-adjacent enough (a string) that
   // `?? "unknown"` alone would let it through, and hostname is now @unique — two
@@ -239,11 +256,11 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
       },
     })
     await createAuditLog({
-      userId: session.user.id, userEmail: session.user.email,
+      ...audit,
       action: "asset_imported", target: asset.name || hostname,
       detail: `packages: ${incomingPackages.length} (added: ${toCreate.length}, removed: ${toDelete.length}, upgraded: ${supersededVersions.filter((s) => s.successor).length})`,
     })
-    return NextResponse.json({ ...asset, updated: true }, { status: 200 })
+    return withScan({ ...asset, updated: true }, 200)
   }
 
   // New asset
@@ -262,9 +279,29 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
   })
 
   await createAuditLog({
-    userId: session.user.id, userEmail: session.user.email,
+    ...audit,
     action: "asset_imported", target: asset.name || hostname,
     detail: `packages: ${incomingPackages.length}`,
   })
-  return NextResponse.json(asset, { status: 201 })
+  return withScan(asset, 201)
+
+  // Responds with the import result, running the requested scan first. A scan
+  // failure (heretix-api unreachable, say) is a 502 so a CI job fails, even
+  // though the import itself is committed — re-running the job is safe, since
+  // re-importing the same inventory changes nothing.
+  async function withScan<T extends { id: string; name: string; hostname: string }>(result: T, status: number) {
+    if (!scanAfterImport) return NextResponse.json(result, { status })
+    try {
+      const { newAlerts, resolvedAlerts } = await scanAsset(result.id)
+      await createAuditLog({
+        ...audit,
+        action: "asset_scanned", target: result.name || result.hostname,
+        detail: `new alerts: ${newAlerts}, resolved: ${resolvedAlerts}`,
+      })
+      return NextResponse.json({ ...result, scan: { newAlerts, resolvedAlerts } }, { status })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error"
+      return NextResponse.json({ ...result, error: `Imported, but the scan failed: ${message}` }, { status: 502 })
+    }
+  }
 })

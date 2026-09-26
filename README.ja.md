@@ -42,7 +42,7 @@
 - **脆弱性検索** — パッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列、または **Advisory モード**（Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Check Point / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix のベンダーアドバイザリ検索）で直接検索
 - **ユーザー管理** — ユーザーの追加・編集・削除（admin ロールのみ表示・操作可能）
 - **監査ログ** — admin 専用ページ。ログイン・ユーザー管理・設定変更・アセット操作を最新 500 件表示。サイドバーの **Audit Log** からアクセス（admin のみ）
-- **設定** — タブ構成: **API**（heretix-api 接続 URL・API Token 設定・疎通確認）、**Notifications**（Slack Webhook — 新規検知・重要度変更・新規KEV検出時に通知。最小重要度・アセットタグでフィルタ可能、テスト送信ボタンあり）、**AI**（AI Insight チャット用の Anthropic API キー・モデル設定、疎通確認）、**SLA**（有効/無効切替・期限設定）、**About**（バージョン情報）
+- **設定** — タブ構成: **API**（heretix-api 接続 URL・API Token 設定・疎通確認）、**Notifications**（Slack Webhook — 新規検知・重要度変更・新規KEV検出時に通知。最小重要度・アセットタグでフィルタ可能、テスト送信ボタンあり）、**AI**（AI Insight チャット用の Anthropic API キー・モデル設定、疎通確認）、**SLA**（有効/無効切替・期限設定）、**API Tokens**（管理者のみ。CI からのアップロード用トークン、[CI 連携](#6-ci-連携api-トークン)を参照）、**About**（バージョン情報）
 - **定期実行** — サーバー起動時に node-cron でスケジューラを起動。Refresh Metadata（デフォルト 12:00 UTC）→ Run Scan 全アセット（デフォルト 13:00 UTC）を毎日自動実行。`CRON_REFRESH` / `CRON_SCAN` 環境変数で時刻変更可能
 - **構造化ログ** — スキャン進捗（開始・完了・失敗）および認証イベント（ログイン成功・失敗）を JSON 形式で標準出力に記録。Docker 運用時は `docker logs` で収集可能
 
@@ -268,6 +268,36 @@ syft myapp:1.0 -o cyclonedx-json=sbom.json
 
 サイドバーの **Search** でパッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列を指定して直接検索。**Advisory モード**ではベンダーと製品を選択して Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Check Point / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix のアドバイザリを検索可能。
 
+### 6. CI 連携（API トークン）
+
+CI のジョブから、ログインの代わりに API トークンで認証して、SBOM のアップロードとスキャンを1回のリクエストで実行できます。
+
+1. **Settings → API Tokens**（管理者のみ）で名前・スコープ・有効期限（30〜365日、必須）を指定して **Create Token**。トークンは**一度だけ**表示されるので、CI のシークレットに保存してください。
+   - `import` — `POST /api/assets`（inventory / SBOM のアップロード）
+   - `scan` — `POST /api/assets/[id]/scan`、およびインポート時の `?scan=true`
+   トークンが使えるのはこの2つのエンドポイントだけです。コンソールへのログインや、アラート・ユーザー・設定へのアクセスはできません。DB には SHA-256 ハッシュのみを保存します。同じ画面から失効でき、失効済み・期限切れのトークンは一覧から削除できます（履歴は監査ログに残ります）。
+2. SBOM をリクエストボディとして送信:
+
+   ```bash
+   curl -fsS -X POST "https://heretix.example.com/api/assets?hostname=myapp&scan=true" \
+     -H "Authorization: Bearer $HERETIX_TOKEN" \
+     -H "Content-Type: application/json" \
+     --data-binary @sbom.json
+   ```
+
+   - `hostname` — 取り込み先のアセット（ファイル内の名前を上書き）。Trivy の SBOM は名前にタグが含まれ、タグごとに別アセットになってしまうため、固定の値（例: `myapp`）を指定してください。
+   - `scan=true` — 取り込み直後にスキャンを実行（両方のスコープが必要）。応答に `scan: { newAlerts, resolvedAlerts }` が含まれます。スキャンに失敗した場合は、取り込みは保存済みのまま **502** を返すので、ジョブが失敗し、そのまま再実行できます。
+
+   GitHub Actions の例:
+
+   ```yaml
+   - run: trivy image --format cyclonedx --output sbom.json myapp:${{ github.sha }}
+   - run: |
+       curl -fsS -X POST "${{ vars.HERETIX_URL }}/api/assets?hostname=myapp&scan=true" \
+         -H "Authorization: Bearer ${{ secrets.HERETIX_TOKEN }}" \
+         -H "Content-Type: application/json" --data-binary @sbom.json
+   ```
+
 ## ディレクトリ構成
 
 ```
@@ -319,12 +349,12 @@ heretix-management/
 | メソッド | パス | 説明 |
 |---|---|---|
 | GET | `/api/assets` | アセット一覧 |
-| POST | `/api/assets` | アセット作成・更新（inventory.json または CycloneDX BOM、差分インポート）。`inventory` 指定時は任意の `hostname` でファイルの hostname を上書き。`dryRun: true` で突合結果をプレビューし、実際に使われる `hostname` を返す |
+| POST | `/api/assets` | アセット作成・更新（inventory.json または CycloneDX BOM、差分インポート）。`inventory` 指定時は任意の `hostname` でファイルの hostname を上書き。`dryRun: true` で突合結果をプレビューし、実際に使われる `hostname` を返す。生の SBOM をボディにする場合は `?hostname=` でも指定可。`?scan=true` で取り込み後にスキャン。`import` スコープの API トークンで認証可（`?scan=true` は `scan` も必要） |
 | POST | `/api/assets/import-csv` | パース済みCSVからアセット+Advisoryパッケージを一括登録（`commit: false`でドライランプレビュー） |
 | GET | `/api/assets/[id]` | アセット詳細 |
 | PATCH | `/api/assets/[id]` | アセット情報更新（name / hostname / osName / osVersionId） |
 | DELETE | `/api/assets/[id]` | アセット削除 |
-| POST | `/api/assets/[id]/scan` | 脆弱性スキャン実行 |
+| POST | `/api/assets/[id]/scan` | 脆弱性スキャン実行。`scan` スコープの API トークンで認証可 |
 | POST | `/api/assets/[id]/packages` | 手動パッケージ追加 |
 | PATCH | `/api/assets/[id]/packages/[pkgId]` | 手動パッケージ編集 |
 | DELETE | `/api/assets/[id]/packages/[pkgId]` | 手動パッケージ削除 |
@@ -358,6 +388,10 @@ heretix-management/
 | GET | `/api/settings/sla` | SLA設定取得 |
 | POST | `/api/settings/sla` | SLA設定更新 |
 | POST | `/api/settings/sla/recalculate` | SLA設定変更後に既存アラートの期限を再計算 |
+| GET | `/api/settings/api-tokens` | API トークン一覧（管理者のみ） |
+| POST | `/api/settings/api-tokens` | API トークン作成 — `name`・`scopes`・`expiresInDays`（1〜365）。トークンは一度だけ返却（管理者のみ） |
+| POST | `/api/settings/api-tokens/[id]/revoke` | API トークンの失効（管理者のみ） |
+| DELETE | `/api/settings/api-tokens/[id]` | 失効済み・期限切れの API トークンを削除。有効なトークンは 409（管理者のみ） |
 | GET | `/api/users` | ユーザー一覧（admin のみ） |
 | POST | `/api/users` | ユーザー作成（admin のみ） |
 | PATCH | `/api/users/[id]` | ユーザー更新（admin のみ） |

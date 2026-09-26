@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import type { SlaConfig } from "@/lib/sla"
 import { DEFAULT_SLA_CONFIG } from "@/lib/sla"
+import { ApiTokensTab } from "./api-tokens-tab"
 
 type Tag = { id: string; name: string; color: string | null; type: string }
 
@@ -240,6 +241,7 @@ export default function SettingsPage() {
       <Tabs defaultValue="api" className="w-full">
         <TabsList>
           <TabsTrigger value="api">API</TabsTrigger>
+          <TabsTrigger value="api-tokens">API Tokens</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="sla">SLA</TabsTrigger>
@@ -619,6 +621,10 @@ export default function SettingsPage() {
           </form>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="api-tokens" className="space-y-6">
+          <ApiTokensTab />
         </TabsContent>
 
         <TabsContent value="about" className="space-y-6">

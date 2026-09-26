@@ -44,7 +44,7 @@ This repository, heretix-management, is the web console: it imports server packa
 - **Vulnerability Search** — Search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or **Advisory mode** (Vendor Advisory search for Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Check Point, Oracle, Splunk, Apache HTTP Server, Nginx, Apache Tomcat, and Zabbix products)
 - **User Management** — Add, edit, and delete users (admin role only)
 - **Audit Log** — Admin-only page showing the last 500 events: login, user management, settings changes, asset operations. Accessible from the sidebar (admin only)
-- **Settings** — Tabbed configuration: **API** (heretix-api URL/token, connection test), **Notifications** (Slack webhook — notify on new detections, severity changes, or new KEV alerts, filterable by minimum severity and asset tags, with a test-send button), **AI** (Anthropic API key and model for the AI Insight chat, connection test), **SLA** (enable/disable and configure thresholds), **About** (version info)
+- **Settings** — Tabbed configuration: **API** (heretix-api URL/token, connection test), **Notifications** (Slack webhook — notify on new detections, severity changes, or new KEV alerts, filterable by minimum severity and asset tags, with a test-send button), **AI** (Anthropic API key and model for the AI Insight chat, connection test), **SLA** (enable/disable and configure thresholds), **API Tokens** (admin only — tokens for CI uploads, see [CI Integration](#6-ci-integration-api-tokens)), **About** (version info)
 - **Scheduled Jobs** — On server start, node-cron registers daily jobs: Refresh Metadata (default 12:00 UTC) → Run Scan for all assets (default 13:00 UTC). Override with `CRON_REFRESH` / `CRON_SCAN` environment variables
 - **Structured Logging** — Scan progress (started, completed, failed) and auth events (login success/failure) are logged as JSON to stdout. Collect with `docker logs` in Docker deployments
 
@@ -270,6 +270,36 @@ syft myapp:1.0 -o cyclonedx-json=sbom.json
 
 Use **Search** in the sidebar to search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or vendor advisory (**Advisory** mode: select Vendor and product to search Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Check Point, Oracle, Splunk, Apache HTTP Server, Nginx, Apache Tomcat, and Zabbix advisories).
 
+### 6. CI Integration (API Tokens)
+
+A CI job can upload an SBOM and scan it in one request, authenticated with an API token instead of a login.
+
+1. **Settings → API Tokens** (admin only): enter a name, choose scopes, and an expiry (30–365 days; required), then **Create Token**. The token is shown **once** — store it as a CI secret.
+   - `import` — `POST /api/assets` (upload an inventory / SBOM)
+   - `scan` — `POST /api/assets/[id]/scan`, and `?scan=true` on import
+   A token works only on those two endpoints. It cannot sign in to the console or reach alerts, users, or settings; only its SHA-256 hash is stored. Revoke it from the same page; a revoked or expired token can then be deleted from the list (its history stays in the audit log).
+2. Post the SBOM as the request body:
+
+   ```bash
+   curl -fsS -X POST "https://heretix.example.com/api/assets?hostname=myapp&scan=true" \
+     -H "Authorization: Bearer $HERETIX_TOKEN" \
+     -H "Content-Type: application/json" \
+     --data-binary @sbom.json
+   ```
+
+   - `hostname` — the asset to import into, overriding the file's own name. Set it to a fixed value (e.g. `myapp`) for a Trivy SBOM, whose name includes the tag and would otherwise create a new asset per tag.
+   - `scan=true` — scan right after the import (needs both scopes). The response includes `scan: { newAlerts, resolvedAlerts }`. If the scan fails the response is **502** with the import already saved, so the job fails and can simply be re-run.
+
+   GitHub Actions example:
+
+   ```yaml
+   - run: trivy image --format cyclonedx --output sbom.json myapp:${{ github.sha }}
+   - run: |
+       curl -fsS -X POST "${{ vars.HERETIX_URL }}/api/assets?hostname=myapp&scan=true" \
+         -H "Authorization: Bearer ${{ secrets.HERETIX_TOKEN }}" \
+         -H "Content-Type: application/json" --data-binary @sbom.json
+   ```
+
 ## Directory Structure
 
 ```
@@ -321,12 +351,12 @@ heretix-management/
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/assets` | List assets |
-| POST | `/api/assets` | Create/update asset (inventory.json or CycloneDX BOM incremental import). With `inventory`, an optional `hostname` overrides the file's hostname; `dryRun: true` previews the match and returns the resolved `hostname` |
+| POST | `/api/assets` | Create/update asset (inventory.json or CycloneDX BOM incremental import). With `inventory`, an optional `hostname` overrides the file's hostname (also accepted as `?hostname=`, for a raw SBOM body); `dryRun: true` previews the match and returns the resolved `hostname`; `?scan=true` scans after importing. Accepts an API token with the `import` scope (`scan` too for `?scan=true`) |
 | POST | `/api/assets/import-csv` | Bulk-register assets + Advisory packages from a parsed CSV (`commit: false` for a dry-run preview) |
 | GET | `/api/assets/[id]` | Asset detail |
 | PATCH | `/api/assets/[id]` | Update asset info (name / hostname / osName / osVersionId) |
 | DELETE | `/api/assets/[id]` | Delete asset |
-| POST | `/api/assets/[id]/scan` | Run vulnerability scan |
+| POST | `/api/assets/[id]/scan` | Run vulnerability scan. Accepts an API token with the `scan` scope |
 | POST | `/api/assets/[id]/packages` | Add manual package |
 | PATCH | `/api/assets/[id]/packages/[pkgId]` | Edit manual package |
 | DELETE | `/api/assets/[id]/packages/[pkgId]` | Delete manual package |
@@ -360,6 +390,10 @@ heretix-management/
 | GET | `/api/settings/sla` | Get SLA configuration |
 | POST | `/api/settings/sla` | Update SLA configuration |
 | POST | `/api/settings/sla/recalculate` | Recalculate due dates for existing alerts after an SLA config change |
+| GET | `/api/settings/api-tokens` | List API tokens (admin only) |
+| POST | `/api/settings/api-tokens` | Create an API token — `name`, `scopes`, `expiresInDays` (1–365); the token is returned once (admin only) |
+| POST | `/api/settings/api-tokens/[id]/revoke` | Revoke an API token (admin only) |
+| DELETE | `/api/settings/api-tokens/[id]` | Delete a revoked or expired API token; an active one returns 409 (admin only) |
 | GET | `/api/users` | List users (admin only) |
 | POST | `/api/users` | Create user (admin only) |
 | PATCH | `/api/users/[id]` | Update user (admin only) |

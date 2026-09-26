@@ -214,7 +214,7 @@ export default function NewAssetPage() {
               </datalist>
               <p className="text-xs text-muted-foreground">
                 Imports are matched to an existing asset by hostname. Defaults to the value in the file;
-                change it to keep updating the same asset when that value changes — e.g. Trivy names an
+                change it to keep updating the same asset when that value changes. For example, Trivy names an
                 image with its tag (<code>myapp:1.0</code>), so each new tag would otherwise become a new asset.
               </p>
             </div>

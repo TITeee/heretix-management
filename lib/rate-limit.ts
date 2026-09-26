@@ -43,3 +43,18 @@ export function recordLoginFailure(email: string, ip: string): void {
 export function clearLoginRateLimit(email: string): void {
   emailBuckets.delete(email)
 }
+
+// Failed API-token authentications, per client IP. A token is 32 random bytes,
+// so this isn't guarding against guessing one — it stops a misconfigured CI
+// job (a revoked or expired token) from hammering the token lookup, and keeps
+// the log from filling with one failure per retry.
+const tokenIpBuckets = new Map<string, Bucket>()
+const MAX_TOKEN_FAILURES_PER_IP = 20
+
+export function isTokenAuthRateLimited(ip: string): boolean {
+  return isLimited(tokenIpBuckets, ip, MAX_TOKEN_FAILURES_PER_IP)
+}
+
+export function recordTokenAuthFailure(ip: string): void {
+  record(tokenIpBuckets, ip)
+}

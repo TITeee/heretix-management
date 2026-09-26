@@ -9,7 +9,7 @@ export async function resetDb(): Promise<void> {
   await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE "User", "Asset", "Package", "ScanJob", "Alert", "AlertEvent",
       "MetadataRefreshRun", "AlertComment", "AlertChatMessage", "PackageHistory",
-      "Setting", "Tag", "AssetTag", "PackageTag", "AuditLog"
+      "Setting", "Tag", "AssetTag", "PackageTag", "AuditLog", "ApiToken"
     RESTART IDENTITY CASCADE
   `)
 }

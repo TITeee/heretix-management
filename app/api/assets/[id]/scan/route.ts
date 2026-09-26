@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { authenticate } from "@/lib/api-auth"
+import { auditIdentity } from "@/lib/api-token"
 import { scanAsset } from "@/lib/scan"
 import { prisma } from "@/lib/db"
 import { createAuditLog } from "@/lib/audit"
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const authResult = await authenticate(req, ["scan"])
+  if ("response" in authResult) return authResult.response
 
   const { id: assetId } = await params
 
@@ -17,7 +18,7 @@ export async function POST(
     const asset = await prisma.asset.findUnique({ where: { id: assetId }, select: { name: true, hostname: true } })
     const { newAlerts, resolvedAlerts } = await scanAsset(assetId)
     await createAuditLog({
-      userId: session.user.id, userEmail: session.user.email,
+      ...auditIdentity(authResult.actor),
       action: "asset_scanned", target: asset?.name || asset?.hostname,
       detail: `new alerts: ${newAlerts}, resolved: ${resolvedAlerts}`,
     })

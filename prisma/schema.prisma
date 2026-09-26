@@ -239,3 +239,24 @@ model AuditLog {
   @@index([action])
   @@index([userId])
 }
+
+// A bearer token for automation (CI uploading SBOMs), usable only on the routes
+// its scopes name — never a general login. Only a SHA-256 hash is stored: the
+// token is 32 random bytes, so a slow password hash buys nothing, and the
+// plaintext is shown once at creation and cannot be recovered.
+model ApiToken {
+  id             String    @id @default(cuid())
+  name           String
+  tokenHash      String    @unique
+  // The first characters of the token, so a list can tell tokens apart
+  // without storing anything that authenticates.
+  prefix         String
+  scopes         String[]
+  createdById    String?
+  createdByEmail String?
+  createdAt      DateTime  @default(now())
+  // Required: a CI secret tends to outlive the reason it was created.
+  expiresAt      DateTime
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+}
