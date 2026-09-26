@@ -180,8 +180,8 @@ pnpm dev
 ### 1. アセットの登録
 
 **サーバー・VM（heretix-cli 経由）:**
-1. サイドバーの **Assets** → **Import inventory.json** を開く
-2. heretix-cli で生成した `inventory.json` をアップロード
+1. サイドバーの **Assets** を開き、**Import SBOM** をクリック
+2. `heretix-cli collect` で生成した SBOM をアップロード（従来形式の `inventory.json` も可）
 3. パッケージが差分インポートされる（再インポート時は追加・更新・削除のみ処理）
 4. 手動追加パッケージは再インポート後も保持される
 
@@ -198,7 +198,7 @@ pnpm dev
 
 **コンテナ・プロジェクト（Trivy / Syft）:**
 
-Trivy・Syft が生成した CycloneDX SBOM も、同じ **Import inventory.json** 画面からアップロードできます:
+Trivy・Syft が生成した CycloneDX SBOM も、同じ **Import SBOM** 画面からアップロードできます:
 
 ```bash
 trivy image --format cyclonedx --output sbom.json myapp:1.0

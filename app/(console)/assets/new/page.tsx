@@ -162,11 +162,11 @@ export default function NewAssetPage() {
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>Import Asset</BreadcrumbPage>
+            <BreadcrumbPage>Import SBOM</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
-      <h1 className="text-2xl font-bold">Import Asset</h1>
+      <h1 className="text-2xl font-bold">Import SBOM</h1>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Upload Inventory / SBOM</CardTitle>
