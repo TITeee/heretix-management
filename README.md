@@ -205,7 +205,7 @@ A CycloneDX SBOM from Trivy or Syft can be uploaded on the same **Import invento
 ```bash
 trivy image --format cyclonedx --output sbom.json myapp:1.0
 trivy fs    --format cyclonedx --output sbom.json ./my-project
-syft myapp:1.0 -o cyclonedx-json=sbom.json --source-name myapp
+syft myapp:1.0 -o cyclonedx-json=sbom.json
 ```
 
 - **Hostname:** taken from `metadata.component.name`, which the two tools fill differently for an image:

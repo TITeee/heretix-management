@@ -203,7 +203,7 @@ Trivy・Syft が生成した CycloneDX SBOM も、同じ **Import inventory.json
 ```bash
 trivy image --format cyclonedx --output sbom.json myapp:1.0
 trivy fs    --format cyclonedx --output sbom.json ./my-project
-syft myapp:1.0 -o cyclonedx-json=sbom.json --source-name myapp
+syft myapp:1.0 -o cyclonedx-json=sbom.json
 ```
 
 - **hostname:** `metadata.component.name` が使われますが、イメージの場合は2つのツールで入る値が異なります:
