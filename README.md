@@ -13,14 +13,14 @@ This repository, heretix-management, is the web console: it imports server packa
 - **Dashboard** — Two-tab layout: Overview / Tags
   - **Overview** — Summary cards (assets, packages, alerts, open, critical, KEV), SLA status by severity, Mean Time to Resolve (MTTR) by severity, overall alert severity distribution and status breakdown, Top 10 vulnerable assets & packages, tag severity donut charts (Internet Facing / Public Endpoint), 8-week New vs. Resolved alert trend, KEV highlights, recent alerts
   - **Tags** — Cards for packages and assets linked to tags, color-coded by severity
-- **Asset Management** — Import `inventory.json` or **CycloneDX BOM** (incremental updates, PURL parsing with scoped npm / Go module / OS package support), asset list & detail views, edit & delete
+- **Asset Management** — Import `inventory.json` or **CycloneDX BOM** from heretix-cli, **Trivy**, or **Syft** (incremental updates, PURL parsing with scoped npm / Go module / OS package support), asset list & detail views, edit & delete
 - **Dependency Graph** *(Beta)* — Visual dependency graph on the Asset detail page (Dependency Graph tab). Shows vulnerable packages (red) and their upstream dependents (configurable 1–8 hops), with automatic layout via dagre. Available for packages with lockfile-based dependency data (npm/pnpm fully supported; Go and PyPI partially). Works with SBOM or inventory.json from heretix-cli, and with standard CycloneDX SBOMs from tools such as Syft, trivy, and cdxgen
 - **Manual Asset Registration** — Register network devices and firewalls directly via GUI, one at a time, or in bulk via **Import CSV** (`Assets` → `Import CSV`): one row per asset+Advisory-package, repeat a hostname to add more than one package to the same asset. Validates every row against the same vendor/product catalog as the Advisory tab before importing, previews create/update/skip per row with nothing written until confirmed, and can optionally add packages to an asset whose hostname already exists instead of skipping it
 - **Tags** — Create color-coded tags for assets or packages (e.g. "Internet Facing", "Public Endpoint"), assign them from the asset/package detail pages, and view aggregated severity counts per tag on the Tags page and Dashboard
 - **Manual Package Management** — Add, edit, and delete software installed outside the package manager. The Advisory tab supports Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Check Point, Oracle, Splunk, Apache HTTP Server, Nginx, Apache Tomcat, and Zabbix products via dropdown selection
 - **Package Change History** — View added/updated/removed package history per asset at import time
 - **Vulnerability Scanning** — Detect vulnerabilities via heretix-api batch search and record alerts (creates new Alerts only; does not update or auto-resolve existing Alerts). Malicious package detection (`MAL-` alerts) is also supported via [ossf/malicious-packages](https://github.com/ossf/malicious-packages)
-- **Alert Management** — Status tracking (Open / In Progress / Resolved / Ignored), filters (Asset / Status / Severity / Tags / **Dependency** (Direct/Indirect), multi-value), bulk status update, **export to CSV / JSON** (reflects active filters). Note: Direct/Indirect classification requires either lockfile-based dependency data (npm/pnpm primarily) or an explicit direct-dependency marker in the SBOM (heretix-cli's own `cdx:direct` property). Third-party OS-package SBOM sources — e.g. Syft's dpkg/apt cataloger — don't record this at all: their `bom.dependencies` graph has no entry for the scanned image/container itself, so there's nothing to infer "directly installed" from, and every OS package comes back unclassified rather than guessed at. Manually added packages are unclassified too
+- **Alert Management** — Status tracking (Open / In Progress / Resolved / Ignored), filters (Asset / Status / Severity / Tags / **Dependency** (Direct/Indirect), multi-value), bulk status update, **export to CSV / JSON** (reflects active filters). Note: Direct/Indirect classification requires either lockfile-based dependency data (npm/pnpm primarily) or an explicit direct-dependency marker in the SBOM (heretix-cli's own `cdx:direct` property, or a CycloneDX dependency graph rooted at the scanned project — Trivy's lockfile scans, cdxgen). OS packages from third-party SBOMs are never classified: Syft records no edge from the scanned image to its packages at all, and Trivy only lists the OS packages nothing else depends on, which says nothing about whether they were installed on purpose — so every such OS package comes back unclassified rather than guessed at. Trivy's installed-package scans (`node_modules`, `site-packages` inside an image), which carry no lockfile, are unclassified for the same reason. Manually added packages are unclassified too
 - **Auto-resolve Alerts** — Automatically marks old-version alerts as resolved when a package is upgraded during import
 - **SLA / Due Date** — Configurable SLA thresholds by CVSS severity (Critical / High / Medium / Low), with a fixed override for CISA KEV alerts. Each Alert's due date is calculated automatically on detection and recalculated when CVSS or KEV status changes. The Alerts table shows a **Due** column and filter (Overdue / Urgent / Warning / OK), and the Alert Detail panel shows the due date with status coloring. SLA tracking can be disabled entirely in Settings, which hides the Due column and filter
 - **Alert Metadata Refresh** — Re-fetches the latest CVSS score, severity, EPSS, and KEV data from heretix-api for all open/in-progress Alerts (does not create new Alerts)
@@ -197,6 +197,21 @@ pnpm dev
 > | Newly added package | Created; recorded in Package Change History as `added` |
 > | Version changed | Existing package row updated; recorded as `updated` (old → new version). **Open/In Progress Alerts for the old version are auto-resolved** (see Auto-resolve Alerts in Features) |
 > | No longer present | Package row deleted; recorded as `removed`. **Its existing Alerts are *not* auto-resolved** — they stay open even after the package is gone, so review them manually |
+
+**Containers & projects (via Trivy / Syft):**
+
+A CycloneDX SBOM from Trivy or Syft can be uploaded on the same **Import inventory.json** page:
+
+```bash
+trivy image --format cyclonedx --output sbom.json myapp:1.0
+trivy fs    --format cyclonedx --output sbom.json ./my-project
+syft myapp:1.0 -o cyclonedx-json=sbom.json --source-name myapp
+```
+
+- **Hostname:** taken from `metadata.component.name` — the image reference (including its tag) or the scanned path. Syft's `--source-name` fixes it to one name across tag bumps, like heretix-cli's `--name`; Trivy has no equivalent, so each tag becomes its own asset.
+- **OS packages:** both tools record the OS point release (`rocky-9.3`, `debian-12.15`, `alpine-3.20.10`); it is normalized on import to the ecosystem heretix-api matches on (`Rocky Linux:9`, `Debian:12`, `Alpine:v3.20`).
+- **Not available** from these tools: the kernel/build-toolchain classification (`heretix:category`), which only heretix-cli emits. Vulnerabilities embedded in the SBOM (Trivy's `--scanners vuln`) are ignored — detection always goes through heretix-api.
+- **Syft on Windows** cannot scan Linux container images correctly (image layers fail to extract, and the OS is not detected from an extracted filesystem either); run Syft on Linux/macOS or in its Docker image.
 
 **Network Devices & Firewalls (manual registration):**
 1. Go to **Assets** → **Add Manually** in the sidebar

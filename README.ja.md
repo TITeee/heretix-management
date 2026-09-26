@@ -11,14 +11,14 @@
 - **ダッシュボード** — Overview / Tags の2タブ構成
   - **Overview** — サマリーカード（アセット数・パッケージ数・総アラート数・Open・Critical・KEV）、重要度別 SLA 状況、重要度別 MTTR（平均解決日数）、全体のアラート重要度分布・ステータス内訳、脆弱アセット Top 10・脆弱パッケージ Top 10、タグ別重要度ドーナツチャート（Internet Facing / Public Endpoint）、新規vs解決アラートトレンド（8週）、KEV ハイライト、直近アラート
   - **Tags** — タグに紐づくパッケージ・アセットを重要度カラーのカードで一覧表示
-- **アセット管理** — `inventory.json` または **CycloneDX BOM** インポート（差分更新、スコープ付き npm / Go モジュール / OS パッケージの PURL パース対応）、ホスト一覧・詳細表示、アセット編集・削除
+- **アセット管理** — `inventory.json` または heretix-cli・**Trivy**・**Syft** の **CycloneDX BOM** インポート（差分更新、スコープ付き npm / Go モジュール / OS パッケージの PURL パース対応）、ホスト一覧・詳細表示、アセット編集・削除
 - **依存グラフ** *（Beta）* — アセット詳細の **Dependency Graph** タブで脆弱パッケージとその依存元パッケージを可視化（1〜8ホップ選択可）。dagre による自動レイアウト。脆弱=赤、直接依存=青。lockfile ベースの依存データが必要（npm/pnpm は完全対応、Go・PyPI は部分対応）。heretix-cli の SBOM・inventory.json に加え、Syft・trivy・cdxgen 等の標準 CycloneDX SBOM にも対応
 - **手動アセット登録** — ネットワーク機器・FW をGUIから1台ずつ登録できるほか、**Import CSV**(`Assets` → `Import CSV`)で一括登録も可能。1行=1資産+1 Advisoryパッケージで、同じhostnameを複数行に書けば1資産に複数パッケージを追加できる。Advisoryタブと同じベンダー/製品カタログで全行を事前検証し、確定前に行ごとのcreate/update/skipをプレビュー表示。既存hostnameへはスキップがデフォルトだが、既存資産へのパッケージ追加を明示的に選択することもできる
 - **タグ** — アセット・パッケージ向けにカラーコード付きタグを作成（例: "Internet Facing"、"Public Endpoint"）。アセット・パッケージ詳細ページから割り当て、Tags ページとダッシュボードでタグごとの重要度集計を確認可能
 - **手動パッケージ管理** — パッケージマネージャ外でインストールしたソフトウェアを手動で追加・編集・削除。Advisory タブで Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Check Point / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix 製品をドロップダウン選択して登録可能
 - **パッケージ更新履歴** — インポート時の追加・更新・削除の変更履歴をアセット詳細で参照
 - **脆弱性スキャン** — heretix-api のバッチ検索でアセットの脆弱性を検出・アラート記録（新規 Alert の作成のみ。既存 Alert の更新・自動解決は行わない）。[ossf/malicious-packages](https://github.com/ossf/malicious-packages) によるマルウェアパッケージ検知（`MAL-` アラート）にも対応
-- **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度 / Tags / **Dependency**（Direct/Indirect））・一括ステータス変更・**CSV / JSON エクスポート**。Direct/Indirect 分類は、lockfile ベースの依存データ（主に npm/pnpm）か、SBOM 内の明示的な direct マーカー（heretix-cli 独自の `cdx:direct` プロパティ）のどちらかが無いと判定できない。Syft の dpkg/apt カタロガーのようなサードパーティ製 OS パッケージ SBOM はこの情報を一切持たない — `bom.dependencies` にスキャン対象のコンテナ/イメージ自身のエントリが存在しないため、「直接インストールされたか」を推測する材料が無く、OS パッケージは全て未分類として扱われる（推測はしない）。手動追加パッケージも同様に未分類
+- **アラート管理** — ステータス管理（未対応 / 対応中 / 対応済み / 無視）・フィルタ（アセット / ステータス / 重要度 / Tags / **Dependency**（Direct/Indirect））・一括ステータス変更・**CSV / JSON エクスポート**。Direct/Indirect 分類は、lockfile ベースの依存データ（主に npm/pnpm）か、SBOM 内の direct 情報（heretix-cli 独自の `cdx:direct` プロパティ、またはスキャン対象プロジェクトをルートとする CycloneDX 依存グラフ — Trivy の lockfile スキャンや cdxgen）のどちらかが無いと判定できない。サードパーティ製 SBOM の OS パッケージは分類しない — Syft はスキャン対象イメージからパッケージへの依存エッジを一切持たず、Trivy は「他のどのパッケージからも依存されていない OS パッケージ」を並べるだけで、意図してインストールされたかどうかは分からないため、推測せず未分類として扱う。lockfile を伴わない Trivy のインストール済みパッケージスキャン（イメージ内の `node_modules`・`site-packages` 等）も同じ理由で未分類。手動追加パッケージも同様に未分類
 - **アラート自動解決** — インポート時にパッケージがアップグレードされた場合、旧バージョンのアラートを自動で解決済みに変更
 - **SLA / 期限管理** — CVSS重要度（Critical / High / Medium / Low）ごとにSLA期限を設定可能。CISA KEV 該当アラートには固定の期限を別途適用。検知時に各 Alert の期限を自動計算し、CVSS や KEV ステータスが変わると再計算。Alerts テーブルには **Due** 列とフィルタ（Overdue / Urgent / Warning / OK）を表示し、Alert 詳細パネルにも期限とステータスに応じた色分けを表示。SLA機能自体は Settings から無効化可能（無効化すると Due 列・フィルタは非表示）
 - **アラートメタデータ更新** — open / in_progress の全 Alert に対して heretix-api から最新の CVSS スコア・重要度・EPSS・KEV 情報を再取得して更新（新規 Alert の作成は行わない）
@@ -195,6 +195,21 @@ pnpm dev
 > | 新規追加パッケージ | 新規作成。Package Change History に `added` として記録 |
 > | バージョン変更 | 既存のパッケージ行を更新。`updated`（旧→新バージョン）として記録。**旧バージョンに紐づく Open / In Progress の Alert は自動解決される**（Features の「アラート自動解決」参照） |
 > | 検出されなくなった | パッケージ行を削除。`removed` として記録。**紐づく既存の Alert は自動解決されない** — パッケージが無くなった後も Open のまま残るため、手動での確認が必要 |
+
+**コンテナ・プロジェクト（Trivy / Syft）:**
+
+Trivy・Syft が生成した CycloneDX SBOM も、同じ **Import inventory.json** 画面からアップロードできます:
+
+```bash
+trivy image --format cyclonedx --output sbom.json myapp:1.0
+trivy fs    --format cyclonedx --output sbom.json ./my-project
+syft myapp:1.0 -o cyclonedx-json=sbom.json --source-name myapp
+```
+
+- **hostname:** `metadata.component.name`（イメージ参照（タグ込み）またはスキャンしたパス）が使われます。Syft は `--source-name` で heretix-cli の `--name` と同様にタグをまたいで名前を固定できます。Trivy には同等のオプションが無いため、タグごとに別アセットになります。
+- **OS パッケージ:** 両ツールとも OS のポイントリリース（`rocky-9.3`、`debian-12.15`、`alpine-3.20.10`）を記録しますが、インポート時に heretix-api が照合する ecosystem（`Rocky Linux:9`、`Debian:12`、`Alpine:v3.20`）へ正規化されます。
+- **これらのツールでは使えない情報:** カーネル/ビルドツールチェーンの分類（`heretix:category`）は heretix-cli のみが出力します。SBOM に含まれる脆弱性情報（Trivy の `--scanners vuln`）は無視され、検出は常に heretix-api で行います。
+- **Windows 版 Syft** は Linux コンテナイメージを正しくスキャンできません（イメージレイヤーの展開に失敗し、展開済みファイルシステムからも OS を検出できない）。Linux/macOS か Syft の Docker イメージで実行してください。
 
 **ネットワーク機器・FW（手動登録）:**
 1. サイドバーの **Assets** → **Add Manually** を開く

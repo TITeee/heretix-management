@@ -138,7 +138,7 @@ export default function NewAssetPage() {
         <CardHeader>
           <CardTitle className="text-base">Upload Inventory / SBOM</CardTitle>
           <CardDescription>
-            An <code>inventory.json</code> or CycloneDX SBOM from <code>heretix-cli collect</code>.
+            An <code>inventory.json</code> or CycloneDX SBOM from <code>heretix-cli collect</code>, Trivy, or Syft.
           </CardDescription>
         </CardHeader>
         <CardContent>

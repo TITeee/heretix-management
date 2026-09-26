@@ -2,67 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { withApiErrorHandling } from "@/lib/api-handler"
-
-const PURL_TYPE_MAP: Record<string, string> = {
-  golang: "Go", composer: "Packagist", pypi: "PyPI",
-  maven: "Maven", nuget: "NuGet", gem: "RubyGems",
-}
-
-function distroQualifierToEcosystem(distro: string): string {
-  const lastDash = distro.lastIndexOf("-")
-  if (lastDash === -1) return ""
-  const id = distro.slice(0, lastDash)
-  const ver = distro.slice(lastDash + 1)
-  switch (id) {
-    case "almalinux":   return `AlmaLinux:${ver}`
-    case "ubuntu":      return `Ubuntu:${ver}:LTS`
-    case "debian":      return `Debian:${ver}`
-    case "alpine":      return `Alpine:v${ver}`
-    case "rocky":       return `Rocky:${ver}`
-    case "oraclelinux": return "oracle-linux"
-    case "rhel":        return `Red Hat:${ver}`
-    case "centos":      return `CentOS:${ver}`
-    default:            return ""
-  }
-}
-
-/**
- * The version is optional: CycloneDX lets a statement carry it inline
- * (`pkg:npm/lodash@4.17.20`) or list versions separately under
- * `affects[].versions[]`, in which case `ref` is a bare PURL.
- */
-function parsePURL(purl: string): { ecosystem: string; name: string; version: string | null } | null {
-  // Capture TYPE, PATH, optional VERSION, and optional qualifiers
-  const match = purl.match(/^pkg:(\w+)\/([^@?#]+)(?:@([^?#]*))?(?:\?([^#]*))?/)
-  if (!match) return null
-  const [, type, fullPath, version, qualifierStr] = match
-
-  const qualifiers: Record<string, string> = {}
-  if (qualifierStr) {
-    for (const kv of qualifierStr.split("&")) {
-      const eq = kv.indexOf("=")
-      if (eq > 0) qualifiers[kv.slice(0, eq)] = kv.slice(eq + 1)
-    }
-  }
-
-  const osTypes = ["rpm", "deb", "apk"]
-  if (osTypes.includes(type)) {
-    const slashIdx = fullPath.indexOf("/")
-    const name = slashIdx === -1
-      ? decodeURIComponent(fullPath)
-      : decodeURIComponent(fullPath.slice(slashIdx + 1))
-    const ecosystem = qualifiers["distro"] ? distroQualifierToEcosystem(qualifiers["distro"]) : ""
-    return { ecosystem, name, version: version ?? null }
-  }
-
-  const lastSlash = fullPath.lastIndexOf("/")
-  const ecosystem = PURL_TYPE_MAP[type] ?? type
-  if (lastSlash === -1) {
-    return { ecosystem, name: decodeURIComponent(fullPath), version: version ?? null }
-  }
-  const name = decodeURIComponent(fullPath.slice(0, lastSlash)) + "/" + decodeURIComponent(fullPath.slice(lastSlash + 1))
-  return { ecosystem, name, version: version ?? null }
-}
+import { parsePURL } from "@/lib/purl"
 
 type VexVersionEntry = {
   version?: string

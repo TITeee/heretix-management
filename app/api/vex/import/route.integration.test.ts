@@ -93,6 +93,30 @@ describe("POST /api/vex/import", () => {
     expect(events[0].type).toBe("vex_imported")
   })
 
+  it("matches an OS package whose purl carries a point-release distro qualifier and an encoded version", async () => {
+    // Shape of a Trivy-generated VEX/SBOM ref. Alerts store the OSV ecosystem
+    // heretix-api matched on ("Rocky Linux:9"), so the qualifier has to be
+    // normalized the same way the SBOM importer does or nothing ever matches.
+    const { asset, alert } = await createAssetWithAlert({
+      packageName: "openssl-libs",
+      packageVersion: "1:3.0.7-24.el9+1",
+      ecosystem: "Rocky Linux:9",
+    })
+
+    const res = await POST(importRequest(asset.id, {
+      bomFormat: "CycloneDX",
+      vulnerabilities: [{
+        id: "CVE-2026-1111",
+        affects: [{ ref: "pkg:rpm/rocky/openssl-libs@1:3.0.7-24.el9%2B1?arch=x86_64&distro=rocky-9.3" }],
+        analysis: { state: "not_affected", justification: "code_not_reachable" },
+      }],
+    }))
+
+    expect(await res.json()).toEqual({ applied: 1, skipped: 0, notFound: 0, unsupportedRange: 0 })
+    const updated = await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })
+    expect(updated.status).toBe("ignored")
+  })
+
   it("skips not_affected without a justification, since that state cannot be represented", async () => {
     const { asset, alert } = await createAssetWithAlert()
 
