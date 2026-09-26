@@ -185,7 +185,7 @@ pnpm dev
 3. パッケージが差分インポートされる（再インポート時は追加・更新・削除のみ処理）
 4. 手動追加パッケージは再インポート後も保持される
 
-> **突合キー:** アップロードは **hostname**（`inventory.json` の `hostname` フィールド、CycloneDX BOM の場合は `metadata.component.name`）で既存アセットと突合されます（アセット名では突合しません）。同じ hostname で再アップロードすると該当アセットが更新され、異なる hostname なら新規アセットとして作成されます。
+> **突合キー:** アップロードは **hostname**（`inventory.json` の `hostname` フィールド、CycloneDX BOM の場合は `metadata.component.name`）で既存アセットと突合されます（アセット名では突合しません）。同じ hostname で再アップロードすると該当アセットが更新され、異なる hostname なら新規アセットとして作成されます。インポート画面の **Hostname** 欄（ファイルの値が初期表示される）でファイルの値を上書きできます。スキャナーが毎回異なる値を入れる場合に、同じアセットを更新し続けるために使います。既存アセットに無い hostname に書き換えた場合は、打ち間違いに気付けるよう、新規アセットを作成する前に確認が表示されます。
 >
 > **Docker イメージの場合:** heretix-cli は `--name` 指定時はその値、未指定時はイメージ参照文字列自体（例: `myapp:1.0`）を `hostname` に設定します。タグが文字列に含まれるため、`--name` 無しで `myapp:1.0` → `myapp:2.0` と再スキャンするとタグごとに**別アセット**が作成されます。ファームウェア更新時と同様に1つのイメージをタグ・バージョンをまたいで単一アセットとして追跡したい場合は、タグに関わらず固定の `--name`（例: `--name myapp`）を毎回指定してください。
 >
@@ -207,7 +207,7 @@ syft myapp:1.0 -o cyclonedx-json=sbom.json --source-name myapp
 ```
 
 - **hostname:** `metadata.component.name` が使われますが、イメージの場合は2つのツールで入る値が異なります:
-  - **Trivy** はタグ込みのイメージ参照（`myapp:1.0`）を使うため、タグごとに別アセットになります。上書きするオプションはありません。
+  - **Trivy** はタグ込みのイメージ参照（`myapp:1.0`）を使うため、タグごとに別アセットになります。Trivy 側にはこれを変えるオプションが無いため、1つのイメージをタグをまたいで追跡したい場合は、インポート画面の **Hostname** 欄に固定の名前（例: `myapp`）を指定してください。
   - **Syft** はタグを除いたイメージ名（`myapp`。タグは `metadata.component.version` に入る）を使うため、新しいタグで再スキャンすると同じアセットが更新されます。同じイメージの別タグ（例: `myapp:prod` と `myapp:staging`）を別アセットとして管理したい場合は、それぞれに `--source-name` を指定してください。
   - ディレクトリスキャンでは、どちらもスキャンしたパスになります。
 - **OS パッケージ:** 両ツールとも OS のポイントリリース（`rocky-9.3`、`debian-12.15`、`alpine-3.20.10`）を記録しますが、インポート時に heretix-api が照合する ecosystem（`Rocky Linux:9`、`Debian:12`、`Alpine:v3.20`）へ正規化されます。
@@ -319,7 +319,7 @@ heretix-management/
 | メソッド | パス | 説明 |
 |---|---|---|
 | GET | `/api/assets` | アセット一覧 |
-| POST | `/api/assets` | アセット作成・更新（inventory.json または CycloneDX BOM、差分インポート） |
+| POST | `/api/assets` | アセット作成・更新（inventory.json または CycloneDX BOM、差分インポート）。`inventory` 指定時は任意の `hostname` でファイルの hostname を上書き。`dryRun: true` で突合結果をプレビューし、実際に使われる `hostname` を返す |
 | POST | `/api/assets/import-csv` | パース済みCSVからアセット+Advisoryパッケージを一括登録（`commit: false`でドライランプレビュー） |
 | GET | `/api/assets/[id]` | アセット詳細 |
 | PATCH | `/api/assets/[id]` | アセット情報更新（name / hostname / osName / osVersionId） |

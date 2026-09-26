@@ -230,3 +230,55 @@ describe("POST /api/assets — re-import diff", () => {
     expect(history.filter((h) => h.action === "added").map((h) => h.packageName)).toEqual(["lodash"])
   })
 })
+
+describe("POST /api/assets — hostname override", () => {
+  beforeEach(async () => {
+    await resetDb()
+  })
+
+  afterAll(async () => {
+    await prisma.$disconnect()
+  })
+
+  // Trivy names an image with its tag, so each tag's SBOM carries a different name.
+  function trivyBom(tag: string, lodashVersion: string) {
+    return {
+      bomFormat: "CycloneDX",
+      metadata: { component: { "bom-ref": "root", type: "container", name: `myapp:${tag}` } },
+      components: [
+        { "bom-ref": "l", type: "library", name: "lodash", version: lodashVersion, purl: `pkg:npm/lodash@${lodashVersion}` },
+      ],
+    }
+  }
+
+  it("tracks one image across tags as the same asset when given a fixed hostname", async () => {
+    const first = await POST(postRequest({ hostname: "myapp", inventory: trivyBom("1.0", "4.17.20") }))
+    expect(first.status).toBe(201)
+    const asset = await first.json()
+    expect(asset).toMatchObject({ hostname: "myapp", name: "myapp" })
+
+    const second = await POST(postRequest({ hostname: "myapp", inventory: trivyBom("1.1", "4.17.21") }))
+    expect(second.status).toBe(200)
+    expect(await second.json()).toMatchObject({ id: asset.id, updated: true })
+
+    expect(await prisma.asset.count()).toBe(1)
+    const packages = await prisma.package.findMany({ where: { assetId: asset.id } })
+    expect(packages.map((p) => p.version)).toEqual(["4.17.21"])
+  })
+
+  it("uses the name in the file when no override is given, or a blank one", async () => {
+    await POST(postRequest({ inventory: trivyBom("1.0", "4.17.20") }))
+    await POST(postRequest({ hostname: "  ", inventory: trivyBom("1.1", "4.17.21") }))
+    const hostnames = (await prisma.asset.findMany({ orderBy: { hostname: "asc" } })).map((a) => a.hostname)
+    expect(hostnames).toEqual(["myapp:1.0", "myapp:1.1"])
+  })
+
+  it("applies the override to a dry run, and reports the hostname it resolved to", async () => {
+    const res = await POST(postRequest({ hostname: "myapp", inventory: trivyBom("1.0", "4.17.20"), dryRun: true }))
+    expect(await res.json()).toEqual({ hostname: "myapp", existing: null })
+
+    await POST(postRequest({ hostname: "myapp", inventory: trivyBom("1.0", "4.17.20") }))
+    const preview = await (await POST(postRequest({ hostname: "myapp", inventory: trivyBom("1.1", "4.17.21"), dryRun: true }))).json()
+    expect(preview).toMatchObject({ hostname: "myapp", existing: { hostname: "myapp" }, diff: { added: 1, removed: 1, superseded: 1 } })
+  })
+})

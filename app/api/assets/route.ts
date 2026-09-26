@@ -77,11 +77,18 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
     return NextResponse.json({ error: "Invalid inventory format" }, { status: 400 })
   }
 
+  // With an inventory, `hostname` overrides the one in the file. Assets are
+  // matched by hostname, and a scanner decides what that is: Trivy names an
+  // image with its tag ("myapp:1.0"), so without an override every tag becomes
+  // a separate asset, with no way to track one image across versions.
+  const hostnameOverride = typeof simpleHostname === "string" ? simpleHostname.trim() : ""
+
   // Guards blank as well as missing: "" is truthy-adjacent enough (a string) that
   // `?? "unknown"` alone would let it through, and hostname is now @unique — two
   // imports that both resolve to "" would collide on that constraint instead of
   // on the deliberate "unknown" placeholder every caller already expects.
-  const hostname = (typeof inventory.hostname === "string" && inventory.hostname.trim()) || "unknown"
+  const hostname = hostnameOverride ||
+    (typeof inventory.hostname === "string" && inventory.hostname.trim()) || "unknown"
   const assetType = inventory.type === "docker_image" ? "docker_image" : "host"
   const incomingPackages = inventory.packages.map((p: {
     name: string
@@ -116,7 +123,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
   // committing, so the user can confirm before a hostname collision
   // silently overwrites the wrong asset.
   if (dryRun) {
-    if (!existing) return NextResponse.json({ existing: null })
+    if (!existing) return NextResponse.json({ hostname, existing: null })
 
     const existingPkgs = await prisma.package.findMany({
       where: { assetId: existing.id, source: { not: "manual" } },
@@ -128,6 +135,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
     )
 
     return NextResponse.json({
+      hostname,
       existing: { id: existing.id, name: existing.name, hostname: existing.hostname, scannedAt: existing.scannedAt },
       diff: {
         added: toCreate.length,

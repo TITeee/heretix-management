@@ -187,7 +187,7 @@ pnpm dev
 3. Packages are imported incrementally (only additions, updates, and removals are processed on re-import)
 4. Manually added packages are preserved across re-imports
 
-> **Matching key:** An upload is matched to an existing asset by **hostname** (`inventory.json`'s `hostname` field, or `metadata.component.name` for a CycloneDX BOM) — not by asset name. Re-uploading with the same hostname updates that asset; a different hostname creates a new one.
+> **Matching key:** An upload is matched to an existing asset by **hostname** (`inventory.json`'s `hostname` field, or `metadata.component.name` for a CycloneDX BOM) — not by asset name. Re-uploading with the same hostname updates that asset; a different hostname creates a new one. The **Hostname** field on the import page (pre-filled from the file) overrides the file's value — use it to keep updating one asset when a scanner puts a changing value there. Editing it to a hostname no asset has asks for confirmation before creating a new asset, to catch typos.
 >
 > **Docker images:** heretix-cli sets `hostname` to the `--name` value if given, otherwise the image reference itself (e.g. `myapp:1.0`). Since the tag is part of that string, rescanning `myapp:1.0` → `myapp:2.0` without `--name` creates a *new* asset per tag. To track one image across tag/version bumps as a single asset (matching the firmware-update pattern below), always pass a fixed `--name` (e.g. `--name myapp`) regardless of tag.
 >
@@ -209,7 +209,7 @@ syft myapp:1.0 -o cyclonedx-json=sbom.json --source-name myapp
 ```
 
 - **Hostname:** taken from `metadata.component.name`, which the two tools fill differently for an image:
-  - **Trivy** uses the full image reference including its tag (`myapp:1.0`), so each tag becomes its own asset. Trivy has no option to override it.
+  - **Trivy** uses the full image reference including its tag (`myapp:1.0`), so each tag becomes its own asset. Trivy has no option to change this; to track one image across tags, set the **Hostname** field on the import page to a fixed name (e.g. `myapp`).
   - **Syft** uses the image name without the tag (`myapp`; the tag goes in `metadata.component.version`), so re-scanning a new tag updates the same asset. To keep two tags of one image apart (e.g. `myapp:prod` and `myapp:staging`), give each its own `--source-name`.
   - For a directory scan, both use the scanned path.
 - **OS packages:** both tools record the OS point release (`rocky-9.3`, `debian-12.15`, `alpine-3.20.10`); it is normalized on import to the ecosystem heretix-api matches on (`Rocky Linux:9`, `Debian:12`, `Alpine:v3.20`).
@@ -321,7 +321,7 @@ heretix-management/
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/assets` | List assets |
-| POST | `/api/assets` | Create/update asset (inventory.json or CycloneDX BOM incremental import) |
+| POST | `/api/assets` | Create/update asset (inventory.json or CycloneDX BOM incremental import). With `inventory`, an optional `hostname` overrides the file's hostname; `dryRun: true` previews the match and returns the resolved `hostname` |
 | POST | `/api/assets/import-csv` | Bulk-register assets + Advisory packages from a parsed CSV (`commit: false` for a dry-run preview) |
 | GET | `/api/assets/[id]` | Asset detail |
 | PATCH | `/api/assets/[id]` | Update asset info (name / hostname / osName / osVersionId) |
