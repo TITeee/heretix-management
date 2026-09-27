@@ -89,7 +89,7 @@ describe("convertCycloneDXToInventory — Trivy", () => {
     expect(inv.packages.map(p => p.ecosystem)).toEqual(["Rocky Linux:9", "Rocky Linux:9"])
     // epoch stays in the version, as heretix-cli reports it
     expect(pkg(inv, "findutils").version).toBe("1:4.8.0-6.el9")
-    expect(pkg(inv, "findutils").deps).toEqual(["pkg:generic/openssl-libs@1:3.0.7-24.el9"])
+    expect(pkg(inv, "findutils").deps).toEqual(["pkg:rpm/rocky/openssl-libs@1:3.0.7-24.el9"])
     expect(inv).toMatchObject({ hostname: "rockylinux:9", type: "docker_image", os: { id: "rocky", versionId: "9.3" } })
   })
 

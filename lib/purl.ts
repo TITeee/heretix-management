@@ -18,10 +18,17 @@ export function buildPURL(name: string, version: string, ecosystem: string): str
   if (ecosystem.startsWith("Ubuntu:"))    return `pkg:deb/ubuntu/${name}@${version}`
   if (ecosystem.startsWith("Debian:"))    return `pkg:deb/debian/${name}@${version}`
   if (ecosystem.startsWith("AlmaLinux:")) return `pkg:rpm/almalinux/${name}@${version}`
+  // "Rocky:" is the legacy, pre-2026-09-01 ecosystem string heretix-cli used
+  // to send (see osEcosystem's comment) — kept so a Package row imported back
+  // then still resolves, alongside the corrected "Rocky Linux:" OSV uses.
+  if (ecosystem.startsWith("Rocky Linux:")) return `pkg:rpm/rocky/${name}@${version}`
   if (ecosystem.startsWith("Rocky:"))     return `pkg:rpm/rocky/${name}@${version}`
   if (ecosystem.startsWith("Alpine:"))    return `pkg:apk/alpine/${name}@${version}`
   if (ecosystem.startsWith("Red Hat:"))   return `pkg:rpm/rhel/${name}@${version}`
   if (ecosystem.startsWith("CentOS:"))    return `pkg:rpm/centos/${name}@${version}`
+  // "oracle-linux" (bare, no version) is the legacy pre-2026-09-01 string;
+  // "Oracle Linux:N" is the corrected, versioned OSV ecosystem.
+  if (ecosystem.startsWith("Oracle Linux:")) return `pkg:rpm/oraclelinux/${name}@${version}`
   if (ecosystem === "oracle-linux")       return `pkg:rpm/oraclelinux/${name}@${version}`
   return `pkg:generic/${name}@${version}`
 }

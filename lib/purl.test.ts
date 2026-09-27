@@ -40,16 +40,24 @@ describe("buildPURL", () => {
     ["Ubuntu:22.04", "pkg:deb/ubuntu"],
     ["Debian:12", "pkg:deb/debian"],
     ["AlmaLinux:9", "pkg:rpm/almalinux"],
+    // "Rocky:" and "Oracle Linux:" are two spellings apart, both still live:
+    // "Rocky:N" / bare "oracle-linux" are the legacy, pre-2026-09-01 strings
+    // heretix-cli used to send (still sitting in Package rows imported back
+    // then); "Rocky Linux:N" / "Oracle Linux:N" are the corrected OSV names
+    // every current importer (heretix-cli, Trivy, Syft) produces. Both forms
+    // of each must resolve, or whichever this test doesn't cover falls
+    // through to the pkg:generic branch below — which is exactly the bug
+    // this pins (VEX export and the dependency graph silently losing every
+    // Rocky/Oracle Linux package to it).
     ["Rocky:9", "pkg:rpm/rocky"],
+    ["Rocky Linux:9", "pkg:rpm/rocky"],
     ["Alpine:v3.19", "pkg:apk/alpine"],
     ["Red Hat:9", "pkg:rpm/rhel"],
     ["CentOS:7", "pkg:rpm/centos"],
+    ["oracle-linux", "pkg:rpm/oraclelinux"],
+    ["Oracle Linux:9", "pkg:rpm/oraclelinux"],
   ] as const)("builds an OS-package PURL for %s ecosystem prefix", (ecosystem, expectedPrefix) => {
     expect(buildPURL("openssl", "3.0.2", ecosystem)).toBe(`${expectedPrefix}/openssl@3.0.2`)
-  })
-
-  it("builds an oracle-linux PURL from the bare ecosystem string", () => {
-    expect(buildPURL("glibc", "2.34", "oracle-linux")).toBe("pkg:rpm/oraclelinux/glibc@2.34")
   })
 
   it("falls back to a generic PURL for an unrecognized ecosystem", () => {
