@@ -354,7 +354,7 @@ heretix-management/
 | POST | `/api/assets` | Create/update asset (inventory.json or CycloneDX BOM incremental import). With `inventory`, an optional `hostname` overrides the file's hostname (also accepted as `?hostname=`, for a raw SBOM body); `dryRun: true` previews the match and returns the resolved `hostname`; `?scan=true` scans after importing. Accepts an access token with the `import` scope (`scan` too for `?scan=true`) |
 | POST | `/api/assets/import-csv` | Bulk-register assets + Advisory packages from a parsed CSV (`commit: false` for a dry-run preview) |
 | GET | `/api/assets/[id]` | Asset detail |
-| PATCH | `/api/assets/[id]` | Update asset info (name / hostname / osName / osVersionId) |
+| PATCH | `/api/assets/[id]` | Update an asset: `name`, `hostname` (trimmed, must be unique), and `assetType` for a manually registered asset. OS fields are not editable (set by imports). Changes are audited |
 | DELETE | `/api/assets/[id]` | Delete asset |
 | POST | `/api/assets/[id]/scan` | Run vulnerability scan. Accepts an access token with the `scan` scope |
 | POST | `/api/assets/[id]/packages` | Add manual package |

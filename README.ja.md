@@ -352,7 +352,7 @@ heretix-management/
 | POST | `/api/assets` | アセット作成・更新（inventory.json または CycloneDX BOM、差分インポート）。`inventory` 指定時は任意の `hostname` でファイルの hostname を上書き。`dryRun: true` で突合結果をプレビューし、実際に使われる `hostname` を返す。生の SBOM をボディにする場合は `?hostname=` でも指定可。`?scan=true` で取り込み後にスキャン。`import` スコープの アクセストークンで認証可（`?scan=true` は `scan` も必要） |
 | POST | `/api/assets/import-csv` | パース済みCSVからアセット+Advisoryパッケージを一括登録（`commit: false`でドライランプレビュー） |
 | GET | `/api/assets/[id]` | アセット詳細 |
-| PATCH | `/api/assets/[id]` | アセット情報更新（name / hostname / osName / osVersionId） |
+| PATCH | `/api/assets/[id]` | アセット情報更新：`name`・`hostname`（前後の空白を除去、重複不可）、手動登録アセットのみ `assetType`。OS 情報は取り込み時に設定されるため編集不可。変更は監査ログに記録 |
 | DELETE | `/api/assets/[id]` | アセット削除 |
 | POST | `/api/assets/[id]/scan` | 脆弱性スキャン実行。`scan` スコープの アクセストークンで認証可 |
 | POST | `/api/assets/[id]/packages` | 手動パッケージ追加 |

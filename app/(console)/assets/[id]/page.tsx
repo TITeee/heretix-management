@@ -155,7 +155,7 @@ export default async function AssetDetailPage({
           </p> */}
         </div>
         <div className="flex items-center gap-2">
-          <EditAssetDialog asset={{ id: asset.id, name: asset.name, hostname: asset.hostname, osName: asset.osName, osVersionId: asset.osVersionId }} />
+          <EditAssetDialog asset={{ id: asset.id, name: asset.name, hostname: asset.hostname, assetType: asset.assetType, isManual: asset.osId === "manual" }} />
           <DeleteAssetButton assetId={asset.id} assetName={asset.name || asset.hostname} />
           {/* A manually registered asset (network device, firewall) has no SBOM to update from. */}
           {asset.osId !== "manual" && (
@@ -193,7 +193,8 @@ export default async function AssetDetailPage({
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">OS</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm">{asset.osName}</CardContent>
+          {/* A manually registered asset has no OS of its own to show; its product and version are Advisory packages. */}
+          <CardContent className="text-sm">{asset.osId === "manual" ? "Manual" : asset.osName}</CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">

@@ -32,21 +32,55 @@ export const PATCH = withApiErrorHandling("assets.update", async (
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
-  const { name, hostname, osName, osId, osVersionId } = await req.json()
+  const body = await req.json()
 
-  // hostname is @unique — renaming it to collide with another asset now
-  // surfaces as a clean 409 via withApiErrorHandling's P2002 handling instead
-  // of silently succeeding (the previous behavior) or a raw 500.
-  const asset = await prisma.asset.update({
-    where: { id },
-    data: {
-      ...(name !== undefined && { name }),
-      ...(hostname !== undefined && { hostname }),
-      ...(osName !== undefined && { osName }),
-      ...(osId !== undefined && { osId }),
-      ...(osVersionId !== undefined && { osVersionId }),
-    },
-  })
+  // Only name, hostname, and (for a manually registered asset) type are
+  // editable. The OS fields are not: an imported asset's are overwritten by
+  // every re-import, a manual asset's hold only the "manual" marker the UI keys
+  // on (osId), and neither is used in scanning.
+  const existing = await prisma.asset.findUnique({ where: { id } })
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  const data: { name?: string; hostname?: string; assetType?: string } = {}
+  if (body.name !== undefined) {
+    const name = typeof body.name === "string" ? body.name.trim() : ""
+    if (!name) return NextResponse.json({ error: "name must not be empty" }, { status: 400 })
+    data.name = name
+  }
+  if (body.hostname !== undefined) {
+    const hostname = typeof body.hostname === "string" ? body.hostname.trim() : ""
+    if (!hostname) return NextResponse.json({ error: "hostname must not be empty" }, { status: 400 })
+    // Checked up front for a specific message; the @unique constraint (a P2002
+    // → 409 via withApiErrorHandling) still backs it against a race.
+    if (hostname !== existing.hostname && await prisma.asset.findUnique({ where: { hostname } })) {
+      return NextResponse.json({ error: "Hostname already exists" }, { status: 409 })
+    }
+    data.hostname = hostname
+  }
+  if (body.assetType !== undefined) {
+    if (existing.osId !== "manual") {
+      return NextResponse.json({ error: "Type can only be changed on a manually registered asset" }, { status: 400 })
+    }
+    if (body.assetType !== "host" && body.assetType !== "docker_image") {
+      return NextResponse.json({ error: "assetType must be host or docker_image" }, { status: 400 })
+    }
+    data.assetType = body.assetType
+  }
+
+  const asset = await prisma.asset.update({ where: { id }, data })
+
+  // Hostname is the key imports (and CI's ?hostname=) match on, so a change to
+  // it is recorded with both values.
+  const changes = (Object.keys(data) as (keyof typeof data)[])
+    .filter((k) => existing[k] !== data[k])
+    .map((k) => `${k}: ${existing[k]} → ${data[k]}`)
+  if (changes.length) {
+    await createAuditLog({
+      userId: session.user.id, userEmail: session.user.email,
+      action: "asset_updated", target: asset.name || asset.hostname,
+      detail: changes.join(", "),
+    })
+  }
   return NextResponse.json(asset)
 })
 
