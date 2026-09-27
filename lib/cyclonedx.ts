@@ -113,7 +113,7 @@ function sourcePackageOf(c: CycloneDXComponent, name: string, isOsPackage: boole
 
 /**
  * Finds the packages the BOM's root depends on directly, for SBOMs without
- * heretix-cli's per-component `cdx:direct` property.
+ * heretix-cli's per-component `heretix:direct` property.
  *
  * Returns the direct set plus every package reachable from it, so the caller can
  * tell "indirect" (reachable, not direct) apart from "unknown" (not reached at
@@ -241,7 +241,7 @@ export function convertCycloneDXToInventory(bom: CycloneDXBom) {
     refToPurl.set(ref, buildPURL(parsed.name, c.version ?? "", parsed.ecosystem))
   }
 
-  // Fallback when the cdx:direct property is absent (SBOMs from Syft, Trivy, cdxgen, etc.)
+  // Fallback when the heretix:direct property is absent (SBOMs from Syft, Trivy, cdxgen, etc.)
   const graph = classifyFromDependencyGraph(bom, depsMap, componentsByRef)
 
   const seenPackageKeys = new Set<string>()
@@ -250,7 +250,7 @@ export function convertCycloneDXToInventory(bom: CycloneDXBom) {
     const ecosystem = parsed?.ecosystem ?? "unknown"
     const name = parsed?.name ?? c.name ?? ""
     const ref = componentRef(c)
-    const directProp = property(c, "cdx:direct")
+    const directProp = property(c, "heretix:direct")
     let direct: boolean | null
     if (directProp) {
       direct = directProp === "true"
