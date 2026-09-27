@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { Suspense, useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -43,8 +43,23 @@ function hostnameInFile(inventory: { bomFormat?: string; hostname?: string; meta
   return typeof raw === "string" ? raw.trim() : ""
 }
 
+type TargetAsset = { id: string; name: string; hostname: string }
+
+// useSearchParams needs a Suspense boundary above it.
 export default function NewAssetPage() {
+  return (
+    <Suspense>
+      <ImportSbomForm />
+    </Suspense>
+  )
+}
+
+function ImportSbomForm() {
   const router = useRouter()
+  // Opened from an asset's "Update from SBOM" button: the import goes to that
+  // asset whatever the file names itself, so the hostname is fixed to its own.
+  const targetAssetId = useSearchParams().get("assetId")
+  const [target, setTarget] = useState<TargetAsset | null>(null)
   const [name, setName] = useState("")
   const [hostname, setHostname] = useState("")
   const [fileHostname, setFileHostname] = useState("")
@@ -66,6 +81,17 @@ export default function NewAssetPage() {
       .catch(() => {})
   }, [])
 
+  useEffect(() => {
+    if (!targetAssetId) return
+    fetch(`/api/assets/${encodeURIComponent(targetAssetId)}`)
+      .then(async (res) => {
+        if (!res.ok) { setError("The asset to update was not found."); return }
+        const asset: TargetAsset = await res.json()
+        setTarget({ id: asset.id, name: asset.name, hostname: asset.hostname })
+      })
+      .catch(() => setError("The asset to update could not be loaded."))
+  }, [targetAssetId])
+
   async function handleFileChange(selected: File | null) {
     setFile(selected)
     setInventory(null)
@@ -82,14 +108,20 @@ export default function NewAssetPage() {
     }
   }
 
-  const resolvedHostname = hostname.trim() || fileHostname
-  const displayName = name.trim() || resolvedHostname || undefined
+  const resolvedHostname = target ? target.hostname : hostname.trim() || fileHostname
 
-  async function doImport() {
+  // The name the asset should end up with. An update keeps the asset's current
+  // name unless one is typed: the import always sends a name, and falling back
+  // to the hostname here would overwrite a name set with Edit on every re-import.
+  function displayNameFor(existingName: string | undefined) {
+    return name.trim() || existingName || resolvedHostname || undefined
+  }
+
+  async function doImport(existingName?: string) {
     const res = await fetch("/api/assets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: displayName, hostname: resolvedHostname, inventory }),
+      body: JSON.stringify({ name: displayNameFor(existingName), hostname: resolvedHostname, inventory }),
     })
 
     if (!res.ok) {
@@ -104,7 +136,7 @@ export default function NewAssetPage() {
 
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault()
-    if (!inventory) return
+    if (!inventory || (targetAssetId && !target)) return
     setError("")
     setLoading(true)
 
@@ -114,7 +146,7 @@ export default function NewAssetPage() {
       const dryRunRes = await fetch("/api/assets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: displayName, hostname: resolvedHostname, inventory, dryRun: true }),
+        body: JSON.stringify({ hostname: resolvedHostname, inventory, dryRun: true }),
       })
       if (!dryRunRes.ok) {
         const data = await dryRunRes.json()
@@ -125,6 +157,11 @@ export default function NewAssetPage() {
 
       if (dryRunData.existing) {
         setPreview(dryRunData)
+        return
+      }
+      if (target) {
+        // Its hostname was edited since this page loaded; don't create a new asset.
+        setError(`No asset has hostname ${target.hostname} anymore. Reopen this page from the asset.`)
         return
       }
       if (resolvedHostname !== fileHostname) {
@@ -143,7 +180,7 @@ export default function NewAssetPage() {
   async function handleConfirm() {
     setLoading(true)
     try {
-      await doImport()
+      await doImport(preview?.existing.name)
     } catch {
       setError("Failed to import asset.")
     } finally {
@@ -161,12 +198,20 @@ export default function NewAssetPage() {
             <BreadcrumbLink href="/assets">Assets</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
+          {target && (
+            <>
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/assets/${target.id}`}>{target.name || target.hostname}</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+            </>
+          )}
           <BreadcrumbItem>
-            <BreadcrumbPage>Import SBOM</BreadcrumbPage>
+            <BreadcrumbPage>{targetAssetId ? "Update from SBOM" : "Import SBOM"}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
-      <h1 className="text-2xl font-bold">Import SBOM</h1>
+      <h1 className="text-2xl font-bold">{targetAssetId ? "Update from SBOM" : "Import SBOM"}</h1>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Upload Inventory / SBOM</CardTitle>
@@ -201,40 +246,54 @@ export default function NewAssetPage() {
             </div>
             <div className="space-y-2">
               <label htmlFor="hostname" className="text-sm font-medium">Hostname</label>
-              <Input
-                id="hostname"
-                list="existing-hostnames"
-                placeholder={file ? "(not set in the file)" : "Select a file first"}
-                disabled={!inventory}
-                value={hostname}
-                onChange={(e) => setHostname(e.target.value)}
-              />
-              <datalist id="existing-hostnames">
-                {existingHostnames.map((h) => <option key={h} value={h} />)}
-              </datalist>
-              <p className="text-xs text-muted-foreground">
-                Imports are matched to an existing asset by hostname. Defaults to the value in the file;
-                change it to keep updating the same asset when that value changes. For example, Trivy names an
-                image with its tag (<code>myapp:1.0</code>), so each new tag would otherwise become a new asset.
-              </p>
+              {targetAssetId ? (
+                <>
+                  <Input id="hostname" value={target?.hostname ?? ""} disabled readOnly />
+                  <p className="text-xs text-muted-foreground">
+                    Updates <strong>{target?.name || target?.hostname}</strong>. The name in the file
+                    {fileHostname && <> (<code>{fileHostname}</code>)</>} is not used.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Input
+                    id="hostname"
+                    list="existing-hostnames"
+                    placeholder={file ? "(not set in the file)" : "Select a file first"}
+                    disabled={!inventory}
+                    value={hostname}
+                    onChange={(e) => setHostname(e.target.value)}
+                  />
+                  <datalist id="existing-hostnames">
+                    {existingHostnames.map((h) => <option key={h} value={h} />)}
+                  </datalist>
+                  <p className="text-xs text-muted-foreground">
+                    Imports are matched to an existing asset by hostname. Defaults to the value in the file;
+                    change it to keep updating the same asset when that value changes. For example, Trivy names an
+                    image with its tag (<code>myapp:1.0</code>), so each new tag would otherwise become a new asset.
+                  </p>
+                </>
+              )}
             </div>
             <div className="space-y-2">
               <label htmlFor="display-name" className="text-sm font-medium">Display Name (optional)</label>
               <Input
                 id="display-name"
-                placeholder={resolvedHostname || "e.g. production-web-01"}
+                placeholder={target?.name || resolvedHostname || "e.g. production-web-01"}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Shown in lists. Not used for matching; defaults to the hostname.
+                {target
+                  ? "Shown in lists. Leave blank to keep the current name."
+                  : "Shown in lists. Not used for matching; defaults to the hostname (an existing asset keeps its name)."}
               </p>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex gap-2">
-              <Button type="submit" disabled={loading || !inventory}>
+              <Button type="submit" disabled={loading || !inventory || (!!targetAssetId && !target)}>
                 <Upload className="mr-1 h-4 w-4" />
-                {loading ? "Importing..." : "Import"}
+                {loading ? "Importing..." : targetAssetId ? "Update" : "Import"}
               </Button>
               <Button
                 type="button"

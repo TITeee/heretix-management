@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { cn } from "@/lib/utils"
-import { Bell, FileDown } from "lucide-react"
+import { Bell, FileDown, FileJson } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TagBadge } from "@/components/tags/tag-badge"
@@ -157,6 +157,13 @@ export default async function AssetDetailPage({
         <div className="flex items-center gap-2">
           <EditAssetDialog asset={{ id: asset.id, name: asset.name, hostname: asset.hostname, osName: asset.osName, osVersionId: asset.osVersionId }} />
           <DeleteAssetButton assetId={asset.id} assetName={asset.name || asset.hostname} />
+          {/* A manually registered asset (network device, firewall) has no SBOM to update from. */}
+          {asset.osId !== "manual" && (
+            <Link href={`/assets/new?assetId=${id}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+              <FileJson className="h-4 w-4" />
+              Update from SBOM
+            </Link>
+          )}
           <a
             {...(vexCount > 0 ? { href: `/api/vex?assetId=${id}&download=true` } : {})}
             aria-disabled={vexCount === 0}
