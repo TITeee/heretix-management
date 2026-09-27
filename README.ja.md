@@ -42,7 +42,7 @@
 - **脆弱性検索** — パッケージ名・バージョン・エコシステム、CVE/OSV ID、CPE 2.3 文字列、または **Advisory モード**（Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Check Point / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix のベンダーアドバイザリ検索）で直接検索
 - **ユーザー管理** — ユーザーの追加・編集・削除（admin ロールのみ表示・操作可能）
 - **監査ログ** — admin 専用ページ。ログイン・ユーザー管理・設定変更・アセット操作を最新 500 件表示。サイドバーの **Audit Log** からアクセス（admin のみ）
-- **設定** — タブ構成: **Vulnerability API**（heretix-api 接続 URL・API Token 設定・疎通確認）、**Notifications**（Slack Webhook — 新規検知・重要度変更・新規KEV検出時に通知。最小重要度・アセットタグでフィルタ可能、テスト送信ボタンあり）、**AI**（AI Insight チャット用の Anthropic API キー・モデル設定、疎通確認）、**SLA**（有効/無効切替・期限設定）、**Access Tokens**（管理者のみ。CI からのアップロード用トークン、[CI 連携](#6-ci-連携アクセストークン)を参照）、**About**（バージョン情報）
+- **設定** — タブ構成: **Vulnerability API**（heretix-api 接続 URL・API キー設定・疎通確認）、**Notifications**（Slack Webhook — 新規検知・重要度変更・新規KEV検出時に通知。最小重要度・アセットタグでフィルタ可能、テスト送信ボタンあり）、**AI**（AI Insight チャット用の Anthropic API キー・モデル設定、疎通確認）、**SLA**（有効/無効切替・期限設定）、**Access Tokens**（管理者のみ。CI からのアップロード用トークン、[CI 連携](#6-ci-連携アクセストークン)を参照）、**About**（バージョン情報）
 - **定期実行** — サーバー起動時に node-cron でスケジューラを起動。Refresh Metadata（デフォルト 12:00 UTC）→ Run Scan 全アセット（デフォルト 13:00 UTC）を毎日自動実行。`CRON_REFRESH` / `CRON_SCAN` 環境変数で時刻変更可能
 - **構造化ログ** — スキャン進捗（開始・完了・失敗）および認証イベント（ログイン成功・失敗）を JSON 形式で標準出力に記録。Docker 運用時は `docker logs` で収集可能
 
@@ -109,9 +109,9 @@ docker compose logs -f app  # ログ確認
    DATABASE_URL="postgresql://postgres:password@localhost:5432/heretix_management?schema=public"
    AUTH_SECRET="your-secret-key"
    AUTH_URL="http://localhost:3000"
-   # heretix-api の URL とトークンは Settings 画面から DB に保存可（環境変数はフォールバック）
+   # heretix-api の URL と API キーは Settings 画面から DB に保存可（環境変数はフォールバック）
    HERETIX_API_URL="http://localhost:5000"
-   HERETIX_API_KEY="your-api-token"
+   HERETIX_API_KEY="your-api-key"
    # 定期実行スケジュール（cron 式、UTC — 分 時 日 月 曜日）:
    #   CRON_REFRESH — 既存 Alert の CVSS・重要度・EPSS・KEV を再取得（デフォルト 12:00）
    #   CRON_SCAN    — 全アセットをスキャンして新規脆弱性を検出。Refresh の後に実行（デフォルト 13:00）

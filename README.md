@@ -44,7 +44,7 @@ This repository, heretix-management, is the web console: it imports server packa
 - **Vulnerability Search** — Search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or **Advisory mode** (Vendor Advisory search for Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Check Point, Oracle, Splunk, Apache HTTP Server, Nginx, Apache Tomcat, and Zabbix products)
 - **User Management** — Add, edit, and delete users (admin role only)
 - **Audit Log** — Admin-only page showing the last 500 events: login, user management, settings changes, asset operations. Accessible from the sidebar (admin only)
-- **Settings** — Tabbed configuration: **Vulnerability API** (heretix-api URL/token, connection test), **Notifications** (Slack webhook — notify on new detections, severity changes, or new KEV alerts, filterable by minimum severity and asset tags, with a test-send button), **AI** (Anthropic API key and model for the AI Insight chat, connection test), **SLA** (enable/disable and configure thresholds), **Access Tokens** (admin only — tokens for CI uploads, see [CI Integration](#6-ci-integration-access-tokens)), **About** (version info)
+- **Settings** — Tabbed configuration: **Vulnerability API** (heretix-api URL/API key, connection test), **Notifications** (Slack webhook — notify on new detections, severity changes, or new KEV alerts, filterable by minimum severity and asset tags, with a test-send button), **AI** (Anthropic API key and model for the AI Insight chat, connection test), **SLA** (enable/disable and configure thresholds), **Access Tokens** (admin only — tokens for CI uploads, see [CI Integration](#6-ci-integration-access-tokens)), **About** (version info)
 - **Scheduled Jobs** — On server start, node-cron registers daily jobs: Refresh Metadata (default 12:00 UTC) → Run Scan for all assets (default 13:00 UTC). Override with `CRON_REFRESH` / `CRON_SCAN` environment variables
 - **Structured Logging** — Scan progress (started, completed, failed) and auth events (login success/failure) are logged as JSON to stdout. Collect with `docker logs` in Docker deployments
 
@@ -111,9 +111,9 @@ docker compose logs -f app  # View logs
    DATABASE_URL="postgresql://postgres:password@localhost:5432/heretix_management?schema=public"
    AUTH_SECRET="your-secret-key"
    AUTH_URL="http://localhost:3000"
-   # heretix-api URL and token can also be configured via the Settings page in the UI
+   # heretix-api URL and API key can also be configured via the Settings page in the UI
    HERETIX_API_URL="http://localhost:5000"
-   HERETIX_API_KEY="your-api-token"
+   HERETIX_API_KEY="your-api-key"
    # Scheduled job times (cron syntax, UTC — minute hour day month weekday):
    #   CRON_REFRESH — re-fetches CVSS/severity/EPSS/KEV for existing Alerts (default 12:00)
    #   CRON_SCAN    — scans all assets for new vulnerabilities, runs after refresh (default 13:00)

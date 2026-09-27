@@ -268,7 +268,7 @@ export default function SettingsPage() {
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="heretix-api-key" className="text-sm font-medium">API Token</label>
+              <label htmlFor="heretix-api-key" className="text-sm font-medium">API Key</label>
               <Input
                 id="heretix-api-key"
                 type="password"

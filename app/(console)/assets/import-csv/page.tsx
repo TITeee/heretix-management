@@ -215,12 +215,13 @@ export default function ImportCsvPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-3 text-sm">
               <input
                 type="checkbox"
                 checked={updateExisting}
                 onChange={(e) => handleToggleUpdateExisting(e.target.checked)}
                 disabled={loading}
+                className="h-4 w-4 shrink-0 rounded border-gray-300 accent-black"
               />
               Update existing assets (add this package to an asset that already has this hostname,
               instead of skipping it)
