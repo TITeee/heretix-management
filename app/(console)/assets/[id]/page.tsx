@@ -216,25 +216,6 @@ export default async function AssetDetailPage({
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm text-muted-foreground">Last Scan</CardTitle>
-              {asset.scanJobs.length > 0 && <ScanHistoryModal scanJobs={asset.scanJobs} />}
-            </div>
-          </CardHeader>
-          <CardContent className="text-sm">
-            {asset.scannedAt ? new Date(asset.scannedAt).toLocaleString() : "Not scanned yet"}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Scanner</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            {asset.sbomTool ?? "Unknown"}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Tags</CardTitle>
           </CardHeader>
           <CardContent>
@@ -254,6 +235,25 @@ export default async function AssetDetailPage({
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Scanner</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            {asset.sbomTool ?? "Unknown"}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm text-muted-foreground">Last Scan</CardTitle>
+              {asset.scanJobs.length > 0 && <ScanHistoryModal scanJobs={asset.scanJobs} />}
+            </div>
+          </CardHeader>
+          <CardContent className="text-sm">
+            {asset.scannedAt ? new Date(asset.scannedAt).toLocaleString() : "Not scanned yet"}
           </CardContent>
         </Card>
       </div>
