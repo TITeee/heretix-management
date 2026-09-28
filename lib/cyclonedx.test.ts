@@ -165,3 +165,77 @@ describe("convertCycloneDXToInventory — Syft", () => {
     expect(pkg(inv, "bash").ecosystem).toBe("Debian:12")
   })
 })
+
+describe("convertCycloneDXToInventory — language packages the OS installed", () => {
+  // Paths as Syft 1.52.0 records them on UBI 9 language images (ubi9, nodejs-20,
+  // ruby-33, openjdk-21, go-toolset) and Debian bookworm.
+  const lang = (name: string, version: string, purl: string, path: string) => ({
+    "bom-ref": purl, type: "library", name, version, purl,
+    properties: [{ name: "syft:location:0:path", value: path }],
+  })
+  const osManagedComponents = [
+    { "bom-ref": "rpm-1", type: "library", name: "python3-urllib3", version: "1.26.5-8.el9_8", purl: "pkg:rpm/redhat/python3-urllib3@1.26.5-8.el9_8?arch=noarch&distro=rhel-9.8" },
+    lang("urllib3", "1.26.5", "pkg:pypi/urllib3@1.26.5", "/usr/lib/python3.9/site-packages/urllib3-1.26.5-py3.9.egg-info/PKG-INFO"),
+    lang("gpg", "1.15.1", "pkg:pypi/gpg@1.15.1", "/usr/lib64/python3.9/site-packages/gpg-1.15.1-py3.9.egg-info"),
+    lang("tar", "6.2.1", "pkg:npm/tar@6.2.1", "/usr/lib/node_modules/npm/node_modules/tar/package.json"),
+    lang("net-imap", "0.4.25", "pkg:gem/net-imap@0.4.25", "/usr/share/gems/specifications/net-imap-0.4.25.gemspec"),
+    lang("guava", "33.3.0-jre", "pkg:maven/com.google.guava/guava@33.3.0-jre", "/usr/share/java/guava/guava.jar"),
+    lang("jansi", "2.4.1", "pkg:maven/org.fusesource.jansi/jansi@2.4.1", "/usr/lib/java/jansi/jansi.jar"),
+  ]
+
+  it("excludes language packages under the distro's own install paths, keeping them in the inventory", () => {
+    const inv = convertCycloneDXToInventory({
+      components: [{ "bom-ref": "os", type: "operating-system", name: "rhel", version: "9.8" }, ...osManagedComponents],
+    })
+    for (const name of ["urllib3", "gpg", "tar", "net-imap", "com.google.guava/guava", "org.fusesource.jansi/jansi"]) {
+      expect(pkg(inv, name)).toMatchObject({ scope: "excluded", category: "os-managed" })
+    }
+    // The rpm that actually installed urllib3 is still what gets scanned.
+    expect(pkg(inv, "python3-urllib3")).toMatchObject({ scope: null, category: null })
+  })
+
+  it("covers Debian's dist-packages", () => {
+    const inv = convertCycloneDXToInventory({
+      components: [
+        { "bom-ref": "os", type: "operating-system", name: "debian", version: "12" },
+        lang("mercurial", "6.3.2", "pkg:pypi/mercurial@6.3.2", "/usr/lib/python3/dist-packages/mercurial-6.3.2.egg-info"),
+      ],
+    })
+    expect(pkg(inv, "mercurial")).toMatchObject({ scope: "excluded", category: "os-managed" })
+  })
+
+  it("keeps packages installed by pip/npm/gem themselves, which go to /usr/local", () => {
+    const inv = convertCycloneDXToInventory({
+      components: [
+        { "bom-ref": "os", type: "operating-system", name: "rhel", version: "9.8" },
+        lang("requests", "2.31.0", "pkg:pypi/requests@2.31.0", "/usr/local/lib/python3.9/site-packages/requests-2.31.0.dist-info/METADATA"),
+        lang("pm2", "5.4.0", "pkg:npm/pm2@5.4.0", "/usr/local/lib/node_modules/pm2/package.json"),
+        lang("rails", "7.2.0", "pkg:gem/rails@7.2.0", "/usr/local/share/gems/specifications/rails-7.2.0.gemspec"),
+        lang("next", "16.0.0", "pkg:npm/next@16.0.0", "/app/node_modules/next/package.json"),
+      ],
+    })
+    for (const name of ["requests", "pm2", "rails", "next"]) {
+      expect(pkg(inv, name)).toMatchObject({ scope: null, category: null })
+    }
+  })
+
+  it("leaves Go binaries alone, since /usr/bin also holds an image's own binaries", () => {
+    const inv = convertCycloneDXToInventory({
+      components: [
+        { "bom-ref": "os", type: "operating-system", name: "rhel", version: "9.8" },
+        lang("stdlib", "go1.26.1", "pkg:golang/stdlib@go1.26.1", "/usr/bin/dlv"),
+      ],
+    })
+    expect(pkg(inv, "stdlib")).toMatchObject({ scope: null, category: null })
+  })
+
+  it("does nothing on Alpine, where pip and npm install into /usr/lib too", () => {
+    const inv = convertCycloneDXToInventory({
+      components: [
+        { "bom-ref": "os", type: "operating-system", name: "alpine", version: "3.20.3" },
+        lang("urllib3", "1.26.5", "pkg:pypi/urllib3@1.26.5", "/usr/lib/python3.12/site-packages/urllib3-1.26.5.dist-info/METADATA"),
+      ],
+    })
+    expect(pkg(inv, "urllib3")).toMatchObject({ scope: null, category: null })
+  })
+})

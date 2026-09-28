@@ -69,15 +69,25 @@ type PackageRow = {
   alertSeverities: { critical: number; high: number; medium: number; low: number; na: number }
 }
 
-// scope=excluded covers two different reasons: an npm dev dependency (pruned
-// from a production install), or — per heretix-cli's heretix:category property
-// — an OS package that ships in the image but never runs (kernel headers,
-// compiler/linker toolchain). category is null for the dev-dependency case.
-function nonRuntimeCategory(p: { scope?: string | null; category?: string | null }): "kernel" | "build" | "devonly" | null {
+// scope=excluded covers three different reasons: an npm dev dependency (pruned
+// from a production install); per heretix-cli's heretix:category property, an
+// OS package that ships in the image but never runs (kernel headers,
+// compiler/linker toolchain); or a language package the distro's own package
+// manager installed ("os-managed", see lib/cyclonedx.ts), whose findings belong
+// to that OS package. category is null for the dev-dependency case.
+function nonRuntimeCategory(p: { scope?: string | null; category?: string | null }): "kernel" | "build" | "osmanaged" | "devonly" | null {
   if (p.category === "kernel") return "kernel"
   if (p.category === "build") return "build"
+  if (p.category === "os-managed") return "osmanaged"
   if (p.scope === "excluded") return "devonly"
   return null
+}
+
+const SCOPE_LABELS: Record<NonNullable<ReturnType<typeof nonRuntimeCategory>>, string> = {
+  kernel: "Kernel",
+  build: "Build",
+  osmanaged: "OS-managed",
+  devonly: "Dev-only",
 }
 
 type FormState = {
@@ -393,7 +403,7 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
       cell: ({ row }) => {
         const category = nonRuntimeCategory(row.original)
         if (!category) return null
-        const label = category === "kernel" ? "Kernel" : category === "build" ? "Build" : "Dev-only"
+        const label = SCOPE_LABELS[category]
         return (
           <Badge
             variant="outline"
@@ -481,6 +491,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
   const scopeOptions = [
     { value: "kernel", label: "Kernel" },
     { value: "build", label: "Build" },
+    { value: "osmanaged", label: "OS-managed" },
     { value: "devonly", label: "Dev-only" },
     { value: "other", label: "Required" },
   ]

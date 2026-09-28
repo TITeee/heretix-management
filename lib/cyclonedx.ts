@@ -84,6 +84,43 @@ function property(c: CycloneDXComponent, name: string): string | undefined {
   return c.properties?.find(p => p.name === name)?.value
 }
 
+/**
+ * Where each distro's own package manager installs language libraries, per
+ * ecosystem. A scanner that catalogs installed language packages (Syft's
+ * python/javascript/gemspec/java catalogers) reports these a second time, as
+ * PyPI/npm/RubyGems/Maven packages at their upstream version — alongside the
+ * rpm/deb that actually installed them (python3-urllib3 1.26.5-8.el9_8 is also
+ * listed as urllib3 1.26.5). Matched as a language package, that upstream
+ * version knows nothing of the fixes the distro backports into its own
+ * release, so the finding is either a false positive or a duplicate of what the
+ * OS package's own advisory already covers.
+ *
+ * Go binaries are deliberately absent: /usr/bin is also where an image's own
+ * build copies its binaries, so a path there says nothing about who put it.
+ */
+const OS_MANAGED_LANGUAGE_PATHS: Record<string, RegExp> = {
+  PyPI: /^\/usr\/lib(64)?\/python3[^/]*\/(site|dist)-packages\//,
+  npm: /^\/usr\/(lib\/node_modules|share\/nodejs)\//,
+  RubyGems: /^\/usr\/share\/(gems|rubygems-integration)\/|^\/usr\/lib\/ruby\/gems\/[^/]+\/specifications\/default\//,
+  Maven: /^\/usr\/(share\/java|lib\/java|lib\/jvm)\//,
+}
+
+/**
+ * Distros where the paths above belong to the OS package manager alone: their
+ * pip, npm and gem install into /usr/local instead (RHEL's site.py/sysconfig
+ * patch, /etc/npmrc prefix and rbconfig sitedir; Debian's dist-packages split).
+ * RHEL rebuilds carry the same patches. Alpine is left out on purpose — its pip
+ * and npm install into /usr/lib like its own packages do, so the path can't
+ * tell the two apart there.
+ */
+const OS_MANAGED_PATH_DISTROS = new Set(["rhel", "centos", "rocky", "almalinux", "ol", "fedora", "debian", "ubuntu"])
+
+function isOsManagedLanguagePackage(c: CycloneDXComponent, ecosystem: string): boolean {
+  const pattern = OS_MANAGED_LANGUAGE_PATHS[ecosystem]
+  const path = property(c, "syft:location:0:path")
+  return !!pattern && !!path && pattern.test(path)
+}
+
 // "openssl-3.0.7-24.el9.src.rpm" → "openssl": the name is everything before the
 // last two hyphen-separated fields (version and release), which never contain one.
 function sourceRpmName(sourceRpm: string): string | null {
@@ -209,6 +246,7 @@ export function convertCycloneDXToInventory(bom: CycloneDXBom) {
   // For an OS package whose purl has no distro qualifier, the operating-system
   // component still says which distro the whole SBOM describes.
   const fallbackDistro = osId && osVersionId ? `${osId}-${osVersionId}` : undefined
+  const detectOsManaged = OS_MANAGED_PATH_DISTROS.has(osId.toLowerCase())
 
   // Build a ref → deps map from the bom.dependencies section.
   // CycloneDX 1.6 uses "dependsOn"; older tooling may use "dependencies".
@@ -269,8 +307,11 @@ export function convertCycloneDXToInventory(bom: CycloneDXBom) {
     // dependency) — kept distinct from scope so the UI can tell "not shipped
     // to production" (dev-only) apart from "shipped, but never executed"
     // (kernel/build), rather than showing both as one generic "Dev-only".
-    const category = property(c, "heretix:category") ?? null
     const isOsPackage = !!parsed && OS_PURL_TYPES.has(parsed.type)
+    // A language package the distro installed (see OS_MANAGED_LANGUAGE_PATHS)
+    // is excluded the same way: kept in the inventory, never sent to heretix-api.
+    const osManaged = detectOsManaged && !isOsPackage && isOsManagedLanguagePackage(c, ecosystem)
+    const category = property(c, "heretix:category") ?? (osManaged ? "os-managed" : null)
     return {
       name,
       version: c.version ?? "",
@@ -280,7 +321,7 @@ export function convertCycloneDXToInventory(bom: CycloneDXBom) {
       location: null,
       direct,
       deps,
-      scope: c.scope === "excluded" ? "excluded" : null,
+      scope: c.scope === "excluded" || osManaged ? "excluded" : null,
       category,
       sourcePackage: sourcePackageOf(c, name, isOsPackage),
     }

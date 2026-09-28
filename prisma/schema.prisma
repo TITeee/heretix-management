@@ -52,11 +52,14 @@ model Package {
   direct      Boolean?
   deps        String[]
   // null=required/unknown, "excluded"=non-runtime per CycloneDX component.scope.
-  // scope=excluded covers two different reasons, distinguished by category:
-  // an npm dev dependency (would not survive `pnpm prune --prod`), or an OS
+  // scope=excluded covers three different reasons, distinguished by category:
+  // an npm dev dependency (would not survive `pnpm prune --prod`); an OS
   // package heretix-cli's heretix:category property marks "kernel"/"build" —
   // present in the image but never executed there (kernel headers, compiler/
-  // linker toolchain). category is null for the npm dev-dependency case.
+  // linker toolchain); or "os-managed", a language package (e.g. PyPI urllib3)
+  // that an rpm/deb installed, set on CycloneDX import from its location (see
+  // lib/cyclonedx.ts) — its findings belong to that OS package instead.
+  // category is null for the npm dev-dependency case.
   scope       String?
   category    String?
   // The upstream source package this binary package was split from (dpkg

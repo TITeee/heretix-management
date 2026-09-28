@@ -212,6 +212,7 @@ syft myapp:1.0 -o cyclonedx-json=sbom.json
   - ディレクトリスキャンでは、どちらもスキャンしたパスになります。
 - **OS パッケージ:** 両ツールとも OS のポイントリリース（`rocky-9.3`、`debian-12.15`、`alpine-3.20.10`）を記録しますが、インポート時に heretix-api が照合する ecosystem（`Rocky Linux:9`、`Debian:12`、`Alpine:v3.20`）へ正規化されます。
 - **Direct/Indirect:** Trivy の lockfile スキャン（`trivy fs`）は判定されます。Syft はスキャン対象プロジェクトからの依存エッジを出力しないため、未分類のままです。
+- **OS が入れた言語パッケージ（Syft）:** rpm/deb が入れた言語ライブラリを、Syft は二重に出力します。OS パッケージとして 1 回、上流バージョンの PyPI/npm/RubyGems/Maven パッケージとしてもう 1 回です（例: `python3-urllib3 1.26.5-8.el9_8` と `urllib3 1.26.5`）。上流バージョンにはディストロがバックポートした修正が反映されないため、照合すると誤検知になります。RHEL 系・Fedora・Debian・Ubuntu のイメージでは、ディストロ自身の導入先（`/usr/lib*/python3*/site-packages`、`/usr/lib/python3/dist-packages`、`/usr/lib/node_modules`、`/usr/share/nodejs`、`/usr/share/gems`、`/usr/share/java`、`/usr/lib/jvm` など）にある言語パッケージを、インポート時に **OS-managed** として扱います。インベントリには残りますがスキャン対象から外れ、検出は OS パッケージ側で行います。これらのディストロでは pip・npm・gem で入れたパッケージは `/usr/local` に入るため、影響を受けません。Alpine は pip や npm も `/usr/lib` に入れるため対象外です。Go バイナリも、`/usr/bin` にはイメージ自身のバイナリも置かれるため対象外です。
 - **これらのツールでは使えない情報:** カーネル/ビルドツールチェーンの分類（`heretix:category`）は heretix-cli のみが出力します。SBOM に含まれる脆弱性情報（Trivy の `--scanners vuln`）は無視され、検出は常に heretix-api で行います。
 - **Windows 版 Syft** は Linux コンテナイメージを正しくスキャンできません（イメージレイヤーの展開に失敗し、展開済みファイルシステムからも OS を検出できない）。Linux/macOS か Syft の Docker イメージで実行してください。
 
