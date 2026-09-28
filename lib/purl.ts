@@ -11,7 +11,9 @@ export function buildPURL(name: string, version: string, ecosystem: string): str
   if (ecosystem === "npm")        return `pkg:npm/${encoded}@${version}`
   if (ecosystem === "PyPI")       return `pkg:pypi/${name}@${version}`
   if (ecosystem === "Go")         return `pkg:golang/${name}@${version}`
-  if (ecosystem === "Maven")      return `pkg:maven/${name}@${version}`
+  // Maven names are stored as "groupId:artifactId" (see parsePURL); the PURL
+  // puts the group in the namespace instead.
+  if (ecosystem === "Maven")      return `pkg:maven/${name.replace(":", "/")}@${version}`
   if (ecosystem === "NuGet")      return `pkg:nuget/${name}@${version}`
   if (ecosystem === "RubyGems")   return `pkg:gem/${name}@${version}`
   if (ecosystem === "Packagist")  return `pkg:composer/${name}@${version}`
@@ -170,16 +172,21 @@ export function parsePURL(purl: string, fallbackDistro?: string): ParsedPURL | n
     return { type, namespace, name, version, qualifiers, ecosystem }
   }
 
-  // Non-OS packages: the name keeps its namespace, joined with "/".
-  // Handles scoped npm  : pkg:npm/%40auth/core       → @auth/core
-  // Handles Go modules  : pkg:golang/github.com/x/net → github.com/x/net
-  // Handles simple pkgs : pkg:npm/lodash              → lodash
+  // Non-OS packages: the name keeps its namespace, joined with "/" (":" for Maven).
+  // Handles scoped npm  : pkg:npm/%40auth/core                   → @auth/core
+  // Handles Go modules  : pkg:golang/github.com/x/net             → github.com/x/net
+  // Handles Maven       : pkg:maven/org.apache.commons/commons-io → org.apache.commons:commons-io
+  // Handles simple pkgs : pkg:npm/lodash                          → lodash
   const ecosystem = PURL_TYPE_MAP[type] ?? type
   const lastSlash = fullPath.lastIndexOf("/")
   if (lastSlash === -1) {
     return { type, namespace: null, name: decodeURIComponent(fullPath), version, qualifiers, ecosystem }
   }
   const namespace = decodeURIComponent(fullPath.slice(0, lastSlash))
-  const name = namespace + "/" + decodeURIComponent(fullPath.slice(lastSlash + 1))
+  // Maven joins with ":" (groupId:artifactId): the form heretix-api and OSV
+  // match on, and what heretix-cli's own collectors send. Joined with "/", a
+  // Maven package from an SBOM never matched a single advisory.
+  const separator = ecosystem === "Maven" ? ":" : "/"
+  const name = namespace + separator + decodeURIComponent(fullPath.slice(lastSlash + 1))
   return { type, namespace, name, version, qualifiers, ecosystem }
 }

@@ -18,9 +18,9 @@ describe("buildPURL", () => {
     expect(buildPURL("github.com/pkg/errors", "0.9.1", "Go")).toBe("pkg:golang/github.com/pkg/errors@0.9.1")
   })
 
-  it("builds a Maven PURL", () => {
+  it("builds a Maven PURL with the groupId as its namespace", () => {
     expect(buildPURL("org.apache.commons:commons-lang3", "3.12.0", "Maven")).toBe(
-      "pkg:maven/org.apache.commons:commons-lang3@3.12.0",
+      "pkg:maven/org.apache.commons/commons-lang3@3.12.0",
     )
   })
 
@@ -125,6 +125,19 @@ describe("parsePURL", () => {
   it("keeps the namespace in a language package name and maps the ecosystem", () => {
     expect(parsePURL("pkg:npm/%40babel/core@7.20.0")).toMatchObject({ name: "@babel/core", ecosystem: "npm" })
     expect(parsePURL("pkg:golang/github.com/x/net@0.1.0")).toMatchObject({ name: "github.com/x/net", ecosystem: "Go" })
+  })
+
+  it("names a Maven package groupId:artifactId, the form heretix-api matches on", () => {
+    expect(parsePURL("pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.9.8")).toMatchObject({
+      name: "com.fasterxml.jackson.core:jackson-databind",
+      ecosystem: "Maven",
+    })
+  })
+
+  it("round-trips a Maven package between parsePURL and buildPURL", () => {
+    const purl = "pkg:maven/org.slf4j/slf4j-api@1.7.36"
+    const parsed = parsePURL(purl)!
+    expect(buildPURL(parsed.name, parsed.version!, parsed.ecosystem)).toBe(purl)
   })
 
   it("accepts a PURL without a version", () => {

@@ -187,7 +187,7 @@ describe("convertCycloneDXToInventory — language packages the OS installed", (
     const inv = convertCycloneDXToInventory({
       components: [{ "bom-ref": "os", type: "operating-system", name: "rhel", version: "9.8" }, ...osManagedComponents],
     })
-    for (const name of ["urllib3", "gpg", "tar", "net-imap", "com.google.guava/guava", "org.fusesource.jansi/jansi"]) {
+    for (const name of ["urllib3", "gpg", "tar", "net-imap", "com.google.guava:guava", "org.fusesource.jansi:jansi"]) {
       expect(pkg(inv, name)).toMatchObject({ scope: "excluded", category: "os-managed" })
     }
     // The rpm that actually installed urllib3 is still what gets scanned.
