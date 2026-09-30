@@ -773,7 +773,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
         filterPlaceholder="Search by package name..."
         secondFilterColumn="externalId"
         secondFilterPlaceholder="Vuln ID..."
-        initialPageSize={15}
+        initialPageSize={10}
         initialFilterValue={initialPackageName}
         onFilterReset={() => { router.push("/alerts") }}
         onRowClick={(row) => { setSelected(row); setOpen(true) }}
