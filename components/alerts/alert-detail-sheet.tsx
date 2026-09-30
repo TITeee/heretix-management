@@ -30,6 +30,7 @@ import { useRouter } from "next/navigation"
 import { getSlaStatus, formatDaysUntilDue } from "@/lib/sla"
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/severity"
 import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
+import { TagBadge } from "@/components/tags/tag-badge"
 import { IGNORE_REASONS, IGNORE_REASON_HINTS, isIgnoreReason } from "@/lib/vex"
 
 // Minimum Alert fields required by the detail sheet
@@ -70,6 +71,23 @@ export const VEX_JUSTIFICATION_LABELS: Record<string, string> = {
   protected_at_runtime:                          "Protected at runtime (WAF, sandbox…)",
   protected_at_perimeter:                        "Protected at network perimeter",
   protected_by_mitigating_control:               "Mitigating control in place",
+}
+
+type AlertTag = { id: string; name: string; color: string | null; description: string | null }
+type AlertTags = { assetTags: AlertTag[]; packageTags: AlertTag[] }
+
+function TagList({ tags }: { tags: AlertTag[] | undefined }) {
+  if (!tags) return null
+  if (tags.length === 0) return <span className="text-muted-foreground">None</span>
+  return (
+    <div className="flex flex-wrap gap-1">
+      {tags.map((tag) => (
+        <Link key={tag.id} href={`/tags/${tag.id}`} title={tag.description ?? undefined}>
+          <TagBadge tag={tag} className="hover:bg-accent" />
+        </Link>
+      ))}
+    </div>
+  )
 }
 
 /** An ignore judgment recorded for this same finding on another asset. */
@@ -612,6 +630,9 @@ export function AlertDetailSheet({
   const [slaEnabled, setSlaEnabled] = useState(true)
   const [aiEnabled, setAiEnabled] = useState(false)
   const [vexSuggestions, setVexSuggestions] = useState<VexSuggestion[]>([])
+  // Tagged with the alert it was fetched for, so switching alerts never shows
+  // the previous one's tags while the next request is in flight.
+  const [fetchedTags, setFetchedTags] = useState<{ alertId: string; tags: AlertTags | null } | null>(null)
 
   useEffect(() => {
     if (alert) {
@@ -679,6 +700,19 @@ export function AlertDetailSheet({
     // refresh doesn't trigger a redundant re-fetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, alert?.id, vexJustification])
+
+  useEffect(() => {
+    if (!open || !alert) return
+    const alertId = alert.id
+    let cancelled = false
+    fetch(`/api/alerts/${alertId}/tags`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then((tags: AlertTags | null) => { if (!cancelled) setFetchedTags({ alertId, tags }) })
+    return () => { cancelled = true }
+    // Same reasoning: keyed by id, not the alert object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, alert?.id])
 
   const ignoreComplete =
     isIgnoreReason(ignoreReason) && (ignoreReason !== "not_affected" || !!vexJustification)
@@ -771,6 +805,7 @@ export function AlertDetailSheet({
   if (!alert) return null
 
   const assetLabel = alert.asset.name || alert.asset.hostname
+  const alertTags = fetchedTags?.alertId === alert.id ? fetchedTags.tags : null
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -878,6 +913,10 @@ export function AlertDetailSheet({
                   <span className="w-28 text-muted-foreground shrink-0">Ecosystem</span>
                   <span>{alert.ecosystem}</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-28 text-muted-foreground shrink-0">Tags</span>
+                  <TagList tags={alertTags?.packageTags} />
+                </div>
                 {alert.approximateMatch && (
                   <div className="flex items-center gap-2">
                     <span className="w-28 text-muted-foreground shrink-0">Match</span>
@@ -904,6 +943,10 @@ export function AlertDetailSheet({
                   <Link href={`/assets/${alert.assetId}`} className="hover:underline text-primary">
                     {assetLabel}
                   </Link>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-28 text-muted-foreground shrink-0">Tags</span>
+                  <TagList tags={alertTags?.assetTags} />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-28 text-muted-foreground shrink-0">Detected</span>

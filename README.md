@@ -369,6 +369,7 @@ heretix-management/
 | GET | `/api/alerts/events` | List all alert events across all alerts |
 | GET | `/api/alerts/[id]/dependents` | Dependency paths to the vulnerable package (npm/pnpm) |
 | GET | `/api/alerts/[id]/vex-suggestions` | Prior VEX judgments for the same finding on other assets |
+| GET | `/api/alerts/[id]/tags` | Tags the alert falls under: `assetTags` on its asset, `packageTags` on its package name |
 | GET | `/api/alerts/[id]/chat` | AI Insight chat history for an alert |
 | POST | `/api/alerts/[id]/chat` | Send a message to the AI Insight assistant for an alert |
 | GET | `/api/assets/[id]/dependency-graph` | Dependency graph nodes and edges for visualization |

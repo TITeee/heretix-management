@@ -367,6 +367,7 @@ heretix-management/
 | GET | `/api/alerts/events` | 全アラートイベント一覧 |
 | GET | `/api/alerts/[id]/dependents` | 脆弱パッケージへの依存パス一覧（npm/pnpm） |
 | GET | `/api/alerts/[id]/vex-suggestions` | 同一 finding を他アセットで判断済みの VEX 内容 |
+| GET | `/api/alerts/[id]/tags` | アラートが属するタグ。`assetTags` はアセットのタグ、`packageTags` はパッケージ名のタグ |
 | GET | `/api/alerts/[id]/chat` | アラートの AI Insight チャット履歴 |
 | POST | `/api/alerts/[id]/chat` | アラートの AI Insight アシスタントにメッセージ送信 |
 | GET | `/api/assets/[id]/dependency-graph` | 依存グラフのノード・エッジデータ |
