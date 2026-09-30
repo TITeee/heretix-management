@@ -4,8 +4,7 @@ import { ColumnDef } from "@tanstack/react-table"
 import { ArrowUpDown, Trash2 } from "lucide-react"
 import { FaDocker, FaServer, FaWindows, FaLinux, FaUserPen } from "react-icons/fa6"
 import { Button } from "@/components/ui/button"
-import { SEVERITY_COLORS } from "@/lib/severity"
-import { Badge } from "@/components/ui/badge"
+import { SeverityCountBadges } from "@/components/alerts/severity-count-badges"
 import { TagBadge } from "@/components/tags/tag-badge"
 import { DeleteAssetDialog } from "@/components/assets/delete-asset-dialog"
 import { useRouter } from "next/navigation"
@@ -140,23 +139,7 @@ export const assetColumns: ColumnDef<AssetRow>[] = [
         Open Alerts <ArrowUpDown className="ml-1 h-3 w-3" />
       </Button>
     ),
-    cell: ({ row }) => {
-      const { critical, high, medium, low, na } = row.original.openAlerts
-      const total = critical + high + medium + low + na
-      if (total === 0) return <Badge variant="outline" className="rounded-md">0</Badge>
-      return (
-        <div className="flex gap-1 flex-nowrap">
-          {critical > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.critical }} className="text-white rounded-md">{critical}</Badge>}
-          {high > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.high }} className="text-white rounded-md">{high}</Badge>}
-          {medium > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.medium }} className="text-white rounded-md">{medium}</Badge>}
-          {low > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.low }} className="text-white rounded-md">{low}</Badge>}
-          {/* Filled from SEVERITY_COLORS like the other four rather than left as an
-              outline badge, so this reads as the same "N/A" the dashboard charts show.
-              Dark text, not the white the others use: SEVERITY_COLORS.na is a light grey. */}
-          {na > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.na }} className="text-neutral-900 rounded-md">{na}</Badge>}
-        </div>
-      )
-    },
+    cell: ({ row }) => <SeverityCountBadges counts={row.original.openAlerts} />,
   },
   {
     accessorKey: "scannedAt",

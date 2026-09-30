@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
+import { SeverityCountBadges } from "@/components/alerts/severity-count-badges"
+import { emptySeverityCounts, type SeverityCounts } from "@/lib/severity"
 import { AddItemsPopover, type AddItemsSource } from "./add-items-popover"
 
 type AssetItem = {
@@ -38,7 +40,7 @@ type TagDetail = {
   packageTags: PackageTagItem[]
   alertSummary: AlertSummary
   kevCount: number
-  assetAlertCounts: Record<string, number>
+  assetAlertSeverities: Record<string, SeverityCounts>
   packageAlertCounts: Record<string, number>
   packageEcosystems: Record<string, string>
 }
@@ -191,9 +193,7 @@ export function TagDetailClient({ id }: { id: string }) {
                       <Badge variant="outline" className="capitalize text-xs">{at.asset.assetType}</Badge>
                     </td>
                     <td className="px-4 py-3">
-                      {tag.assetAlertCounts[at.assetId]
-                        ? <span className="text-destructive font-medium">{tag.assetAlertCounts[at.assetId]}</span>
-                        : <span className="text-muted-foreground">0</span>}
+                      <SeverityCountBadges counts={tag.assetAlertSeverities[at.assetId] ?? emptySeverityCounts()} />
                     </td>
                     <td className="px-4 py-3">
                       <div onClick={e => e.stopPropagation()}>

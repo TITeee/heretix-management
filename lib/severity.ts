@@ -45,3 +45,30 @@ export function getAlertSeverityTier(severity: string | null, score: number | nu
     default: return getSeverityTier(score)
   }
 }
+
+export type SeverityCounts = Record<SeverityTier, number>
+
+export function emptySeverityCounts(): SeverityCounts {
+  return { critical: 0, high: 0, medium: 0, low: 0, na: 0 }
+}
+
+/**
+ * Alert counts per severity tier, grouped by `keyOf` (an asset id, a package
+ * name, ...). Tiered from the severity field alone, with no cvssScore
+ * fallback, exactly like buildAlertSummary: anything not CRITICAL/HIGH/MEDIUM/
+ * LOW is N/A. That keeps a page's per-row badges adding up to the Open Alert
+ * Summary shown above them.
+ */
+export function countSeverityByKey<T extends { severity: string | null }>(
+  alerts: T[],
+  keyOf: (alert: T) => string,
+): Map<string, SeverityCounts> {
+  const byKey = new Map<string, SeverityCounts>()
+  for (const alert of alerts) {
+    const key = keyOf(alert)
+    const counts = byKey.get(key) ?? emptySeverityCounts()
+    counts[getAlertSeverityTier(alert.severity, null)]++
+    byKey.set(key, counts)
+  }
+  return byKey
+}

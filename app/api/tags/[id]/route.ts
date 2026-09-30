@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { buildAlertSummary } from "@/components/alerts/alert-summary-badges"
+import { countSeverityByKey, type SeverityCounts } from "@/lib/severity"
 
 export async function GET(
   _req: NextRequest,
@@ -47,15 +48,15 @@ export async function GET(
     })
   }
 
-  // Open alert counts per asset
-  let assetAlertCounts: Record<string, number> = {}
+  // Open alerts per asset, split by severity tier. Tiered the same way as
+  // alertSummary above, so a tag's per-asset badges add up to its summary.
+  let assetAlertSeverities: Record<string, SeverityCounts> = {}
   if (tag.type === "asset") {
-    const counts = await prisma.alert.groupBy({
-      by: ["assetId"],
+    const openAlerts = await prisma.alert.findMany({
       where: { assetId: { in: tag.assetTags.map(at => at.assetId) }, status: { in: ["open", "in_progress"] } },
-      _count: { id: true },
+      select: { assetId: true, severity: true },
     })
-    assetAlertCounts = Object.fromEntries(counts.map(c => [c.assetId, c._count.id]))
+    assetAlertSeverities = Object.fromEntries(countSeverityByKey(openAlerts, a => a.assetId))
   }
 
   // Open alert counts per package name
@@ -79,7 +80,7 @@ export async function GET(
     packageEcosystems = Object.fromEntries(pkgs.map(p => [p.name, p.ecosystem ?? ""]))
   }
 
-  return NextResponse.json({ ...tag, alertSummary, kevCount, assetAlertCounts, packageAlertCounts, packageEcosystems })
+  return NextResponse.json({ ...tag, alertSummary, kevCount, assetAlertSeverities, packageAlertCounts, packageEcosystems })
 }
 
 export async function PATCH(
