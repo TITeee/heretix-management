@@ -7,6 +7,7 @@ import { Bell, FileDown, FileJson } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TagBadge } from "@/components/tags/tag-badge"
+import { EditTagsPopover } from "./edit-tags-popover"
 import Link from "next/link"
 import { ScanButton } from "./scan-button"
 import { ImportVexButton } from "./import-vex-button"
@@ -215,17 +216,13 @@ export default async function AssetDetailPage({
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-sm text-muted-foreground">Tags</CardTitle>
+            <EditTagsPopover assetId={id} assignedIds={tags.map((t) => t.id)} />
           </CardHeader>
           <CardContent>
             {tags.length === 0 ? (
-              // Tags are assigned from the Tags section, not here — point there rather
-              // than leaving a dead end, since this card is the likeliest place someone
-              // notices an asset is untagged.
-              <Link href="/tags" className="text-sm text-muted-foreground hover:underline">
-                No tags assigned
-              </Link>
+              <span className="text-sm text-muted-foreground">No tags assigned</span>
             ) : (
               <div className="flex gap-1 flex-wrap">
                 {tags.map((tag) => (

@@ -358,6 +358,7 @@ heretix-management/
 | PATCH | `/api/assets/[id]` | Update an asset: `name`, `hostname` (trimmed, must be unique), and `assetType` for a manually registered asset. OS fields are not editable (set by imports). Changes are audited |
 | DELETE | `/api/assets/[id]` | Delete asset |
 | POST | `/api/assets/[id]/scan` | Run vulnerability scan. Accepts an access token with the `scan` scope |
+| POST | `/api/assets/[id]/tags` | Add and remove the asset's tags. Body: `{ "add": [tagIds], "remove": [tagIds] }` (either may be omitted); `add` accepts asset tags only |
 | POST | `/api/assets/[id]/packages` | Add manual package |
 | PATCH | `/api/assets/[id]/packages/[pkgId]` | Edit manual package |
 | DELETE | `/api/assets/[id]/packages/[pkgId]` | Delete manual package |

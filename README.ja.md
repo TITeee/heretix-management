@@ -356,6 +356,7 @@ heretix-management/
 | PATCH | `/api/assets/[id]` | アセット情報更新：`name`・`hostname`（前後の空白を除去、重複不可）、手動登録アセットのみ `assetType`。OS 情報は取り込み時に設定されるため編集不可。変更は監査ログに記録 |
 | DELETE | `/api/assets/[id]` | アセット削除 |
 | POST | `/api/assets/[id]/scan` | 脆弱性スキャン実行。`scan` スコープの アクセストークンで認証可 |
+| POST | `/api/assets/[id]/tags` | アセットのタグの追加・解除。Body: `{ "add": [tagIds], "remove": [tagIds] }`（どちらも省略可）。`add` はアセット用のタグのみ受け付ける |
 | POST | `/api/assets/[id]/packages` | 手動パッケージ追加 |
 | PATCH | `/api/assets/[id]/packages/[pkgId]` | 手動パッケージ編集 |
 | DELETE | `/api/assets/[id]/packages/[pkgId]` | 手動パッケージ削除 |
