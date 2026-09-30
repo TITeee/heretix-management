@@ -59,18 +59,17 @@ export async function GET(
     assetAlertSeverities = Object.fromEntries(countSeverityByKey(openAlerts, a => a.assetId))
   }
 
-  // Open alert counts per package name
-  let packageAlertCounts: Record<string, number> = {}
+  // Open alerts per package name, split by severity tier (same rule as above)
+  let packageAlertSeverities: Record<string, SeverityCounts> = {}
   // Ecosystem per package name (first match)
   let packageEcosystems: Record<string, string> = {}
   if (tag.type === "package") {
     const packageNames = tag.packageTags.map(pt => pt.packageName)
-    const counts = await prisma.alert.groupBy({
-      by: ["packageName"],
+    const openAlerts = await prisma.alert.findMany({
       where: { packageName: { in: packageNames }, status: { in: ["open", "in_progress"] } },
-      _count: { id: true },
+      select: { packageName: true, severity: true },
     })
-    packageAlertCounts = Object.fromEntries(counts.map(c => [c.packageName, c._count.id]))
+    packageAlertSeverities = Object.fromEntries(countSeverityByKey(openAlerts, a => a.packageName))
 
     const pkgs = await prisma.package.findMany({
       where: { name: { in: packageNames } },
@@ -80,7 +79,7 @@ export async function GET(
     packageEcosystems = Object.fromEntries(pkgs.map(p => [p.name, p.ecosystem ?? ""]))
   }
 
-  return NextResponse.json({ ...tag, alertSummary, kevCount, assetAlertSeverities, packageAlertCounts, packageEcosystems })
+  return NextResponse.json({ ...tag, alertSummary, kevCount, assetAlertSeverities, packageAlertSeverities, packageEcosystems })
 }
 
 export async function PATCH(

@@ -41,7 +41,7 @@ type TagDetail = {
   alertSummary: AlertSummary
   kevCount: number
   assetAlertSeverities: Record<string, SeverityCounts>
-  packageAlertCounts: Record<string, number>
+  packageAlertSeverities: Record<string, SeverityCounts>
   packageEcosystems: Record<string, string>
 }
 
@@ -250,9 +250,7 @@ export function TagDetailClient({ id }: { id: string }) {
                       {tag.packageEcosystems[pt.packageName] || "—"}
                     </td>
                     <td className="px-4 py-3">
-                      {tag.packageAlertCounts[pt.packageName]
-                        ? <span className="text-destructive font-medium">{tag.packageAlertCounts[pt.packageName]}</span>
-                        : <span className="text-muted-foreground">0</span>}
+                      <SeverityCountBadges counts={tag.packageAlertSeverities[pt.packageName] ?? emptySeverityCounts()} />
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Button
