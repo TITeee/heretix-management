@@ -31,6 +31,7 @@ import { getSlaStatus, formatDaysUntilDue } from "@/lib/sla"
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/severity"
 import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
 import { TagBadge } from "@/components/tags/tag-badge"
+import { distroPriorityLabel } from "@/lib/distro-priority"
 import { IGNORE_REASONS, IGNORE_REASON_HINTS, isIgnoreReason } from "@/lib/vex"
 
 // Minimum Alert fields required by the detail sheet
@@ -55,6 +56,7 @@ export type SheetAlert = {
   ignoreReason?: string | null
   fixedVersion?: string | null
   approximateMatch?: boolean
+  distroPriority?: string | null
   detectedAt: Date
   dueDate: Date | null
   resolvedAt: Date | null
@@ -855,6 +857,15 @@ export function AlertDetailSheet({
                     {alert.cvssVector && <CvssVectorTooltip vector={alert.cvssVector} />}
                   </div>
                 </div>
+                {alert.distroPriority && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 text-muted-foreground shrink-0">Distro Rating</span>
+                    <span>
+                      {distroPriorityLabel(alert.ecosystem, alert.distroPriority)}
+                      <span className="text-muted-foreground text-xs ml-2">(the distro&apos;s own rating for this package)</span>
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <span className="w-28 text-muted-foreground shrink-0">EPSS</span>
                   <span className="tabular-nums">

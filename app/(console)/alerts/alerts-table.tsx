@@ -14,6 +14,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { SEVERITY_COLORS, STATUS_LABELS, getAlertSeverityTier } from "@/lib/severity"
 import { AlertDetailSheet, StatusIcon, statusColorClass, statusSelectStyle, StatusOptionLabel } from "@/components/alerts/alert-detail-sheet"
 import { formatDaysUntilDue, getSlaStatus } from "@/lib/sla"
+import { distroPriorityLabel, distroPrioritySortKey } from "@/lib/distro-priority"
 import {
   Select,
   SelectContent,
@@ -51,6 +52,7 @@ export type Alert = {
   packageDirect?: boolean | null
   packageExists?: boolean
   sourcePackage?: string | null
+  distroPriority?: string | null
   detectedAt: Date
   dueDate: Date | null
   updatedAt: Date
@@ -186,6 +188,25 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
       </Button>
     ),
     cell: ({ row }) => <AlertSeverityBadge severity={row.original.severity} score={row.original.cvssScore} />,
+  },
+  {
+    // Next to CVSS so a gap between the CVE-wide rating and the distro's own
+    // (NVD 9.8, Red Hat "low") is visible without opening the alert. Sorts by
+    // distro, then severity on that distro's own scale; unrated rows stay last.
+    id: "distroPriority",
+    accessorFn: (row) => distroPrioritySortKey(row.ecosystem, row.distroPriority),
+    sortUndefined: "last",
+    header: ({ column }) => (
+      <Button variant="ghost" size="sm" onClick={() => column.toggleSorting()}>
+        Distro Rating <ArrowUpDown className="ml-1 h-3 w-3" />
+      </Button>
+    ),
+    cell: ({ row }) => {
+      const label = distroPriorityLabel(row.original.ecosystem, row.original.distroPriority)
+      return label
+        ? <span className="text-xs whitespace-nowrap">{label}</span>
+        : <span className="text-xs text-muted-foreground">None</span>
+    },
   },
   {
     accessorKey: "isKev",
@@ -397,6 +418,9 @@ const CVSS_OPTIONS = [
   { value: "low", label: "Low" },
 ]
 
+// Filter value for alerts with no distro rating; not a label any distro uses.
+const NO_DISTRO_RATING = "\u0000none"
+
 const KEV_OPTIONS = [
   { value: "kev", label: "KEV" },
   { value: "malware", label: "Malware" },
@@ -426,6 +450,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
   const [dependencyFilter, setDependencyFilter] = useState<Set<string>>(new Set())
   const [inventoryFilter, setInventoryFilter] = useState<Set<string>>(new Set())
   const [dueFilter, setDueFilter] = useState<Set<string>>(new Set())
+  const [distroFilter, setDistroFilter] = useState<Set<string>>(new Set())
   const [selectedAlerts, setSelectedAlerts] = useState<Alert[]>([])
   const [bulkStatus, setBulkStatus] = useState("")
   const [bulkLoading, setBulkLoading] = useState(false)
@@ -444,6 +469,21 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
       .map(eco => ({ value: eco, label: eco })),
     [data]
   )
+
+  // One option per distro-and-rating pair actually present, since each distro
+  // rates on its own scale; empty (and the filter hidden) when none has one.
+  const distroOptions = useMemo(() => {
+    const labels = new Set<string>()
+    for (const a of data) {
+      const label = distroPriorityLabel(a.ecosystem, a.distroPriority)
+      if (label) labels.add(label)
+    }
+    if (labels.size === 0) return []
+    return [
+      ...[...labels].sort().map(l => ({ value: l, label: l })),
+      { value: NO_DISTRO_RATING, label: "None" },
+    ]
+  }, [data])
 
   const sourcesOptions = useMemo(() =>
     [...new Set(data.flatMap(a => a.sources))]
@@ -487,8 +527,12 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
       const status = getSlaStatus(alert.dueDate ? new Date(alert.dueDate) : null)
       if (!dueFilter.has(status)) return false
     }
+    if (distroFilter.size > 0) {
+      const label = distroPriorityLabel(alert.ecosystem, alert.distroPriority) ?? NO_DISTRO_RATING
+      if (!distroFilter.has(label)) return false
+    }
     return true
-  }), [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter, inventoryFilter, dueFilter])
+  }), [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter, inventoryFilter, dueFilter, distroFilter])
 
   // Collapses sibling findings from the same upstream source package (e.g.
   // binutils splits into eight binary packages on Debian, each reporting the
@@ -510,7 +554,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
     })
   }, [filteredData])
 
-  const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0 || dependencyFilter.size > 0 || inventoryFilter.size > 0 || dueFilter.size > 0
+  const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0 || dependencyFilter.size > 0 || inventoryFilter.size > 0 || dueFilter.size > 0 || distroFilter.size > 0
 
   function handleStatusChange(alertId: string, newStatus: string) {
     setData(prev => prev.map(a => a.id === alertId ? { ...a, status: newStatus } : a))
@@ -647,6 +691,15 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
           selected={cvssFilter}
           onSelectedChange={setCvssFilter}
         />
+        {distroOptions.length > 0 && (
+          <DataTableFacetedFilter
+            title="Distro Rating"
+            options={distroOptions}
+            selected={distroFilter}
+            onSelectedChange={setDistroFilter}
+            searchable
+          />
+        )}
         <DataTableFacetedFilter
           title="Risk"
           options={KEV_OPTIONS}
@@ -705,7 +758,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
             size="sm"
             onClick={() => {
               if (initialAssetId) { router.push("/alerts"); return }
-              setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set()); setDependencyFilter(new Set()); setInventoryFilter(new Set()); setDueFilter(new Set())
+              setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set()); setDependencyFilter(new Set()); setInventoryFilter(new Set()); setDueFilter(new Set()); setDistroFilter(new Set())
             }}
           >
             Reset <X className="ml-1 size-4" />
@@ -728,7 +781,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
         getRowId={(row) => row.id}
         onRowSelectionChange={(rows) => setSelectedAlerts(rows.flatMap(r => r._groupMembers ?? [r]))}
         initialSorting={[{ id: "detectedAt", desc: true }]}
-        initialColumnVisibility={{ updatedAt: false, sources: false, dueDate: false }}
+        initialColumnVisibility={{ updatedAt: false, sources: false, dueDate: false, distroPriority: false }}
         exportRef={exportRef}
         headerActions={
           <div className="flex items-center gap-2">

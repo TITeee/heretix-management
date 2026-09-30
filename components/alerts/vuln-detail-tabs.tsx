@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SEVERITY_COLORS } from "@/lib/severity"
 import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
+import { osvDistroRatings } from "@/lib/distro-priority"
 
 export type NvdPackage = {
   cpe: string | null
@@ -22,6 +23,8 @@ export type OsvPackage = {
   introducedVersion: string | null
   fixedVersion: string | null
   lastAffectedVersion: string | null
+  /** Debian's per-release urgency; older heretix-api omits it. */
+  distroPriority?: string | null
 }
 
 export type CvssMetric = {
@@ -130,6 +133,8 @@ export type VulnDetail = {
     summary: string | null
     publishedAt: string | null
     severity: string | null
+    /** Ubuntu's per-record priority; older heretix-api omits it. */
+    distroPriority?: string | null
     affectedPackages: OsvPackage[]
     rawData: OsvRawData
   }>
@@ -454,6 +459,16 @@ export function OsvTab({ detail, loading, error }: { detail: VulnDetail | null; 
                 <span className="w-28 text-muted-foreground shrink-0">Severity</span>
                 <span>{osv.severity ?? "n/a"}</span>
               </div>
+              {/* Separate from Severity (the CVE-wide rating): the distro's own
+                  judgement, which Ubuntu/Debian records carry instead of one. */}
+              {osvDistroRatings(osv).length > 0 && (
+                <div className="flex items-start gap-2">
+                  <span className="w-28 text-muted-foreground shrink-0">Distro Rating</span>
+                  <span className="flex flex-col">
+                    {osvDistroRatings(osv).map((r) => <span key={r}>{r}</span>)}
+                  </span>
+                </div>
+              )}
               {osv.summary && (
                 <div className="flex gap-2">
                   <span className="w-28 text-muted-foreground shrink-0">Summary</span>

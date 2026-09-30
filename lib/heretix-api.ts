@@ -33,6 +33,13 @@ export type VulnSearchResult = {
   epssPercentile: number | null
   fixedVersion: string | null
   /**
+   * The distro's own rating of this CVE for the matched package, verbatim
+   * (Ubuntu priority, Debian urgency, Red Hat impact); null when the match
+   * came from a source without one. Per package match, unlike severity,
+   * which is the CVE-wide rating. Optional: older heretix-api omits it.
+   */
+  distroPriority?: string | null
+  /**
    * Every id this finding is reachable by, including externalId. externalId is
    * the *preferred* id and changes when a CVE is assigned to something that only
    * had a vendor or OSV id before; the others stay put, so they are what lets an

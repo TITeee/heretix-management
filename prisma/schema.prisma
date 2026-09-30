@@ -117,6 +117,13 @@ model Alert {
   // identity, matching, or the unique constraint below — packageName stays
   // the real installed package name throughout.
   sourcePackage     String?
+  // The distro's own rating of this CVE for this package, verbatim from
+  // heretix-api (Ubuntu "negligible".."critical", Debian "unimportant"..
+  // "high", Red Hat "low".."critical"; null where the source carries none).
+  // Display and filtering only: never feeds severity, SLA, or dedup. It comes
+  // from a package-level match, so only a scan sets it; the daily metadata
+  // refresh (a CVE-level lookup) never sees it.
+  distroPriority    String?
   detectedAt        DateTime       @default(now())
   dueDate           DateTime?
   resolvedAt     DateTime?
