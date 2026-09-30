@@ -381,8 +381,8 @@ heretix-management/
 | GET | `/api/tags/[id]` | Tag detail (with tagged assets/packages) |
 | PATCH | `/api/tags/[id]` | Update tag |
 | DELETE | `/api/tags/[id]` | Delete tag |
-| POST | `/api/tags/[id]/assets` | Assign tag to an asset |
-| POST | `/api/tags/[id]/packages` | Assign tag to a package |
+| POST | `/api/tags/[id]/assets` | Add or remove the tag on assets. Body: `{ "action": "add" \| "remove", "assetIds": [...] }` (a single `assetId` is also accepted); adding an already-tagged asset is a no-op |
+| POST | `/api/tags/[id]/packages` | Add or remove the tag on packages. Body: `{ "action": "add" \| "remove", "packageNames": [...] }` (a single `packageName` is also accepted); adding an already-tagged package is a no-op |
 | GET | `/api/settings` | Get settings |
 | PATCH | `/api/settings` | Update settings |
 | POST | `/api/settings/test` | Test heretix-api connectivity |

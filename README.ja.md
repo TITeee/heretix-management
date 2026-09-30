@@ -379,8 +379,8 @@ heretix-management/
 | GET | `/api/tags/[id]` | タグ詳細（紐づくアセット・パッケージ含む） |
 | PATCH | `/api/tags/[id]` | タグ更新 |
 | DELETE | `/api/tags/[id]` | タグ削除 |
-| POST | `/api/tags/[id]/assets` | アセットへタグを割り当て |
-| POST | `/api/tags/[id]/packages` | パッケージへタグを割り当て |
+| POST | `/api/tags/[id]/assets` | アセットへのタグの追加・解除。Body: `{ "action": "add" \| "remove", "assetIds": [...] }`（単数の `assetId` も可）。タグ付け済みのアセットを追加しても何も起きない |
+| POST | `/api/tags/[id]/packages` | パッケージへのタグの追加・解除。Body: `{ "action": "add" \| "remove", "packageNames": [...] }`（単数の `packageName` も可）。タグ付け済みのパッケージを追加しても何も起きない |
 | GET | `/api/settings` | 設定取得 |
 | PATCH | `/api/settings` | 設定更新 |
 | POST | `/api/settings/test` | heretix-api 疎通確認 |

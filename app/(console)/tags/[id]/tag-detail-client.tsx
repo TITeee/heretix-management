@@ -9,8 +9,8 @@ import {
   BreadcrumbLink, BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Plus, Trash2, Search } from "lucide-react"
+import { Trash2 } from "lucide-react"
+import { AddItemsPopover, type AddItemsSource } from "./add-items-popover"
 
 type AssetItem = {
   id: string
@@ -43,154 +43,39 @@ type TagDetail = {
   packageEcosystems: Record<string, string>
 }
 
-function AssetSearchAdd({ tagId, existingIds, onAdded }: {
-  tagId: string
-  existingIds: Set<string>
-  onAdded: () => void
-}) {
-  const [query, setQuery] = useState("")
-  const [results, setResults] = useState<AssetItem[]>([])
-  const [searching, setSearching] = useState(false)
-  const [adding, setAdding] = useState<string | null>(null)
-
-  async function doSearch() {
-    if (!query.trim()) return
-    setSearching(true)
-    try {
-      const res = await fetch(`/api/assets?search=${encodeURIComponent(query)}&limit=10`)
-      if (res.ok) {
-        const data = await res.json()
-        setResults((data.assets ?? data).filter((a: AssetItem) => !existingIds.has(a.id)))
-      }
-    } finally {
-      setSearching(false)
-    }
-  }
-
-  async function addAsset(assetId: string) {
-    setAdding(assetId)
-    try {
-      await fetch(`/api/tags/${tagId}/assets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "add", assetId }),
-      })
-      onAdded()
-      setResults([])
-      setQuery("")
-    } finally {
-      setAdding(null)
-    }
-  }
-
-  return (
-    <div className="space-y-2 w-1/3 min-w-64">
-      <div className="flex gap-2">
-        <Input
-          placeholder="Search assets by name or hostname..."
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && doSearch()}
-          className="flex-1"
-        />
-        <Button size="sm" onClick={doSearch} disabled={searching}>
-          <Search className="h-4 w-4 mr-1" />
-          Search
-        </Button>
-      </div>
-      {results.length > 0 && (
-        <div className="rounded-md border divide-y">
-          {results.map(a => (
-            <div key={a.id} className="flex items-center justify-between px-3 py-2 text-sm">
-              <div>
-                <span className="font-medium">{a.name}</span>
-                {a.hostname && <span className="text-muted-foreground ml-2 text-xs">{a.hostname}</span>}
-              </div>
-              <Button size="sm" disabled={adding === a.id} onClick={() => addAsset(a.id)}>
-                <Plus className="h-3 w-3 mr-1" />
-                Add
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+// Every asset, filtered in the popover: an install has at most a few thousand.
+const assetSource: AddItemsSource = {
+  kind: "local",
+  load: async () => {
+    const res = await fetch("/api/assets")
+    if (!res.ok) throw new Error(`assets: ${res.status}`)
+    const data = await res.json()
+    return (data.assets ?? data).map((a: AssetItem) => ({
+      value: a.id,
+      label: a.name,
+      detail: a.hostname && a.hostname !== a.name ? a.hostname : undefined,
+    }))
+  },
 }
 
-function PackageAdd({ tagId, existingNames, onAdded }: {
-  tagId: string
-  existingNames: Set<string>
-  onAdded: () => void
-}) {
-  const [query, setQuery] = useState("")
-  const [results, setResults] = useState<{ name: string; ecosystem: string }[]>([])
-  const [searching, setSearching] = useState(false)
-  const [adding, setAdding] = useState<string | null>(null)
+// Package names run to tens of thousands across assets: searched per query.
+const packageSource: AddItemsSource = {
+  kind: "remote",
+  search: async (query) => {
+    const res = await fetch(`/api/packages?search=${encodeURIComponent(query)}&limit=100`)
+    if (!res.ok) throw new Error(`packages: ${res.status}`)
+    const data: { name: string; ecosystem: string }[] = await res.json()
+    return data.map((p) => ({ value: p.name, label: p.name, detail: p.ecosystem || undefined }))
+  },
+}
 
-  async function doSearch() {
-    if (!query.trim()) return
-    setSearching(true)
-    try {
-      const res = await fetch(`/api/packages?search=${encodeURIComponent(query)}&limit=100`)
-      if (res.ok) {
-        const data: { name: string; ecosystem: string }[] = await res.json()
-        setResults(data.filter(p => !existingNames.has(p.name)))
-      }
-    } finally {
-      setSearching(false)
-    }
-  }
-
-  async function addPackage(packageName: string) {
-    setAdding(packageName)
-    try {
-      await fetch(`/api/tags/${tagId}/packages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "add", packageName }),
-      })
-      onAdded()
-      setResults([])
-      setQuery("")
-    } finally {
-      setAdding(null)
-    }
-  }
-
-  return (
-    <div className="space-y-2 w-1/3 min-w-64">
-      <div className="flex gap-2">
-        <Input
-          placeholder="Search packages by name..."
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && doSearch()}
-          className="flex-1"
-        />
-        <Button size="sm" onClick={doSearch} disabled={searching}>
-          <Search className="h-4 w-4 mr-1" />
-          Search
-        </Button>
-      </div>
-      {results.length > 0 && (
-        <div className="rounded-md border divide-y max-h-64 overflow-y-auto">
-          {results.map(p => (
-            <div key={p.name} className="flex items-center justify-between px-3 py-2 text-sm">
-              <div>
-                <span className="font-medium">{p.name}</span>
-                {p.ecosystem && <span className="text-muted-foreground ml-2 text-xs">{p.ecosystem}</span>}
-              </div>
-              <Button size="sm" disabled={adding === p.name} onClick={() => addPackage(p.name)}>
-                <Plus className="h-3 w-3 mr-1" />
-                Add
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+async function postTagMembers(url: string, body: Record<string, unknown>) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`${url}: ${res.status}`)
 }
 
 export function TagDetailClient({ id }: { id: string }) {
@@ -269,10 +154,15 @@ export function TagDetailClient({ id }: { id: string }) {
       {tag.type === "asset" && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Assets ({tag.assetTags.length})</h2>
-          <AssetSearchAdd
-            tagId={tag.id}
-            existingIds={existingAssetIds}
-            onAdded={load}
+          <AddItemsPopover
+            title="Add assets"
+            noun="assets"
+            source={assetSource}
+            excluded={existingAssetIds}
+            onAdd={async (assetIds) => {
+              await postTagMembers(`/api/tags/${tag.id}/assets`, { action: "add", assetIds })
+              await load()
+            }}
           />
           <div className="rounded-lg border">
             <table className="w-full text-sm">
@@ -329,7 +219,16 @@ export function TagDetailClient({ id }: { id: string }) {
       {tag.type === "package" && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Packages ({tag.packageTags.length})</h2>
-          <PackageAdd tagId={tag.id} existingNames={existingPkgNames} onAdded={load} />
+          <AddItemsPopover
+            title="Add packages"
+            noun="packages"
+            source={packageSource}
+            excluded={existingPkgNames}
+            onAdd={async (packageNames) => {
+              await postTagMembers(`/api/tags/${tag.id}/packages`, { action: "add", packageNames })
+              await load()
+            }}
+          />
           <div className="rounded-lg border">
             <table className="w-full text-sm">
               <thead>
