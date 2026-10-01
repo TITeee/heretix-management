@@ -15,6 +15,7 @@ import { SEVERITY_COLORS, STATUS_LABELS, getAlertSeverityTier } from "@/lib/seve
 import { AlertDetailSheet, StatusIcon, statusColorClass, statusSelectStyle, StatusOptionLabel } from "@/components/alerts/alert-detail-sheet"
 import { formatDaysUntilDue, getSlaStatus } from "@/lib/sla"
 import { distroPriorityLabel, distroPrioritySortKey } from "@/lib/distro-priority"
+import { fixStatusLabel, fixStatusSortKey } from "@/lib/fix-status"
 import {
   Select,
   SelectContent,
@@ -53,6 +54,8 @@ export type Alert = {
   packageExists?: boolean
   sourcePackage?: string | null
   distroPriority?: string | null
+  fixStatus?: string | null
+  fixStatusDetail?: string | null
   detectedAt: Date
   dueDate: Date | null
   updatedAt: Date
@@ -205,6 +208,25 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
       const label = distroPriorityLabel(row.original.ecosystem, row.original.distroPriority)
       return label
         ? <span className="text-xs whitespace-nowrap">{label}</span>
+        : <span className="text-xs text-muted-foreground">None</span>
+    },
+  },
+  {
+    // Why there is no fix: the difference between "wait for it" (deferred)
+    // and "accept it now" (will not fix). Sorts from a fix may still come to
+    // no fix will come; rows without one stay last.
+    id: "fixStatus",
+    accessorFn: (row) => fixStatusSortKey(row.fixStatus),
+    sortUndefined: "last",
+    header: ({ column }) => (
+      <Button variant="ghost" size="sm" onClick={() => column.toggleSorting()}>
+        Fix Status <ArrowUpDown className="ml-1 h-3 w-3" />
+      </Button>
+    ),
+    cell: ({ row }) => {
+      const label = fixStatusLabel(row.original.fixStatus)
+      return label
+        ? <span className="text-xs whitespace-nowrap" title={row.original.fixStatusDetail ?? undefined}>{label}</span>
         : <span className="text-xs text-muted-foreground">None</span>
     },
   },
@@ -418,8 +440,9 @@ const CVSS_OPTIONS = [
   { value: "low", label: "Low" },
 ]
 
-// Filter value for alerts with no distro rating; not a label any distro uses.
-const NO_DISTRO_RATING = "\u0000none"
+// Filter value for alerts with no distro rating / fix status; not a label
+// either can ever have.
+const NONE_OPTION = "\u0000none"
 
 const KEV_OPTIONS = [
   { value: "kev", label: "KEV" },
@@ -451,6 +474,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
   const [inventoryFilter, setInventoryFilter] = useState<Set<string>>(new Set())
   const [dueFilter, setDueFilter] = useState<Set<string>>(new Set())
   const [distroFilter, setDistroFilter] = useState<Set<string>>(new Set())
+  const [fixStatusFilter, setFixStatusFilter] = useState<Set<string>>(new Set())
   const [selectedAlerts, setSelectedAlerts] = useState<Alert[]>([])
   const [bulkStatus, setBulkStatus] = useState("")
   const [bulkLoading, setBulkLoading] = useState(false)
@@ -481,7 +505,21 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
     if (labels.size === 0) return []
     return [
       ...[...labels].sort().map(l => ({ value: l, label: l })),
-      { value: NO_DISTRO_RATING, label: "None" },
+      { value: NONE_OPTION, label: "None" },
+    ]
+  }, [data])
+
+  // One option per fix status actually present, in the column's order;
+  // empty (and the filter hidden) when no alert has one.
+  const fixStatusOptions = useMemo(() => {
+    const statuses = new Set<string>()
+    for (const a of data) if (a.fixStatus) statuses.add(a.fixStatus)
+    if (statuses.size === 0) return []
+    return [
+      ...[...statuses]
+        .sort((x, y) => fixStatusSortKey(x)! - fixStatusSortKey(y)! || x.localeCompare(y))
+        .map(s => ({ value: s, label: fixStatusLabel(s)! })),
+      { value: NONE_OPTION, label: "None" },
     ]
   }, [data])
 
@@ -528,11 +566,12 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
       if (!dueFilter.has(status)) return false
     }
     if (distroFilter.size > 0) {
-      const label = distroPriorityLabel(alert.ecosystem, alert.distroPriority) ?? NO_DISTRO_RATING
+      const label = distroPriorityLabel(alert.ecosystem, alert.distroPriority) ?? NONE_OPTION
       if (!distroFilter.has(label)) return false
     }
+    if (fixStatusFilter.size > 0 && !fixStatusFilter.has(alert.fixStatus || NONE_OPTION)) return false
     return true
-  }), [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter, inventoryFilter, dueFilter, distroFilter])
+  }), [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter, inventoryFilter, dueFilter, distroFilter, fixStatusFilter])
 
   // Collapses sibling findings from the same upstream source package (e.g.
   // binutils splits into eight binary packages on Debian, each reporting the
@@ -554,7 +593,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
     })
   }, [filteredData])
 
-  const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0 || dependencyFilter.size > 0 || inventoryFilter.size > 0 || dueFilter.size > 0 || distroFilter.size > 0
+  const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0 || dependencyFilter.size > 0 || inventoryFilter.size > 0 || dueFilter.size > 0 || distroFilter.size > 0 || fixStatusFilter.size > 0
 
   function handleStatusChange(alertId: string, newStatus: string) {
     setData(prev => prev.map(a => a.id === alertId ? { ...a, status: newStatus } : a))
@@ -700,6 +739,14 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
             searchable
           />
         )}
+        {fixStatusOptions.length > 0 && (
+          <DataTableFacetedFilter
+            title="Fix Status"
+            options={fixStatusOptions}
+            selected={fixStatusFilter}
+            onSelectedChange={setFixStatusFilter}
+          />
+        )}
         <DataTableFacetedFilter
           title="Risk"
           options={KEV_OPTIONS}
@@ -758,7 +805,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
             size="sm"
             onClick={() => {
               if (initialAssetId) { router.push("/alerts"); return }
-              setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set()); setDependencyFilter(new Set()); setInventoryFilter(new Set()); setDueFilter(new Set()); setDistroFilter(new Set())
+              setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set()); setDependencyFilter(new Set()); setInventoryFilter(new Set()); setDueFilter(new Set()); setDistroFilter(new Set()); setFixStatusFilter(new Set())
             }}
           >
             Reset <X className="ml-1 size-4" />
@@ -781,7 +828,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
         getRowId={(row) => row.id}
         onRowSelectionChange={(rows) => setSelectedAlerts(rows.flatMap(r => r._groupMembers ?? [r]))}
         initialSorting={[{ id: "detectedAt", desc: true }]}
-        initialColumnVisibility={{ updatedAt: false, sources: false, dueDate: false, distroPriority: false }}
+        initialColumnVisibility={{ updatedAt: false, sources: false, dueDate: false, distroPriority: false, fixStatus: false }}
         exportRef={exportRef}
         headerActions={
           <div className="flex items-center gap-2">

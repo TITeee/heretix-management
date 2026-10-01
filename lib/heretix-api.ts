@@ -40,6 +40,15 @@ export type VulnSearchResult = {
    */
   distroPriority?: string | null
   /**
+   * Why the matched package has no fix (affected / deferred / will_not_fix /
+   * out_of_support / under_investigation; the set may grow, and an unknown
+   * value means "affected"), and the source's own wording behind it. null
+   * when the matching source doesn't track fix status. Optional: older
+   * heretix-api omits both.
+   */
+  fixStatus?: string | null
+  fixStatusDetail?: string | null
+  /**
    * Every id this finding is reachable by, including externalId. externalId is
    * the *preferred* id and changes when a CVE is assigned to something that only
    * had a vendor or OSV id before; the others stay put, so they are what lets an

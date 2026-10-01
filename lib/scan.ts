@@ -125,6 +125,8 @@ export async function scanAsset(
         detectedAt: true,
         sourcePackage: true,
         distroPriority: true,
+        fixStatus: true,
+        fixStatusDetail: true,
       },
     })
     const alertsByFinding = new Map(
@@ -198,18 +200,15 @@ export async function scanAsset(
     }
 
     // Fields only a scan knows: sourcePackage comes from the inventory, and
-    // distroPriority from a package-level match that the daily metadata
-    // refresh (a CVE-level lookup) never sees. Kept current without a
-    // timeline event, since neither is a change to the finding itself.
-    const syncScanOnlyFields = async (
-      alert: (typeof existingAlerts)[number],
-      sourcePackage: string | null,
-      distroPriority: string | null
-    ) => {
-      if (alert.sourcePackage === sourcePackage && alert.distroPriority === distroPriority) return
-      await prisma.alert.update({ where: { id: alert.id }, data: { sourcePackage, distroPriority } })
-      alert.sourcePackage = sourcePackage
-      alert.distroPriority = distroPriority
+    // distroPriority / fixStatus from a package-level match that the daily
+    // metadata refresh (a CVE-level lookup) never sees. Kept current without
+    // a timeline event, since none is a change to the finding itself.
+    type ScanOnlyFields = Pick<(typeof existingAlerts)[number], "sourcePackage" | "distroPriority" | "fixStatus" | "fixStatusDetail">
+    const syncScanOnlyFields = async (alert: (typeof existingAlerts)[number], fields: ScanOnlyFields) => {
+      const unchanged = (Object.keys(fields) as (keyof ScanOnlyFields)[]).every((k) => alert[k] === fields[k])
+      if (unchanged) return
+      await prisma.alert.update({ where: { id: alert.id }, data: fields })
+      Object.assign(alert, fields)
     }
 
     // A finding that is reported again must not stay closed because an earlier scan
@@ -264,14 +263,19 @@ export async function scanAsset(
     ) => {
       const externalId = v.externalId || v.id
       const key = findingKey(packageName, packageVersion, externalId)
-      const distroPriority = v.distroPriority ?? null
+      const scanOnly: ScanOnlyFields = {
+        sourcePackage,
+        distroPriority: v.distroPriority ?? null,
+        fixStatus: v.fixStatus ?? null,
+        fixStatusDetail: v.fixStatusDetail ?? null,
+      }
       seen.add(key)
 
       const existing = alertsByFinding.get(key)
       if (existing) {
         await updateMetadataIfChanged(existing, v)
         await reopenIfAutoResolved(existing)
-        await syncScanOnlyFields(existing, sourcePackage, distroPriority)
+        await syncScanOnlyFields(existing, scanOnly)
         return
       }
 
@@ -280,9 +284,8 @@ export async function scanAsset(
       const renamed = findByAlias(packageName, packageVersion, v)
       if (renamed) {
         const { prior, alias } = renamed
-        await prisma.alert.update({ where: { id: prior.id }, data: { externalId, sourcePackage, distroPriority } })
-        prior.sourcePackage = sourcePackage
-        prior.distroPriority = distroPriority
+        await prisma.alert.update({ where: { id: prior.id }, data: { externalId, ...scanOnly } })
+        Object.assign(prior, scanOnly)
         await prisma.alertEvent.create({
           data: {
             alertId: prior.id,
@@ -331,8 +334,7 @@ export async function scanAsset(
         packageVersion,
         ecosystem,
         externalId,
-        sourcePackage,
-        distroPriority,
+        ...scanOnly,
         sources: v.sources?.length ? v.sources : [v.source || fallbackSource],
         cvssScore,
         cvssVector,
@@ -369,8 +371,7 @@ export async function scanAsset(
         epssPercentile,
         fixedVersion,
         detectedAt,
-        sourcePackage,
-        distroPriority,
+        ...scanOnly,
       })
       newAlertsList.push({
         packageName,

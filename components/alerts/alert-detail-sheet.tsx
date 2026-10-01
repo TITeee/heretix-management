@@ -32,6 +32,7 @@ import { STATUS_LABELS, STATUS_COLORS } from "@/lib/severity"
 import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
 import { TagBadge } from "@/components/tags/tag-badge"
 import { distroPriorityLabel } from "@/lib/distro-priority"
+import { fixStatusLabel } from "@/lib/fix-status"
 import { IGNORE_REASONS, IGNORE_REASON_HINTS, isIgnoreReason } from "@/lib/vex"
 
 // Minimum Alert fields required by the detail sheet
@@ -57,6 +58,8 @@ export type SheetAlert = {
   fixedVersion?: string | null
   approximateMatch?: boolean
   distroPriority?: string | null
+  fixStatus?: string | null
+  fixStatusDetail?: string | null
   detectedAt: Date
   dueDate: Date | null
   resolvedAt: Date | null
@@ -940,6 +943,19 @@ export function AlertDetailSheet({
                   <div className="flex items-center gap-2">
                     <span className="w-28 text-muted-foreground shrink-0">Fixed in</span>
                     <span className="font-mono text-xs font-semibold text-green-700 dark:text-green-400">{alert.fixedVersion}</span>
+                  </div>
+                )}
+                {/* Can appear next to "Fixed in" when Red Hat's OVAL and VEX feeds
+                    disagree; both are shown as published. */}
+                {alert.fixStatus && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 text-muted-foreground shrink-0">Fix Status</span>
+                    <span>
+                      {fixStatusLabel(alert.fixStatus)}
+                      {alert.fixStatusDetail && alert.fixStatusDetail.toLowerCase() !== fixStatusLabel(alert.fixStatus)?.toLowerCase() && (
+                        <span className="text-muted-foreground text-xs ml-2">({alert.fixStatusDetail})</span>
+                      )}
+                    </span>
                   </div>
                 )}
               </div>

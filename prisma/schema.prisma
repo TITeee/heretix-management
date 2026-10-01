@@ -124,6 +124,14 @@ model Alert {
   // from a package-level match, so only a scan sets it; the daily metadata
   // refresh (a CVE-level lookup) never sees it.
   distroPriority    String?
+  // Why the package has no fix, from heretix-api (normalized: affected /
+  // deferred / will_not_fix / out_of_support / under_investigation; the set
+  // may grow) plus the source's own wording ("Will not fix"). Red Hat VEX only
+  // today; null where the matching source doesn't track fix status. Can sit
+  // next to fixedVersion when Red Hat's OVAL and VEX feeds disagree. Same
+  // lifecycle as distroPriority: per package match, so only a scan sets it.
+  fixStatus         String?
+  fixStatusDetail   String?
   detectedAt        DateTime       @default(now())
   dueDate           DateTime?
   resolvedAt     DateTime?
