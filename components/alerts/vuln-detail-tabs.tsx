@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { SEVERITY_COLORS } from "@/lib/severity"
 import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
 import { osvDistroRatings } from "@/lib/distro-priority"
+import { fixStatusLabel } from "@/lib/fix-status"
 
 export type NvdPackage = {
   cpe: string | null
@@ -61,6 +62,9 @@ export type AdvisoryAffectedProduct = {
   lastAffected: string | null
   affectedVersions: string[]
   patchAvailable: boolean | null
+  /** Why there is no fix (lib/fix-status.ts); Red Hat VEX rows only. Older heretix-api omits it. */
+  fixStatus?: string | null
+  fixStatusDetail?: string | null
 }
 
 export type AdvisoryVulnerability = {
@@ -724,6 +728,11 @@ export function AdvisoryTab({ detail, loading }: { detail: VulnDetail | null; lo
                             ? `≤ ${p.lastAffected}`
                             : p.affectedVersions.length > 0
                             ? p.affectedVersions.join(", ")
+                            // No bounds and no patch: the vendor says every version it
+                            // ships is affected (e.g. a Red Hat VEX "unfixed" row), which
+                            // is not the same as the range being unknown.
+                            : p.patchAvailable === false
+                            ? "All versions (no fix yet)"
                             : "n/a"}
                         </td>
                         <td className="px-3 py-2 font-mono text-muted-foreground">
@@ -733,8 +742,17 @@ export function AdvisoryTab({ detail, loading }: { detail: VulnDetail | null; lo
                           {p.patchAvailable === true
                             ? <Badge className="bg-green-600 text-white text-xs">Yes</Badge>
                             : p.patchAvailable === false
-                            ? <Badge variant="outline" className="text-xs">No</Badge>
-                            : <span className="text-muted-foreground">—</span>}
+                            ? (
+                              <span className="flex items-center gap-1.5 whitespace-nowrap">
+                                <Badge variant="outline" className="text-xs">No</Badge>
+                                {fixStatusLabel(p.fixStatus) && (
+                                  <span className="text-muted-foreground" title={p.fixStatusDetail ?? undefined}>
+                                    {fixStatusLabel(p.fixStatus)}
+                                  </span>
+                                )}
+                              </span>
+                            )
+                            : <span className="text-muted-foreground">n/a</span>}
                         </td>
                       </tr>
                     ))}
