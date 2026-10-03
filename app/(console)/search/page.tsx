@@ -21,7 +21,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Search, ShieldAlert } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
-import { SEVERITY_COLORS } from "@/lib/severity"
+import { SEVERITY_COLORS, getAlertSeverityTier, type SeverityTier } from "@/lib/severity"
 import { VulnDetail, NvdTab, OsvTab, AdvisoryTab, CnaTab } from "@/components/alerts/vuln-detail-tabs"
 import { PackageNameInput } from "@/components/package-name-input"
 import { ADVISORY_VENDORS, FORTINET_PRODUCTS, getProductsByVendor, type AdvisoryVendor } from "@/lib/advisory-products"
@@ -67,13 +67,18 @@ const ECOSYSTEMS = [
 
 type SearchMode = "package" | "id" | "cpe" | "advisory"
 
-function SeverityBadge({ score }: { score: number | null }) {
-  // See the note on the same case in components/alerts/vuln-detail-tabs.tsx.
-  if (!score) return <Badge style={{ backgroundColor: SEVERITY_COLORS.na }} className="text-neutral-900">Unknown</Badge>
-  if (score >= 9.0) return <Badge style={{ backgroundColor: SEVERITY_COLORS.critical }} className="text-white">Critical {score.toFixed(1)}</Badge>
-  if (score >= 7.0) return <Badge style={{ backgroundColor: SEVERITY_COLORS.high }} className="text-white">High {score.toFixed(1)}</Badge>
-  if (score >= 4.0) return <Badge style={{ backgroundColor: SEVERITY_COLORS.medium }} className="text-white">Medium {score.toFixed(1)}</Badge>
-  return <Badge style={{ backgroundColor: SEVERITY_COLORS.low }} className="text-white">Low {score.toFixed(1)}</Badge>
+const TIER_LABEL: Record<SeverityTier, string> = { critical: "Critical", high: "High", medium: "Medium", low: "Low", na: "Unknown" }
+
+// Tier from getAlertSeverityTier (the severity, the score only as a fallback),
+// the same rule as an alert's badge: a CVSS v2 10.0 rated HIGH reads "High 10.0".
+function SeverityBadge({ severity, score }: { severity: string | null; score: number | null }) {
+  const tier = getAlertSeverityTier(severity, score)
+  const label = tier === "na" ? TIER_LABEL.na : score ? `${TIER_LABEL[tier]} ${score.toFixed(1)}` : TIER_LABEL[tier]
+  return (
+    <Badge style={{ backgroundColor: SEVERITY_COLORS[tier] }} className={tier === "na" ? "text-neutral-900" : "text-white"}>
+      {label}
+    </Badge>
+  )
 }
 
 export default function SearchPage() {
@@ -397,7 +402,7 @@ export default function SearchPage() {
                         <Badge key={s} variant="outline" className="text-xs">{s.toUpperCase()}</Badge>
                       ))}
                     </div>
-                    <SeverityBadge score={v.cvssScore} />
+                    <SeverityBadge severity={v.severity} score={v.cvssScore} />
                   </div>
                   {v.summary && (
                     <p className="text-sm text-muted-foreground">{v.summary}</p>

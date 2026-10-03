@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db"
+import { countSeverityByKey, emptySeverityCounts } from "@/lib/severity"
 import { AssetsTable } from "./assets-table"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -21,25 +22,13 @@ async function getAssets() {
 
   const openAlertRows = await prisma.alert.findMany({
     where: { status: { in: ["open", "in_progress"] } },
-    select: { assetId: true, cvssScore: true },
+    select: { assetId: true, severity: true, cvssScore: true },
   })
-
-  type SeverityCounts = { critical: number; high: number; medium: number; low: number; na: number }
-  const openMap = new Map<string, SeverityCounts>()
-  for (const alert of openAlertRows) {
-    const counts = openMap.get(alert.assetId) ?? { critical: 0, high: 0, medium: 0, low: 0, na: 0 }
-    const score = alert.cvssScore
-    if (score === null) counts.na++
-    else if (score >= 9.0) counts.critical++
-    else if (score >= 7.0) counts.high++
-    else if (score >= 4.0) counts.medium++
-    else counts.low++
-    openMap.set(alert.assetId, counts)
-  }
+  const openMap = countSeverityByKey(openAlertRows, (a) => a.assetId)
 
   return assets.map((a) => ({
     ...a,
-    openAlerts: openMap.get(a.id) ?? { critical: 0, high: 0, medium: 0, low: 0, na: 0 },
+    openAlerts: openMap.get(a.id) ?? emptySeverityCounts(),
     tags: a.assetTags.map(at => at.tag),
   }))
 }

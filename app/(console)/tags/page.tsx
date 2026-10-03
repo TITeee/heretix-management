@@ -4,16 +4,7 @@ import {
   Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
 } from "@/components/ui/breadcrumb"
 
-type SeverityCounts = { critical: number; high: number; medium: number; low: number; na: number }
-const emptyCounts = (): SeverityCounts => ({ critical: 0, high: 0, medium: 0, low: 0, na: 0 })
-
-function scoreToKey(score: number | null): keyof SeverityCounts {
-  if (score === null) return "na"
-  if (score >= 9.0) return "critical"
-  if (score >= 7.0) return "high"
-  if (score >= 4.0) return "medium"
-  return "low"
-}
+import { countSeverityByKey, emptySeverityCounts as emptyCounts } from "@/lib/severity"
 
 export default async function TagsPage() {
   const tags = await prisma.tag.findMany({
@@ -33,32 +24,20 @@ export default async function TagsPage() {
     allAssetIds.length > 0
       ? prisma.alert.findMany({
           where: { assetId: { in: allAssetIds }, status: { in: ["open", "in_progress"] } },
-          select: { assetId: true, cvssScore: true },
+          select: { assetId: true, severity: true, cvssScore: true },
         })
       : [],
     allPkgNames.length > 0
       ? prisma.alert.findMany({
           where: { packageName: { in: allPkgNames }, status: { in: ["open", "in_progress"] } },
-          select: { packageName: true, cvssScore: true },
+          select: { packageName: true, severity: true, cvssScore: true },
         })
       : [],
   ])
 
-  // Build per-assetId and per-packageName severity counts
-  const assetAlertMap = new Map<string, SeverityCounts>()
-  for (const a of assetAlerts) {
-    const c = assetAlertMap.get(a.assetId) ?? emptyCounts()
-    c[scoreToKey(a.cvssScore)]++
-    assetAlertMap.set(a.assetId, c)
-  }
-
-  const pkgAlertMap = new Map<string, SeverityCounts>()
-  for (const a of pkgAlerts) {
-    if (!a.packageName) continue
-    const c = pkgAlertMap.get(a.packageName) ?? emptyCounts()
-    c[scoreToKey(a.cvssScore)]++
-    pkgAlertMap.set(a.packageName, c)
-  }
+  // Per-assetId and per-packageName severity counts (getAlertSeverityTier)
+  const assetAlertMap = countSeverityByKey(assetAlerts, (a) => a.assetId)
+  const pkgAlertMap = countSeverityByKey(pkgAlerts, (a) => a.packageName)
 
   // Aggregate per tag
   const tagsWithAlerts = tags.map(tag => {

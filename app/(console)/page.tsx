@@ -18,6 +18,7 @@ import { ProductionAssetsCard } from "@/components/dashboard/production-assets-c
 import { DashboardTabs } from "@/components/dashboard/dashboard-tabs"
 import { SlaSeverityChart, type SlaSeverityBarData } from "@/components/dashboard/sla-severity-chart"
 import { getSlaStatus } from "@/lib/sla"
+import { countSeverity, getAlertSeverityTier } from "@/lib/severity"
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,8 +64,14 @@ function buildAlertsTrend(
   return labels.map((week, i) => ({ week, opened: openedCounts[i], resolved: resolvedCounts[i] }))
 }
 
+// Every severity bucket on this page goes through getAlertSeverityTier, like
+// the rest of the app, so the dashboard can't disagree with the lists.
+const MTTR_TIER_LABEL = { critical: "Critical", high: "High", medium: "Medium", low: "Low", na: "N/A" } as const
+
+type TieredAlert = { severity: string | null; cvssScore: number | null }
+
 function buildMttrData(
-  alerts: { detectedAt: Date; resolvedAt: Date | null; cvssScore: number | null }[]
+  alerts: (TieredAlert & { detectedAt: Date; resolvedAt: Date | null })[]
 ): MttrBarData[] {
   const tiers = ["Critical", "High", "Medium", "Low", "N/A"] as const
   const sums: Record<(typeof tiers)[number], { totalDays: number; count: number }> = {
@@ -78,8 +85,7 @@ function buildMttrData(
   for (const alert of alerts) {
     if (!alert.resolvedAt) continue
     const days = (alert.resolvedAt.getTime() - alert.detectedAt.getTime()) / (24 * 60 * 60 * 1000)
-    const s = alert.cvssScore
-    const tier = !s ? "N/A" : s >= 9 ? "Critical" : s >= 7 ? "High" : s >= 4 ? "Medium" : "Low"
+    const tier = MTTR_TIER_LABEL[getAlertSeverityTier(alert.severity, alert.cvssScore)]
     sums[tier].totalDays += days
     sums[tier].count++
   }
@@ -91,20 +97,7 @@ function buildMttrData(
   }))
 }
 
-function buildTagSeverity(alerts: { cvssScore: number | null }[]) {
-  let critical = 0, high = 0, medium = 0, low = 0, na = 0
-  for (const alert of alerts) {
-    const s = alert.cvssScore
-    if (!s) na++
-    else if (s >= 9) critical++
-    else if (s >= 7) high++
-    else if (s >= 4) medium++
-    else low++
-  }
-  return { critical, high, medium, low, na }
-}
-
-function buildSlaSeverityData(alerts: { cvssScore: number | null; dueDate: Date | null }[]): SlaSeverityBarData[] {
+function buildSlaSeverityData(alerts: (TieredAlert & { dueDate: Date | null })[]): SlaSeverityBarData[] {
   const statuses = ["Overdue", "Urgent", "Warning", "OK", "Unscored"] as const
   const statusLabels = {
     overdue: "Overdue",
@@ -118,21 +111,18 @@ function buildSlaSeverityData(alerts: { cvssScore: number | null; dueDate: Date 
   )
 
   for (const alert of alerts) {
-    const s = alert.cvssScore
-    const tier = s == null ? "na" : s >= 9 ? "critical" : s >= 7 ? "high" : s >= 4 ? "medium" : "low"
     const status = statusLabels[getSlaStatus(alert.dueDate)]
-    rows[status][tier]++
+    rows[status][getAlertSeverityTier(alert.severity, alert.cvssScore)]++
   }
 
   return statuses.map((status) => rows[status])
 }
 
 function buildTopAssets(
-  alerts: {
+  alerts: (TieredAlert & {
     assetId: string
-    cvssScore: number | null
     asset: { name: string; hostname: string }
-  }[]
+  })[]
 ): AssetBarData[] {
   const map = new Map<string, AssetBarData>()
 
@@ -141,13 +131,7 @@ function buildTopAssets(
     if (!map.has(alert.assetId)) {
       map.set(alert.assetId, { name: label, critical: 0, high: 0, medium: 0, low: 0, na: 0 })
     }
-    const entry = map.get(alert.assetId)!
-    const s = alert.cvssScore
-    if (!s) entry.na++
-    else if (s >= 9) entry.critical++
-    else if (s >= 7) entry.high++
-    else if (s >= 4) entry.medium++
-    else entry.low++
+    map.get(alert.assetId)![getAlertSeverityTier(alert.severity, alert.cvssScore)]++
   }
 
   return [...map.values()]
@@ -169,7 +153,6 @@ async function getDashboardData() {
     totalAssets,
     totalAlerts,
     openAlerts,
-    criticalAlerts,
     recentAlerts,
     trendAlerts,
     topAssetAlerts,
@@ -187,7 +170,6 @@ async function getDashboardData() {
     prisma.asset.count(),
     prisma.alert.count(),
     prisma.alert.count({ where: { status: "open" } }),
-    prisma.alert.count({ where: { status: { in: ["open", "in_progress"] }, cvssScore: { gte: 9.0 } } }),
     prisma.alert.findMany({
       take: 10,
       orderBy: { detectedAt: "desc" },
@@ -202,6 +184,7 @@ async function getDashboardData() {
     prisma.alert.findMany({
       select: {
         assetId: true,
+        severity: true,
         cvssScore: true,
         asset: { select: { name: true, hostname: true } },
       },
@@ -224,7 +207,7 @@ async function getDashboardData() {
     }),
     // C1 Internet Facing tag severity
     prisma.alert.findMany({
-      select: { cvssScore: true },
+      select: { severity: true, cvssScore: true },
       where: { status: { in: ["open", "in_progress"] }, asset: { assetTags: { some: { tag: { name: "Internet Facing" } } } } },
     }),
     // stats
@@ -238,7 +221,7 @@ async function getDashboardData() {
     // SLA status for open/in_progress alerts
     prisma.alert.findMany({
       where: { status: { in: ["open", "in_progress"] } },
-      select: { dueDate: true, cvssScore: true },
+      select: { dueDate: true, severity: true, cvssScore: true },
     }),
     // Resolved-alerts trend (for the New vs Resolved chart)
     prisma.alert.findMany({
@@ -249,7 +232,7 @@ async function getDashboardData() {
     prisma.alert.groupBy({ by: ["status"], _count: { id: true } }),
     // MTTR: resolved alerts with a resolution timestamp
     prisma.alert.findMany({
-      select: { detectedAt: true, resolvedAt: true, cvssScore: true },
+      select: { detectedAt: true, resolvedAt: true, severity: true, cvssScore: true },
       where: { status: "resolved", resolvedAt: { not: null } },
     }),
   ])
@@ -258,8 +241,10 @@ async function getDashboardData() {
   const topAssetsData = buildTopAssets(topAssetAlerts)
   const topPackagesData = topPkgGroups.map((g) => ({ name: g.packageName, count: g._count.id }))
   const slaSeverityData = buildSlaSeverityData(slaDueAlerts)
-  // Reuses the same open/in_progress alert set already fetched for Top Vulnerable Assets.
-  const overallSeverity = buildTagSeverity(topAssetAlerts)
+  // Reuses the same open/in_progress alert set already fetched for Top Vulnerable Assets,
+  // and so does the Critical stat card: the same tier, from the same alerts.
+  const overallSeverity = countSeverity(topAssetAlerts)
+  const criticalAlerts = overallSeverity.critical
   const statusBreakdown = statusGroups.map((g) => ({
     status: g.status,
     count: (g._count as { id: number }).id,
@@ -301,7 +286,7 @@ async function getDashboardData() {
     ? packageTagRecords.filter((r) => r.tagId === publicEndpointTag.id).map((r) => r.packageName)
     : []
   const publicEndpointAlertRaw = await prisma.alert.findMany({
-    select: { cvssScore: true },
+    select: { severity: true, cvssScore: true },
     where: { status: { in: ["open", "in_progress"] }, packageName: { in: publicEndpointPkgNames } },
   })
 
@@ -318,11 +303,11 @@ async function getDashboardData() {
       where: { assetId: { in: allTaggedAssetIds }, status: { in: activeStatus } },
     }),
     prisma.alert.groupBy({
-      by: ["assetId", "cvssScore"], _count: { id: true },
+      by: ["assetId", "severity", "cvssScore"], _count: { id: true },
       where: { assetId: { in: allTaggedAssetIds }, status: { in: activeStatus } },
     }),
     prisma.alert.groupBy({
-      by: ["assetId", "cvssScore"], _count: { id: true },
+      by: ["assetId", "severity", "cvssScore"], _count: { id: true },
       where: { assetId: { in: allTaggedAssetIds }, status: { in: activeStatus }, detectedAt: { gte: since24h } },
     }),
     prisma.alert.groupBy({
@@ -339,11 +324,11 @@ async function getDashboardData() {
       where: { packageName: { in: allTaggedPkgNames }, status: { in: activeStatus } },
     }),
     prisma.alert.groupBy({
-      by: ["packageName", "packageVersion", "cvssScore"], _count: { id: true },
+      by: ["packageName", "packageVersion", "severity", "cvssScore"], _count: { id: true },
       where: { packageName: { in: allTaggedPkgNames }, status: { in: activeStatus } },
     }),
     prisma.alert.groupBy({
-      by: ["packageName", "packageVersion", "cvssScore"], _count: { id: true },
+      by: ["packageName", "packageVersion", "severity", "cvssScore"], _count: { id: true },
       where: { packageName: { in: allTaggedPkgNames }, status: { in: activeStatus }, detectedAt: { gte: since24h } },
     }),
     prisma.alert.groupBy({
@@ -352,23 +337,16 @@ async function getDashboardData() {
     }),
   ])
 
-  type SeverityCounts = { critical: number; high: number; medium: number; low: number; unknown: number }
+  type TagSeverityCounts = { critical: number; high: number; medium: number; low: number; unknown: number }
 
-  // Buckets by cvssScore, not the severity string column: some sources (e.g. OSV
-  // GHSA advisories) set severity without a cvssScore, which would otherwise land in
-  // a real tier here while the same alert counts as N/A everywhere else that buckets
-  // by score (getSeverityTier, buildTagSeverity, the Alerts list itself) — undercounting
-  // N/A on this tab relative to the real alert list.
-  function buildSeverityCounts(rows: { cvssScore?: number | null; _count?: { id?: number } | number }[]): SeverityCounts {
+  // Rows are grouped by (severity, cvssScore) so each can be tiered by
+  // getAlertSeverityTier, the same as every other severity count in the app.
+  function buildSeverityCounts(rows: (TieredAlert & { _count?: { id?: number } | number })[]): TagSeverityCounts {
     const c = { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 }
     for (const r of rows) {
-      const score = (r as { cvssScore?: number | null }).cvssScore ?? null
-      const cnt = typeof r._count === "number" ? r._count : ((r._count as { id?: number })?.id ?? 0)
-      if (!score) c.unknown += cnt
-      else if (score >= 9) c.critical += cnt
-      else if (score >= 7) c.high += cnt
-      else if (score >= 4) c.medium += cnt
-      else c.low += cnt
+      const cnt = typeof r._count === "number" ? r._count : (r._count?.id ?? 0)
+      const tier = getAlertSeverityTier(r.severity, r.cvssScore)
+      c[tier === "na" ? "unknown" : tier] += cnt
     }
     return c
   }
@@ -426,8 +404,8 @@ async function getDashboardData() {
     topAssetsData,
     topPackagesData,
     kevAlerts,
-    internetFacingSeverity: buildTagSeverity(internetFacingAlertRaw),
-    publicEndpointSeverity: buildTagSeverity(publicEndpointAlertRaw),
+    internetFacingSeverity: countSeverity(internetFacingAlertRaw),
+    publicEndpointSeverity: countSeverity(publicEndpointAlertRaw),
     totalPackages,
     kevCount,
     tagData,
