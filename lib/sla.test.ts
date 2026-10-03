@@ -3,32 +3,49 @@ import { calculateDueDate, getSlaStatus, formatDaysUntilDue, DEFAULT_SLA_CONFIG 
 
 const detectedAt = new Date("2026-01-01T00:00:00.000Z")
 
+const HOUR = 60 * 60 * 1000
+const DAY = 24 * HOUR
+
 describe("calculateDueDate", () => {
-  it("returns null when there is no CVSS score and the alert is not KEV", () => {
-    expect(calculateDueDate(null, false, detectedAt)).toBeNull()
+  it("returns null when there is no severity tier and the alert is not KEV", () => {
+    expect(calculateDueDate(null, null, false, detectedAt)).toBeNull()
   })
 
-  it("uses the KEV SLA even when there is no CVSS score", () => {
-    const due = calculateDueDate(null, true, detectedAt)
-    expect(due).toEqual(new Date(detectedAt.getTime() + DEFAULT_SLA_CONFIG.kevSlaHours * 60 * 60 * 1000))
+  it("returns null for a CVSS 0.0 (\"none\") alert, which has no tier", () => {
+    expect(calculateDueDate("NONE", 0, false, detectedAt)).toBeNull()
   })
 
-  it("prefers the KEV SLA over the CVSS-derived SLA", () => {
-    const due = calculateDueDate(9.8, true, detectedAt)
-    expect(due).toEqual(new Date(detectedAt.getTime() + DEFAULT_SLA_CONFIG.kevSlaHours * 60 * 60 * 1000))
+  it("uses the KEV SLA even when there is no severity", () => {
+    const due = calculateDueDate(null, null, true, detectedAt)
+    expect(due).toEqual(new Date(detectedAt.getTime() + DEFAULT_SLA_CONFIG.kevSlaHours * HOUR))
+  })
+
+  it("prefers the KEV SLA over the severity-derived SLA", () => {
+    const due = calculateDueDate("CRITICAL", 9.8, true, detectedAt)
+    expect(due).toEqual(new Date(detectedAt.getTime() + DEFAULT_SLA_CONFIG.kevSlaHours * HOUR))
+  })
+
+  it("takes the tier from the severity, not from the score", () => {
+    // CVSS v2 10.0 is HIGH on the v2 scale, which has no Critical.
+    const due = calculateDueDate("HIGH", 10, false, detectedAt)
+    expect(due).toEqual(new Date(detectedAt.getTime() + DEFAULT_SLA_CONFIG.slaHighHours * HOUR))
+  })
+
+  it("gives a rated alert with no score a due date", () => {
+    const due = calculateDueDate("MEDIUM", null, false, detectedAt)
+    expect(due).toEqual(new Date(detectedAt.getTime() + DEFAULT_SLA_CONFIG.slaMediumDays * DAY))
   })
 
   it.each([
-    [9.8, "slaCriticalHours", 60 * 60 * 1000],
-    [9.0, "slaCriticalHours", 60 * 60 * 1000],
-    [8.9, "slaHighHours", 60 * 60 * 1000],
-    [7.0, "slaHighHours", 60 * 60 * 1000],
-    [6.9, "slaMediumDays", 24 * 60 * 60 * 1000],
-    [4.0, "slaMediumDays", 24 * 60 * 60 * 1000],
-    [3.9, "slaLowDays", 24 * 60 * 60 * 1000],
-    [0.0, "slaLowDays", 24 * 60 * 60 * 1000],
-  ] as const)("maps CVSS %s to the %s tier", (score, configKey, unitMs) => {
-    const due = calculateDueDate(score, false, detectedAt)
+    [9.8, "slaCriticalHours", HOUR],
+    [9.0, "slaCriticalHours", HOUR],
+    [8.9, "slaHighHours", HOUR],
+    [7.0, "slaHighHours", HOUR],
+    [6.9, "slaMediumDays", DAY],
+    [4.0, "slaMediumDays", DAY],
+    [3.9, "slaLowDays", DAY],
+  ] as const)("falls back to CVSS %s for a severity-less alert: the %s tier", (score, configKey, unitMs) => {
+    const due = calculateDueDate(null, score, false, detectedAt)
     const expectedMs = detectedAt.getTime() + DEFAULT_SLA_CONFIG[configKey] * unitMs
     expect(due).toEqual(new Date(expectedMs))
   })

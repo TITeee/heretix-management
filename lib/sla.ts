@@ -2,13 +2,17 @@
  * SLA (Service Level Agreement) calculation utilities for vulnerability alerts
  */
 
+import { getAlertSeverityTier, type SeverityTier } from "@/lib/severity"
+
+// Per severity tier (getAlertSeverityTier); the CVSS ranges are what a tier
+// means for a CVSS v3/v4 score.
 export interface SlaConfig {
   slaEnabled: boolean
-  slaCriticalHours: number  // CVSS 9.0-10
-  slaHighHours: number      // CVSS 7.0-8.9
-  slaMediumDays: number     // CVSS 4.0-6.9
-  slaLowDays: number        // CVSS 0-3.9
-  kevSlaHours: number       // KEV (all CVSS levels)
+  slaCriticalHours: number  // Critical (CVSS 9.0-10)
+  slaHighHours: number      // High (CVSS 7.0-8.9)
+  slaMediumDays: number     // Medium (CVSS 4.0-6.9)
+  slaLowDays: number        // Low (CVSS 0.1-3.9)
+  kevSlaHours: number       // KEV (any severity)
 }
 
 export const DEFAULT_SLA_CONFIG: SlaConfig = {
@@ -20,47 +24,42 @@ export const DEFAULT_SLA_CONFIG: SlaConfig = {
   kevSlaHours: 6,
 }
 
+const HOUR_MS = 60 * 60 * 1000
+const DAY_MS = 24 * HOUR_MS
+
 /**
- * Calculate due date for an alert based on CVSS score, KEV status, and SLA config
+ * Calculate due date for an alert based on its severity tier, KEV status, and SLA config
  *
  * Rules:
  * - If alert is KEV, use fixed KEV SLA (hours)
- * - Otherwise, determine SLA from CVSS score
+ * - Otherwise, the SLA for its severity tier (getAlertSeverityTier: the
+ *   severity field, with the CVSS score only as a fallback), so an alert
+ *   rated MEDIUM with no score still gets a due date, and a CVSS v2 10.0
+ *   (HIGH under v2) gets the High SLA, not the Critical one
+ * - No tier (N/A: unrated, or CVSS 0.0 "none") means no SLA
  * - dueDate = detectedAt + SLA duration
  */
 export function calculateDueDate(
+  severity: string | null,
   cvssScore: number | null,
   isKev: boolean,
   detectedAt: Date,
   config: SlaConfig = DEFAULT_SLA_CONFIG
 ): Date | null {
-  // KEV overrides CVSS-based SLA
+  // KEV overrides the severity-based SLA
   if (isKev) {
-    return new Date(detectedAt.getTime() + config.kevSlaHours * 60 * 60 * 1000)
+    return new Date(detectedAt.getTime() + config.kevSlaHours * HOUR_MS)
   }
 
-  // No CVSS score means no SLA
-  if (cvssScore === null) {
-    return null
+  const durationMs: Record<SeverityTier, number | null> = {
+    critical: config.slaCriticalHours * HOUR_MS,
+    high: config.slaHighHours * HOUR_MS,
+    medium: config.slaMediumDays * DAY_MS,
+    low: config.slaLowDays * DAY_MS,
+    na: null,
   }
-
-  // Determine SLA based on CVSS score
-  let durationMs: number
-  if (cvssScore >= 9.0) {
-    // Critical: hours
-    durationMs = config.slaCriticalHours * 60 * 60 * 1000
-  } else if (cvssScore >= 7.0) {
-    // High: hours
-    durationMs = config.slaHighHours * 60 * 60 * 1000
-  } else if (cvssScore >= 4.0) {
-    // Medium: days
-    durationMs = config.slaMediumDays * 24 * 60 * 60 * 1000
-  } else {
-    // Low: days
-    durationMs = config.slaLowDays * 24 * 60 * 60 * 1000
-  }
-
-  return new Date(detectedAt.getTime() + durationMs)
+  const ms = durationMs[getAlertSeverityTier(severity, cvssScore)]
+  return ms === null ? null : new Date(detectedAt.getTime() + ms)
 }
 
 /**
@@ -69,9 +68,9 @@ export function calculateDueDate(
  * - "urgent": dueDate < now + 24h
  * - "warning": dueDate < now + 7d
  * - "ok": otherwise
- * - "unscored": no dueDate could be calculated (no CVSS score and not KEV),
+ * - "unscored": no dueDate could be calculated (no severity tier and not KEV),
  *   distinct from "ok" so these don't silently look "safe" when they simply
- *   haven't been scored yet
+ *   haven't been rated yet
  */
 export type SlaStatus = "overdue" | "urgent" | "warning" | "ok" | "unscored"
 

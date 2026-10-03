@@ -1,22 +1,24 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
 import { FaTriangleExclamation } from "react-icons/fa6"
-import { SEVERITY_COLORS, getAlertSeverityTier } from "@/lib/severity"
+import { SEVERITY_COLORS, getAlertSeverityTier, type SeverityTier } from "@/lib/severity"
 
 export type AlertSummary = Record<string, number>
 
 const SEVERITY_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"]
-const KNOWN_SEVERITIES = new Set(["CRITICAL", "HIGH", "MEDIUM", "LOW"])
 
-// Some sources use severity wording this app doesn't otherwise recognize
-// (e.g. GHSA's "MODERATE" instead of "MEDIUM"). Folding anything outside the
-// four known tiers into UNKNOWN — same as a null severity — keeps this
-// summary's total in sync with the real alert count instead of silently
-// dropping those alerts under an unread key.
-export function buildAlertSummary(rows: { severity: string | null; _count: { id: number } }[]): AlertSummary {
+const SUMMARY_KEY: Record<SeverityTier, string> = {
+  critical: "CRITICAL", high: "HIGH", medium: "MEDIUM", low: "LOW", na: "UNKNOWN",
+}
+
+// Counts per tier, decided by getAlertSeverityTier like every other severity
+// count in the app. Takes rows grouped by both severity and cvssScore (the
+// score is the tier's fallback); anything not in a known tier is UNKNOWN, so
+// the total always matches the real alert count.
+export function buildAlertSummary(rows: { severity: string | null; cvssScore?: number | null; _count: { id: number } }[]): AlertSummary {
   const summary: AlertSummary = {}
   for (const r of rows) {
-    const key = r.severity && KNOWN_SEVERITIES.has(r.severity) ? r.severity : "UNKNOWN"
+    const key = SUMMARY_KEY[getAlertSeverityTier(r.severity, r.cvssScore ?? null)]
     summary[key] = (summary[key] ?? 0) + r._count.id
   }
   return summary

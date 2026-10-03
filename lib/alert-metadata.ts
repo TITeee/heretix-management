@@ -1,5 +1,6 @@
 import type { AlertSummary } from "@/lib/slack"
 import { calculateDueDate, type SlaConfig } from "@/lib/sla"
+import { getAlertSeverityTier } from "@/lib/severity"
 
 export type AlertMetadataSnapshot = {
   cvssScore: number | null
@@ -110,9 +111,13 @@ export function diffAlertMetadata(
     return { changed: false, data: { ...incoming }, events: [], slack: {} }
   }
 
-  const cvssOrKevChanged = (incoming.cvssScore ?? null) !== alert.cvssScore || (incoming.isKev ?? false) !== alert.isKev
-  const dueDate = cvssOrKevChanged
-    ? calculateDueDate(incoming.cvssScore ?? null, incoming.isKev ?? false, alert.detectedAt, slaConfig)
+  // The due date follows the severity tier (and KEV), not the raw score: a
+  // score that moves within its tier leaves the deadline where it was.
+  const tierOrKevChanged =
+    getAlertSeverityTier(incoming.severity ?? null, incoming.cvssScore ?? null) !== getAlertSeverityTier(alert.severity, alert.cvssScore) ||
+    (incoming.isKev ?? false) !== alert.isKev
+  const dueDate = tierOrKevChanged
+    ? calculateDueDate(incoming.severity ?? null, incoming.cvssScore ?? null, incoming.isKev ?? false, alert.detectedAt, slaConfig)
     : undefined
 
   return {

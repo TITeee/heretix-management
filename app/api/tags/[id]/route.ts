@@ -27,7 +27,7 @@ export async function GET(
   if (tag.type === "asset") {
     const assetIds = tag.assetTags.map(at => at.assetId)
     const alerts = await prisma.alert.groupBy({
-      by: ["severity"],
+      by: ["severity", "cvssScore"],
       where: { assetId: { in: assetIds }, status: { in: ["open", "in_progress"] } },
       _count: { id: true },
     })
@@ -38,7 +38,7 @@ export async function GET(
   } else {
     const packageNames = tag.packageTags.map(pt => pt.packageName)
     const alerts = await prisma.alert.groupBy({
-      by: ["severity"],
+      by: ["severity", "cvssScore"],
       where: { packageName: { in: packageNames }, status: { in: ["open", "in_progress"] } },
       _count: { id: true },
     })
@@ -54,7 +54,7 @@ export async function GET(
   if (tag.type === "asset") {
     const openAlerts = await prisma.alert.findMany({
       where: { assetId: { in: tag.assetTags.map(at => at.assetId) }, status: { in: ["open", "in_progress"] } },
-      select: { assetId: true, severity: true },
+      select: { assetId: true, severity: true, cvssScore: true },
     })
     assetAlertSeverities = Object.fromEntries(countSeverityByKey(openAlerts, a => a.assetId))
   }
@@ -67,7 +67,7 @@ export async function GET(
     const packageNames = tag.packageTags.map(pt => pt.packageName)
     const openAlerts = await prisma.alert.findMany({
       where: { packageName: { in: packageNames }, status: { in: ["open", "in_progress"] } },
-      select: { packageName: true, severity: true },
+      select: { packageName: true, severity: true, cvssScore: true },
     })
     packageAlertSeverities = Object.fromEntries(countSeverityByKey(openAlerts, a => a.packageName))
 

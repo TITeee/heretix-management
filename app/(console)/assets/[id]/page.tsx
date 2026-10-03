@@ -20,6 +20,7 @@ import { PackageHistoryModal } from "./package-history-modal"
 import { DependencyGraphLoader } from "./dependency-graph-loader"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { AlertSummaryBadges, buildAlertSummary, type AlertSummary } from "@/components/alerts/alert-summary-badges"
+import { countSeverityByKey, emptySeverityCounts } from "@/lib/severity"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -70,7 +71,7 @@ export default async function AssetDetailPage({
   })
 
   const severityCounts = await prisma.alert.groupBy({
-    by: ["severity"],
+    by: ["severity", "cvssScore"],
     where: { assetId: id, status: { in: ["open", "in_progress"] } },
     _count: { id: true },
   })
@@ -97,27 +98,15 @@ export default async function AssetDetailPage({
   // it and the Alerts page this column links to, which filters to those two by
   // default — an unfiltered count would promise rows the link doesn't show.
   // Bucketed in memory rather than grouped in SQL because the severity split is
-  // needed per package, and read from the severity column (not a cvssScore
-  // range) so these agree with the Open Alert Summary block on this same page.
+  // needed per package; tiered by getAlertSeverityTier so these agree with the
+  // Open Alert Summary block on this same page.
   const alertRows = await prisma.alert.findMany({
     where: { assetId: id, status: { in: ["open", "in_progress"] } },
-    select: { packageName: true, packageVersion: true, severity: true },
+    select: { packageName: true, packageVersion: true, severity: true, cvssScore: true },
   })
-  type PackageSeverityCounts = { critical: number; high: number; medium: number; low: number; na: number }
-  const emptyCounts = (): PackageSeverityCounts => ({ critical: 0, high: 0, medium: 0, low: 0, na: 0 })
-  const pkgAlertMap = new Map<string, PackageSeverityCounts>()
-  for (const alert of alertRows) {
-    const key = `${alert.packageName}::${alert.packageVersion}`
-    const counts = pkgAlertMap.get(key) ?? emptyCounts()
-    if (alert.severity === "CRITICAL") counts.critical++
-    else if (alert.severity === "HIGH") counts.high++
-    else if (alert.severity === "MEDIUM") counts.medium++
-    else if (alert.severity === "LOW") counts.low++
-    else counts.na++
-    pkgAlertMap.set(key, counts)
-  }
+  const pkgAlertMap = countSeverityByKey(alertRows, (a) => `${a.packageName}::${a.packageVersion}`)
   const packagesWithAlerts = asset.packages.map(p => {
-    const s = pkgAlertMap.get(`${p.name}::${p.version}`) ?? emptyCounts()
+    const s = pkgAlertMap.get(`${p.name}::${p.version}`) ?? emptySeverityCounts()
     return {
       ...p,
       alertCount: s.critical + s.high + s.medium + s.low + s.na,

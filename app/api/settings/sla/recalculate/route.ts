@@ -21,12 +21,12 @@ export async function POST(req: NextRequest) {
 
   const alerts = await prisma.alert.findMany({
     where: { status: { in: ["open", "in_progress"] } },
-    select: { id: true, cvssScore: true, isKev: true, detectedAt: true },
+    select: { id: true, severity: true, cvssScore: true, isKev: true, detectedAt: true },
   })
 
   let updated = 0
   for (const alert of alerts) {
-    const newDueDate = calculateDueDate(alert.cvssScore, alert.isKev, alert.detectedAt, slaConfig)
+    const newDueDate = calculateDueDate(alert.severity, alert.cvssScore, alert.isKev, alert.detectedAt, slaConfig)
     await prisma.alert.update({ where: { id: alert.id }, data: { dueDate: newDueDate } })
     updated++
   }

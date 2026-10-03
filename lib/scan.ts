@@ -312,6 +312,7 @@ export async function scanAsset(
 
       const detectedAt = new Date()
       const dueDate = calculateDueDate(
+        v.severity ?? null,
         v.cvssScore ?? null,
         v.isKev ?? false,
         detectedAt,

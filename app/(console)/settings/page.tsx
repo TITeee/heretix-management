@@ -576,7 +576,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Low (CVSS 0-3.9)</label>
+                    <label className="text-sm font-medium">Low (CVSS 0.1-3.9)</label>
                     <div className="flex items-center gap-2">
                       <Input
                         type="number"
@@ -599,7 +599,7 @@ export default function SettingsPage() {
                       onChange={(e) => setSlaConfig({ ...slaConfig, kevSlaHours: Math.max(1, parseInt(e.target.value) || 1) })}
                       className="w-20"
                     />
-                    <span className="text-sm text-muted-foreground">hours (override for any CVSS)</span>
+                    <span className="text-sm text-muted-foreground">hours (override for any severity)</span>
                   </div>
                 </div>
               </div>
