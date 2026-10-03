@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db"
 import { AlertsTableClient } from "./alerts-table-client"
 import { DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
+import { severityTierFromKey, severityTierWhere } from "@/lib/severity"
 
 export default async function AlertsPage({
   searchParams,
@@ -8,15 +9,17 @@ export default async function AlertsPage({
   searchParams: Promise<{ assetId?: string; status?: string; severity?: string; kev?: string; packageName?: string; packageVersion?: string }>
 }) {
   const params = await searchParams
+  // ?severity= is a tier (AlertSummaryBadges' keys: CRITICAL..LOW, UNKNOWN for
+  // N/A), matched the way getAlertSeverityTier decides it, so following a
+  // badge's link lists exactly the alerts the badge counted.
+  const severityTier = params.severity ? severityTierFromKey(params.severity) : null
   const alerts = await prisma.alert.findMany({
     where: {
       ...(params.assetId ? { assetId: params.assetId } : {}),
       ...(params.status ? { status: params.status } : {}),
       ...(params.packageName ? { packageName: params.packageName } : {}),
       ...(params.packageVersion ? { packageVersion: params.packageVersion } : {}),
-      // "UNKNOWN" is how AlertSummaryBadges labels an alert with no severity
-      // recorded, so it maps to severity: null rather than the literal string.
-      ...(params.severity ? { severity: params.severity === "UNKNOWN" ? null : params.severity } : {}),
+      ...(severityTier ? severityTierWhere(severityTier) : params.severity ? { severity: params.severity } : {}),
       ...(params.kev ? { isKev: true } : {}),
     },
     orderBy: [{ cvssScore: "desc" }, { detectedAt: "desc" }],

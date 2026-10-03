@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client"
+
 export const SEVERITY_COLORS = {
   critical: "#4c0519",
   high:     "#9f1239",
@@ -52,6 +54,41 @@ export function getAlertSeverityTier(severity: string | null | undefined, score:
     case "LOW": return "low"
     default: return getSeverityTier(score ?? null)
   }
+}
+
+// The stored severity words getAlertSeverityTier recognises, per tier.
+const SEVERITY_WORDS: Record<Exclude<SeverityTier, "na">, string[]> = {
+  critical: ["CRITICAL"],
+  high: ["HIGH"],
+  medium: ["MEDIUM", "MODERATE"],
+  low: ["LOW"],
+}
+
+// The score fallback's ranges (getSeverityTier); a score of 0 or none is N/A.
+const SCORE_RANGES: Record<Exclude<SeverityTier, "na">, Prisma.FloatNullableFilter> = {
+  critical: { gte: 9 },
+  high: { gte: 7, lt: 9 },
+  medium: { gte: 4, lt: 7 },
+  low: { gt: 0, lt: 4 },
+}
+
+/**
+ * A Prisma filter for the alerts getAlertSeverityTier puts in `tier`, so a
+ * server-side `?severity=` filter returns exactly what the badges count.
+ * Severity is matched as stored (uppercase, which is what heretix-api writes).
+ */
+export function severityTierWhere(tier: SeverityTier): Prisma.AlertWhereInput {
+  const unrated: Prisma.AlertWhereInput = {
+    OR: [{ severity: null }, { severity: { notIn: Object.values(SEVERITY_WORDS).flat() } }],
+  }
+  if (tier === "na") return { AND: [unrated, { OR: [{ cvssScore: null }, { cvssScore: 0 }] }] }
+  return { OR: [{ severity: { in: SEVERITY_WORDS[tier] } }, { AND: [unrated, { cvssScore: SCORE_RANGES[tier] }] }] }
+}
+
+/** "CRITICAL" / "HIGH" / "MEDIUM" / "LOW" / "UNKNOWN" (AlertSummaryBadges' keys) to a tier. */
+export function severityTierFromKey(key: string): SeverityTier | null {
+  const tiers: Record<string, SeverityTier> = { CRITICAL: "critical", HIGH: "high", MEDIUM: "medium", LOW: "low", UNKNOWN: "na" }
+  return tiers[key.toUpperCase()] ?? null
 }
 
 export type SeverityCounts = Record<SeverityTier, number>

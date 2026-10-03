@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db"
+import { getAlertSeverityTier } from "@/lib/severity"
 
 export type AlertSummary = {
   packageName: string
@@ -12,12 +13,18 @@ type TriggerType = "detected" | "severity_changed" | "kev_added"
 
 const SEVERITY_ORDER = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
-function meetsMinSeverity(severity: string | null, min: string): boolean {
+// An alert's tier as a Slack-facing key (getAlertSeverityTier, like the rest
+// of the app); N/A is UNKNOWN.
+function severityKey(a: { severity: string | null; cvssScore: number | null }): string {
+  const tier = getAlertSeverityTier(a.severity, a.cvssScore)
+  return tier === "na" ? "UNKNOWN" : tier.toUpperCase()
+}
+
+function meetsMinSeverity(alert: AlertSummary, min: string): boolean {
   if (min === "ALL") return true
-  if (!severity) return false
-  const alertIdx = SEVERITY_ORDER.indexOf(severity.toUpperCase())
-  const minIdx = SEVERITY_ORDER.indexOf(min.toUpperCase())
-  return alertIdx >= minIdx
+  const alertIdx = SEVERITY_ORDER.indexOf(severityKey(alert))
+  if (alertIdx < 0) return false // N/A never meets a minimum
+  return alertIdx >= SEVERITY_ORDER.indexOf(min.toUpperCase())
 }
 
 export async function notifySlackIfNeeded(params: {
@@ -48,7 +55,7 @@ export async function notifySlackIfNeeded(params: {
   const minSeverity = cfg.SLACK_MIN_SEVERITY ?? "ALL"
   const filtered = triggerType === "kev_added"
     ? alerts
-    : alerts.filter((a) => meetsMinSeverity(a.severity, minSeverity))
+    : alerts.filter((a) => meetsMinSeverity(a, minSeverity))
 
   if (filtered.length === 0) return
 
@@ -68,15 +75,17 @@ function buildMessage(assetName: string, triggerType: TriggerType, alerts: Alert
   if (triggerType === "kev_added") {
     const lines = alerts.map((a) => {
       const pkg = a.packageVersion ? `${a.packageName} ${a.packageVersion}` : a.packageName
-      return `${a.externalId}  ${pkg}  ${a.severity ?? "UNKNOWN"}`
+      return `${a.externalId}  ${pkg}  ${severityKey(a)}`
     })
     return `🔴 *${alerts.length} alert(s) added to CISA KEV* on *${assetName}*\n\n${lines.join("\n")}\n\n${ts}`
   }
 
-  // Group by severity
+  // Group by severity tier. Keyed by tier, not the raw word, so a value the
+  // order below doesn't list (e.g. "MODERATE") lands in its tier instead of
+  // silently dropping out of the message.
   const groups = new Map<string, string[]>()
   for (const a of alerts) {
-    const sev = a.severity?.toUpperCase() ?? "UNKNOWN"
+    const sev = severityKey(a)
     if (!groups.has(sev)) groups.set(sev, [])
     groups.get(sev)!.push(a.externalId)
   }
