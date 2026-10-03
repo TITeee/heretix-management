@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { SEVERITY_COLORS } from "@/lib/severity"
+import { SEVERITY_COLORS, getAlertSeverityTier, type SeverityTier } from "@/lib/severity"
 import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
 import { osvDistroRatings } from "@/lib/distro-priority"
 import { fixStatusLabel } from "@/lib/fix-status"
@@ -31,7 +31,10 @@ export type OsvPackage = {
 export type CvssMetric = {
   source: string
   type: string
-  cvssData: { vectorString: string; baseScore: number; baseSeverity: string }
+  // v3.x/v4.0 put baseSeverity inside cvssData; NVD's v2 metric puts it on
+  // the metric itself (cvssData has none).
+  cvssData: { vectorString: string; baseScore: number; baseSeverity?: string }
+  baseSeverity?: string
   exploitabilityScore: number
   impactScore: number
 }
@@ -152,15 +155,24 @@ export type VulnDetail = {
   } | null
 }
 
-export function SeverityBadge({ score }: { score: number | null }) {
-  // Filled from SEVERITY_COLORS like the scored tiers rather than left as an outline
-  // badge, so an unscored finding reads as the same "N/A" the dashboard charts show.
+const TIER_WORD: Record<SeverityTier, string> = { critical: "Critical", high: "High", medium: "Medium", low: "Low", na: "n/a" }
+
+/**
+ * A CVSS score, coloured by its severity tier (getAlertSeverityTier): the
+ * severity decides the colour, the score is only the label. So a CVSS v2 10.0
+ * that v2 rates HIGH is a High-coloured "10.0", not a Critical one. With no
+ * score it shows the tier's name, or "n/a" with neither.
+ */
+export function SeverityBadge({ score, severity }: { score: number | null; severity: string | null | undefined }) {
+  const tier = getAlertSeverityTier(severity, score)
+  // Filled from SEVERITY_COLORS like the other tiers rather than left as an outline
+  // badge, so an unrated finding reads as the same "N/A" the dashboard charts show.
   // Dark text, not the white the others use: SEVERITY_COLORS.na is a light grey.
-  if (!score) return <Badge style={{ backgroundColor: SEVERITY_COLORS.na }} className="text-neutral-900">n/a</Badge>
-  if (score >= 9.0) return <Badge style={{ backgroundColor: SEVERITY_COLORS.critical }} className="text-white">{score.toFixed(1)}</Badge>
-  if (score >= 7.0) return <Badge style={{ backgroundColor: SEVERITY_COLORS.high }} className="text-white">{score.toFixed(1)}</Badge>
-  if (score >= 4.0) return <Badge style={{ backgroundColor: SEVERITY_COLORS.medium }} className="text-white">{score.toFixed(1)}</Badge>
-  return <Badge style={{ backgroundColor: SEVERITY_COLORS.low }} className="text-white">{score.toFixed(1)}</Badge>
+  return (
+    <Badge style={{ backgroundColor: SEVERITY_COLORS[tier] }} className={tier === "na" ? "text-neutral-900" : "text-white"}>
+      {score ? score.toFixed(1) : TIER_WORD[tier]}
+    </Badge>
+  )
 }
 
 export function DetailSkeleton() {
@@ -211,7 +223,7 @@ export function NvdTab({ detail, loading, error }: { detail: VulnDetail | null; 
           <div className="flex items-center gap-2">
             <span className="w-28 text-muted-foreground shrink-0">CVSS</span>
             <div className="flex items-center gap-2">
-              <SeverityBadge score={nvd.cvssScore} />
+              <SeverityBadge score={nvd.cvssScore} severity={nvd.severity} />
               {nvd.cvssVector && <CvssVectorTooltip vector={nvd.cvssVector} />}
             </div>
           </div>
@@ -255,8 +267,9 @@ export function NvdTab({ detail, loading, error }: { detail: VulnDetail | null; 
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">Base Score</span>
-                    <SeverityBadge score={m.cvssData.baseScore} />
-                    <span className="text-muted-foreground">{m.cvssData.baseSeverity}</span>
+                    {/* Each version's own rating: a v2 10.0 is HIGH on the v2 scale. */}
+                    <SeverityBadge score={m.cvssData.baseScore} severity={m.cvssData.baseSeverity ?? m.baseSeverity} />
+                    <span className="text-muted-foreground">{m.cvssData.baseSeverity ?? m.baseSeverity}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">Exploitability</span>
@@ -619,7 +632,7 @@ export function AdvisoryTab({ detail, loading }: { detail: VulnDetail | null; lo
               <div className="flex items-center gap-2">
                 <span className="w-28 text-muted-foreground shrink-0">CVSS</span>
                 <div className="flex items-center gap-2">
-                  <SeverityBadge score={adv.cvssScore} />
+                  <SeverityBadge score={adv.cvssScore} severity={adv.severity} />
                   {adv.cvssVector && <CvssVectorTooltip vector={adv.cvssVector} />}
                 </div>
               </div>

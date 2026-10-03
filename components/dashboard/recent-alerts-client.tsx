@@ -40,7 +40,7 @@ export function RecentAlertsClient({ alerts: initialAlerts }: { alerts: SheetAle
                 <span suppressHydrationWarning className="text-xs text-muted-foreground whitespace-nowrap">
                   {new Date(alert.detectedAt).toLocaleString()}
                 </span>
-                <SeverityBadge score={alert.cvssScore} />
+                <SeverityBadge score={alert.cvssScore} severity={alert.severity} />
               </div>
               <div className="flex-1 space-y-0.5 min-w-0">
                 <div className="font-medium">

@@ -1,10 +1,11 @@
 import { Badge } from "@/components/ui/badge"
-import { SEVERITY_COLORS, getSeverityTier } from "@/lib/severity"
+import { SEVERITY_COLORS, getAlertSeverityTier } from "@/lib/severity"
 
 const TIER_LABELS = { critical: "Critical", high: "High", medium: "Medium", low: "Low", na: "n/a" } as const
 
-export function SeverityBadge({ score }: { score: number | null }) {
-  const tier = getSeverityTier(score)
+/** The tier's name, decided by getAlertSeverityTier (severity first, score as fallback). */
+export function SeverityBadge({ score, severity }: { score: number | null; severity: string | null | undefined }) {
+  const tier = getAlertSeverityTier(severity, score)
   return (
     <Badge
       style={{ backgroundColor: SEVERITY_COLORS[tier] }}

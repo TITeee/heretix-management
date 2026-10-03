@@ -193,7 +193,7 @@ export function DependencyGraph({ assetId }: { assetId: string }) {
               className="flex items-center gap-2 text-xs w-full text-left hover:bg-accent rounded px-1 py-0.5"
               onClick={() => { setSelectedAlert(a); setSheetOpen(true) }}
             >
-              <SeverityBadge score={a.cvssScore} />
+              <SeverityBadge score={a.cvssScore} severity={a.severity} />
               <span className="font-mono break-all">{a.externalId}</span>
             </button>
           ))

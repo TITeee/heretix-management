@@ -56,7 +56,7 @@ export function KevHighlights({ alerts: initialAlerts }: { alerts: SheetAlert[] 
                   )}
                 </div>
               </div>
-              <div><SeverityBadge score={alert.cvssScore} /></div>
+              <div><SeverityBadge score={alert.cvssScore} severity={alert.severity} /></div>
             </div>
           )
         })}

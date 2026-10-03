@@ -11,7 +11,8 @@ import { buttonVariants } from "@/components/ui/button-variants"
 import { cn } from "@/lib/utils"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
-import { SEVERITY_COLORS, STATUS_LABELS, getAlertSeverityTier } from "@/lib/severity"
+import { STATUS_LABELS, getAlertSeverityTier } from "@/lib/severity"
+import { SeverityBadge } from "@/components/alerts/vuln-detail-tabs"
 import { AlertDetailSheet, StatusIcon, statusColorClass, statusSelectStyle, StatusOptionLabel } from "@/components/alerts/alert-detail-sheet"
 import { formatDaysUntilDue, getSlaStatus } from "@/lib/sla"
 import { distroPriorityLabel, distroPrioritySortKey } from "@/lib/distro-priority"
@@ -160,27 +161,6 @@ function GroupedPackageCell({ sourcePackage, version, members }: {
   )
 }
 
-// Colors by the same severity tier the rest of the app buckets alerts by
-// (getAlertSeverityTier), not cvssScore alone — a qualitative severity with
-// no score yet would otherwise render as N/A here while counting as its real
-// tier everywhere else (per-package badges, Open Alert Summary, severity=
-// filters). Still shows the numeric score as the label when one exists.
-function AlertSeverityBadge({ severity, score }: { severity: string | null; score: number | null }) {
-  const tier = getAlertSeverityTier(severity, score)
-  // tier === "na" here means severity didn't match a known tier either (not just
-  // that it's null) — an unrecognized word like GHSA's "MODERATE" must fall back
-  // to "n/a" too rather than leaking the raw string next to an N/A-colored badge.
-  const label = score != null ? score.toFixed(1) : tier !== "na" ? severity! : "n/a"
-  return (
-    <Badge
-      style={{ backgroundColor: SEVERITY_COLORS[tier] }}
-      className={tier === "na" ? "text-neutral-900" : "text-white"}
-    >
-      {label}
-    </Badge>
-  )
-}
-
 function buildColumns(onStatusChange: (id: string, status: string) => void): ColumnDef<Alert>[] {
   return [
   {
@@ -190,7 +170,7 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
         CVSS <ArrowUpDown className="ml-1 h-3 w-3" />
       </Button>
     ),
-    cell: ({ row }) => <AlertSeverityBadge severity={row.original.severity} score={row.original.cvssScore} />,
+    cell: ({ row }) => <SeverityBadge severity={row.original.severity} score={row.original.cvssScore} />,
   },
   {
     // Next to CVSS so a gap between the CVE-wide rating and the distro's own

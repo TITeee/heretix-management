@@ -30,6 +30,7 @@ import { useRouter } from "next/navigation"
 import { getSlaStatus, formatDaysUntilDue } from "@/lib/sla"
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/severity"
 import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
+import { cvssVersionLabel } from "@/lib/cvss"
 import { TagBadge } from "@/components/tags/tag-badge"
 import { distroPriorityLabel } from "@/lib/distro-priority"
 import { fixStatusLabel } from "@/lib/fix-status"
@@ -46,6 +47,7 @@ export type SheetAlert = {
   sources: string[]
   cvssScore: number | null
   cvssVector: string | null
+  severity?: string | null
   summary: string | null
   isKev: boolean
   epssScore: number | null
@@ -420,7 +422,10 @@ function AlertTimelineTab({ alertId, open, refreshKey }: { alertId: string; open
               </p>
               {event.type === "detected" && (
                 <div className="flex items-center gap-1.5 mt-1">
-                  <SeverityBadge score={event.data?.cvssScore != null ? event.data.cvssScore as number : null} />
+                  <SeverityBadge
+                    score={event.data?.cvssScore != null ? event.data.cvssScore as number : null}
+                    severity={event.data?.severity != null ? String(event.data.severity) : null}
+                  />
                   {!!event.data?.severity && (
                     <span className="text-xs text-muted-foreground capitalize">{String(event.data.severity)}</span>
                   )}
@@ -856,7 +861,11 @@ export function AlertDetailSheet({
                 <div className="flex items-center gap-2">
                   <span className="w-28 text-muted-foreground shrink-0">CVSS</span>
                   <div className="flex items-center gap-2">
-                    <SeverityBadge score={alert.cvssScore} />
+                    <SeverityBadge score={alert.cvssScore} severity={alert.severity} />
+                    {/* The version says which scale the colour is on: a v2 10.0 is High. */}
+                    {alert.cvssVector && (
+                      <span className="text-xs text-muted-foreground">CVSS {cvssVersionLabel(alert.cvssVector)}</span>
+                    )}
                     {alert.cvssVector && <CvssVectorTooltip vector={alert.cvssVector} />}
                   </div>
                 </div>
