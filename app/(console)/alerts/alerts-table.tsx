@@ -149,7 +149,7 @@ function GroupedPackageCell({ sourcePackage, version, members }: {
         className="flex items-center gap-1 font-medium hover:underline"
       >
         {expanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
-        {sourcePackage} <span className="text-muted-foreground font-normal">(+{members.length - 1})</span>
+        {sourcePackage} <span className="text-muted-foreground font-normal">({members.length})</span>
       </button>
       <div className="text-xs text-muted-foreground">{version}</div>
       {expanded && (
@@ -868,7 +868,10 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
       <AlertDetailSheet
         key={selected?.id}
         alert={selected}
-        groupMembers={selected?._groupMembers?.map(m => m.packageName)}
+        group={selected?._groupMembers && {
+          sourcePackage: selected.sourcePackage ?? selected.packageName,
+          members: selected._groupMembers.map(m => ({ id: m.id, packageName: m.packageName })),
+        }}
         open={open}
         onOpenChange={handleOpenChange}
         onStatusChange={handleStatusChange}

@@ -611,16 +611,17 @@ function AlertAiChatTab({ alertId, open, aiEnabled }: { alertId: string; open: b
 
 export function AlertDetailSheet({
   alert,
-  groupMembers,
+  group,
   open,
   onOpenChange,
   onStatusChange: notifyStatusChange,
 }: {
   alert: SheetAlert | null
   // Sibling binary packages the Alerts table collapsed this row's finding
-  // into (e.g. binutils's other seven packages) — display-only, so a reader
-  // isn't left thinking the fix applies to packageName alone.
-  groupMembers?: string[]
+  // into (e.g. binutils's eight packages, alert itself included) — display-only,
+  // so a reader isn't left thinking the fix applies to packageName alone.
+  // Members share packageVersion (it is part of the grouping key).
+  group?: { sourcePackage: string; members: { id: string; packageName: string }[] }
   open: boolean
   onOpenChange: (v: boolean) => void
   onStatusChange: (alertId: string, status: string) => void
@@ -643,6 +644,9 @@ export function AlertDetailSheet({
   // Tagged with the alert it was fetched for, so switching alerts never shows
   // the previous one's tags while the next request is in flight.
   const [fetchedTags, setFetchedTags] = useState<{ alertId: string; tags: AlertTags | null } | null>(null)
+  // Package tags of each group member, by member alert id. Package tags are
+  // keyed by package name, so siblings can differ from the alert's own.
+  const [fetchedMemberTags, setFetchedMemberTags] = useState<{ alertId: string; byId: Record<string, AlertTag[]> } | null>(null)
 
   useEffect(() => {
     if (alert) {
@@ -719,6 +723,15 @@ export function AlertDetailSheet({
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null)
       .then((tags: AlertTags | null) => { if (!cancelled) setFetchedTags({ alertId, tags }) })
+    const siblings = group?.members.filter(m => m.id !== alertId) ?? []
+    if (siblings.length > 0) {
+      Promise.all(siblings.map(m =>
+        fetch(`/api/alerts/${m.id}/tags`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null)
+          .then((tags: AlertTags | null) => [m.id, tags?.packageTags ?? []] as const)
+      )).then(entries => { if (!cancelled) setFetchedMemberTags({ alertId, byId: Object.fromEntries(entries) }) })
+    }
     return () => { cancelled = true }
     // Same reasoning: keyed by id, not the alert object.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -816,6 +829,11 @@ export function AlertDetailSheet({
 
   const assetLabel = alert.asset.name || alert.asset.hostname
   const alertTags = fetchedTags?.alertId === alert.id ? fetchedTags.tags : null
+  const grouped = group && group.members.length > 1 ? group : null
+  const memberTags = (memberId: string) =>
+    memberId === alert.id
+      ? alertTags?.packageTags
+      : fetchedMemberTags?.alertId === alert.id ? fetchedMemberTags.byId[memberId] : undefined
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -826,11 +844,6 @@ export function AlertDetailSheet({
             {alert.packageName} {alert.packageVersion}
             <Badge variant="secondary" className="text-xs font-normal">{alert.ecosystem}</Badge>
           </SheetDescription>
-          {groupMembers && groupMembers.length > 1 && (
-            <p className="text-xs text-muted-foreground">
-              Also affects: {groupMembers.filter(m => m !== alert.packageName).join(", ")}
-            </p>
-          )}
         </SheetHeader>
 
         <Tabs defaultValue="overview" className="flex flex-col flex-1 min-h-0">
@@ -924,10 +937,33 @@ export function AlertDetailSheet({
             <section className="space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Affected Package</h3>
               <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="w-28 text-muted-foreground shrink-0">Package</span>
-                  <span className="font-medium">{alert.packageName}</span>
-                </div>
+                {grouped ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="w-28 text-muted-foreground shrink-0">Source</span>
+                      <span className="font-medium">{grouped.sourcePackage}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="w-28 text-muted-foreground shrink-0">Packages ({grouped.members.length})</span>
+                      <ul className="space-y-1">
+                        {grouped.members.map(m => {
+                          const tags = memberTags(m.id)
+                          return (
+                            <li key={m.id} className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium">{m.packageName}</span>
+                              {tags && tags.length > 0 && <TagList tags={tags} />}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 text-muted-foreground shrink-0">Package</span>
+                    <span className="font-medium">{alert.packageName}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <span className="w-28 text-muted-foreground shrink-0">Version</span>
                   <span className="font-mono text-xs">{alert.packageVersion}</span>
@@ -936,10 +972,14 @@ export function AlertDetailSheet({
                   <span className="w-28 text-muted-foreground shrink-0">Ecosystem</span>
                   <span>{alert.ecosystem}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-28 text-muted-foreground shrink-0">Tags</span>
-                  <TagList tags={alertTags?.packageTags} />
-                </div>
+                {/* A grouped alert shows package tags per member above instead:
+                    one Tags row under several packages would read as covering them all. */}
+                {!grouped && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 text-muted-foreground shrink-0">Tags</span>
+                    <TagList tags={alertTags?.packageTags} />
+                  </div>
+                )}
                 {alert.approximateMatch && (
                   <div className="flex items-center gap-2">
                     <span className="w-28 text-muted-foreground shrink-0">Match</span>
