@@ -32,12 +32,17 @@ services:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-changeme}@db:5432/heretix_management
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_URL: ${AUTH_URL:-http://localhost:3000}
-      HERETIX_API_URL: ${HERETIX_API_URL:-http://localhost:5000}
+      # Inside the container, localhost is the container itself; host.docker.internal
+      # (mapped below) is the host, where heretix-api's own Compose publishes port 5000.
+      HERETIX_API_URL: ${HERETIX_API_URL:-http://host.docker.internal:5000}
       HERETIX_API_KEY: ${HERETIX_API_KEY:-}
       CRON_REFRESH: ${CRON_REFRESH:-0 12 * * *}
       CRON_SCAN: ${CRON_SCAN:-0 13 * * *}
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
+    extra_hosts:
+      # Docker Desktop provides host.docker.internal; on Linux this maps it too.
+      - "host.docker.internal:host-gateway"
     ports:
       - "${PORT:-3000}:3000"
     logging:
