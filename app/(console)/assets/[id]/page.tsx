@@ -54,6 +54,7 @@ export default async function AssetDetailPage({
           direct: true,
           scope: true,
           category: true,
+          licenses: true,
         },
       },
       _count: { select: { alerts: true } },

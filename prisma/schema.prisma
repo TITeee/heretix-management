@@ -68,6 +68,12 @@ model Package {
   // binary package name already is the source name. Used only to group sibling
   // packages in the UI — never in alert identity or matching.
   sourcePackage String?
+  // License strings exactly as the inventory gave them: an SPDX id or
+  // expression where the package manager uses SPDX (npm, PyPI, Composer), free
+  // text otherwise (rpm's "GPLv2+ and MIT"). Not normalized. One entry per
+  // CycloneDX licenses[] item; how several combine is left unstated by the
+  // spec, so they are kept apart rather than joined. Display and filtering only.
+  licenses      String[] @default([])
 
   // A package is identified by its ecosystem, name and version, matching what a
   // vulnerability lookup is keyed on and what a PURL encodes. npm and pnpm resolve

@@ -8,7 +8,15 @@ export type CycloneDXComponent = {
   description?: string
   purl?: string
   scope?: string
+  licenses?: CycloneDXLicenseChoice[]
   properties?: { name: string; value: string }[]
+}
+
+// One licenses[] item: either a single license (SPDX id, or free-text name) or
+// a whole SPDX expression.
+type CycloneDXLicenseChoice = {
+  license?: { id?: string; name?: string }
+  expression?: string
 }
 
 type CycloneDXDependency = {
@@ -146,6 +154,20 @@ function sourcePackageOf(c: CycloneDXComponent, name: string, isOsPackage: boole
   const sourceRpm = property(c, "syft:metadata:sourceRpm")
   if (sourceRpm) return sourceRpmName(sourceRpm) ?? name
   return isOsPackage ? name : null
+}
+
+/**
+ * The component's license strings, as written: heretix-cli puts an SPDX id in
+ * license.id, an SPDX expression in expression, and anything else (rpm's
+ * "GPLv2+ and MIT") in license.name; other scanners use the same three fields.
+ */
+function licensesOf(c: CycloneDXComponent): string[] {
+  const out: string[] = []
+  for (const choice of c.licenses ?? []) {
+    const value = (choice.expression ?? choice.license?.id ?? choice.license?.name)?.trim()
+    if (value && !out.includes(value)) out.push(value)
+  }
+  return out
 }
 
 /**
@@ -324,6 +346,7 @@ export function convertCycloneDXToInventory(bom: CycloneDXBom) {
       scope: c.scope === "excluded" || osManaged ? "excluded" : null,
       category,
       sourcePackage: sourcePackageOf(c, name, isOsPackage),
+      licenses: licensesOf(c),
     }
   }).filter(p => p.name !== "").filter(p => {
     // Some scanners (Syft on Bitnami images, for one) report the same package

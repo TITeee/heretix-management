@@ -50,6 +50,8 @@ export type AssetRow = {
   _count: { packages: number; alerts: number }
   openAlerts: { critical: number; high: number; medium: number; low: number; na: number }
   tags: { id: string; name: string; color: string | null }[]
+  // Distinct license strings across the asset's packages; filter-only, no column.
+  licenses: string[]
 }
 
 export const assetColumns: ColumnDef<AssetRow>[] = [

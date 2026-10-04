@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { SEVERITY_COLORS } from "@/lib/severity"
-import { ArrowUpDown, ExternalLink, Pencil, Trash2, X } from "lucide-react"
+import { ArrowUpDown, ChevronDown, ChevronRight, ExternalLink, Pencil, Trash2, X } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
@@ -65,6 +65,7 @@ type PackageRow = {
   direct?: boolean | null
   scope?: string | null
   category?: string | null
+  licenses?: string[]
   alertCount: number
   alertSeverities: { critical: number; high: number; medium: number; low: number; na: number }
 }
@@ -347,6 +348,35 @@ function DeleteButton({ assetId, pkg }: { assetId: string; pkg: PackageRow }) {
 }
 
 
+// Several licenses collapse to the first one plus the total, expanding on
+// click like the Alerts table's grouped packages, so one package with many
+// licenses doesn't stretch its row.
+function LicenseCell({ licenses }: { licenses: string[] }) {
+  const [expanded, setExpanded] = useState(false)
+  if (licenses.length === 0) return <span className="text-xs text-muted-foreground">None</span>
+  if (licenses.length === 1) {
+    return <span className="block text-xs truncate max-w-xs" title={licenses[0]}>{licenses[0]}</span>
+  }
+  return (
+    <div className="text-xs">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setExpanded(v => !v) }}
+        className="flex items-center gap-1 max-w-xs hover:underline"
+      >
+        {expanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
+        <span className="truncate" title={licenses[0]}>{licenses[0]}</span>
+        <span className="text-muted-foreground shrink-0">({licenses.length})</span>
+      </button>
+      {expanded && (
+        <ul className="mt-1 text-muted-foreground list-disc list-inside">
+          {licenses.map(l => <li key={l} className="truncate max-w-xs" title={l}>{l}</li>)}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function sortableHeader(label: string) {
   return function Header({ column }: { column: { toggleSorting: () => void } }) {
     return (
@@ -415,6 +445,15 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
       },
     },
     {
+      id: "licenses",
+      // Rows without a license (none reported, or imported before this field)
+      // sort last.
+      accessorFn: (row) => row.licenses?.length ? row.licenses.join(", ") : undefined,
+      sortUndefined: "last",
+      header: sortableHeader("License"),
+      cell: ({ row }) => <LicenseCell licenses={row.original.licenses ?? []} />,
+    },
+    {
       accessorKey: "location",
       header: "Location",
       cell: ({ row }) => (
@@ -475,6 +514,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
   const [sourceFilter, setSourceFilter] = useState<Set<string>>(new Set())
   const [directFilter, setDirectFilter] = useState<Set<string>>(new Set())
   const [scopeFilter, setScopeFilter] = useState<Set<string>>(new Set())
+  const [licenseFilter, setLicenseFilter] = useState<Set<string>>(new Set())
 
   const ecosystemOptions = useMemo(() =>
     [...new Set(data.map(p => p.ecosystem))].sort().map(v => ({ value: v, label: v || "Other" })),
@@ -482,6 +522,10 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
   )
   const sourceOptions = useMemo(() =>
     [...new Set(data.map(p => p.source))].sort().map(v => ({ value: v, label: v })),
+    [data]
+  )
+  const licenseOptions = useMemo(() =>
+    [...new Set(data.flatMap(p => p.licenses ?? []))].sort().map(v => ({ value: v, label: v })),
     [data]
   )
   const directOptions = [
@@ -501,10 +545,11 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
     if (sourceFilter.size > 0 && !sourceFilter.has(p.source)) return false
     if (directFilter.size > 0 && !directFilter.has(String(p.direct))) return false
     if (scopeFilter.size > 0 && !scopeFilter.has(nonRuntimeCategory(p) ?? "other")) return false
+    if (licenseFilter.size > 0 && !(p.licenses ?? []).some(l => licenseFilter.has(l))) return false
     return true
-  }), [data, ecosystemFilter, sourceFilter, directFilter, scopeFilter])
+  }), [data, ecosystemFilter, sourceFilter, directFilter, scopeFilter, licenseFilter])
 
-  const hasFilter = ecosystemFilter.size > 0 || sourceFilter.size > 0 || directFilter.size > 0 || scopeFilter.size > 0
+  const hasFilter = ecosystemFilter.size > 0 || sourceFilter.size > 0 || directFilter.size > 0 || scopeFilter.size > 0 || licenseFilter.size > 0
 
   return (
     <div className="space-y-3">
@@ -533,9 +578,16 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
           selected={scopeFilter}
           onSelectedChange={setScopeFilter}
         />
+        <DataTableFacetedFilter
+          title="License"
+          options={licenseOptions}
+          selected={licenseFilter}
+          onSelectedChange={setLicenseFilter}
+          searchable
+        />
         {hasFilter && (
           <Button variant="ghost" size="sm"
-            onClick={() => { setEcosystemFilter(new Set()); setSourceFilter(new Set()); setDirectFilter(new Set()); setScopeFilter(new Set()) }}>
+            onClick={() => { setEcosystemFilter(new Set()); setSourceFilter(new Set()); setDirectFilter(new Set()); setScopeFilter(new Set()); setLicenseFilter(new Set()) }}>
             Reset <X className="ml-1 size-4" />
           </Button>
         )}

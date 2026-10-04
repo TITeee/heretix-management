@@ -119,6 +119,8 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
     scope?: string | null
     category?: string | null
     sourcePackage?: string | null
+    licenses?: unknown
+    license?: unknown
   }) => ({
     name: p.name,
     version: p.version,
@@ -131,6 +133,11 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
     scope: p.scope ?? null,
     category: p.category ?? null,
     sourcePackage: p.sourcePackage ?? null,
+    // licenses[] from a converted CycloneDX SBOM; heretix-cli's inventory.json
+    // carries a single license string instead.
+    licenses: Array.isArray(p.licenses)
+      ? p.licenses.filter((l): l is string => typeof l === "string" && l.trim() !== "")
+      : typeof p.license === "string" && p.license.trim() !== "" ? [p.license.trim()] : [],
   }))
 
   const existing = await prisma.asset.findFirst({ where: { hostname } })
@@ -169,7 +176,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
       where: { assetId: existing.id, source: { not: "manual" } },
     })
 
-    type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[]; scope: string | null; category: string | null; sourcePackage: string | null }
+    type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[]; scope: string | null; category: string | null; sourcePackage: string | null; licenses: string[] }
     const { toCreate, toUpdateMeta, toDelete, supersededVersions } = diffPackages(
       existingPkgs,
       incomingPackages as IncomingPkg[]
@@ -195,6 +202,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
       ex.scope !== inc.scope ||
       ex.category !== inc.category ||
       ex.sourcePackage !== inc.sourcePackage ||
+      JSON.stringify(ex.licenses) !== JSON.stringify(inc.licenses) ||
       JSON.stringify(ex.deps) !== JSON.stringify(inc.deps ?? [])
     )
 
@@ -211,7 +219,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
       ...metaChanged.map(({ existing: ex, incoming: inc }) =>
         prisma.package.update({
           where: { id: ex.id },
-          data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [], scope: inc.scope, category: inc.category, sourcePackage: inc.sourcePackage },
+          data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [], scope: inc.scope, category: inc.category, sourcePackage: inc.sourcePackage, licenses: inc.licenses },
         })
       ),
       ...(historyEntries.length > 0

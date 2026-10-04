@@ -239,3 +239,24 @@ describe("convertCycloneDXToInventory — language packages the OS installed", (
     expect(pkg(inv, "urllib3")).toMatchObject({ scope: null, category: null })
   })
 })
+
+describe("convertCycloneDXToInventory — licenses", () => {
+  it("keeps each licenses[] entry as written, whichever field it is in", () => {
+    const inv = convertCycloneDXToInventory({
+      components: [
+        // heretix-cli: SPDX id, SPDX expression, and rpm free text in license.name
+        { type: "library", name: "lodash", version: "4.17.21", purl: "pkg:npm/lodash@4.17.21", licenses: [{ license: { id: "MIT" } }] },
+        { type: "library", name: "cryptography", version: "42.0.0", purl: "pkg:pypi/cryptography@42.0.0", licenses: [{ expression: "Apache-2.0 OR BSD-3-Clause" }] },
+        { type: "library", name: "bash", version: "5.1.8-9.el9", purl: "pkg:rpm/rocky/bash@5.1.8-9.el9?distro=rocky-9", licenses: [{ license: { name: "GPLv3+" } }] },
+        // Several entries stay separate; duplicates and blanks are dropped.
+        { type: "library", name: "multi", version: "1.0.0", purl: "pkg:npm/multi@1.0.0", licenses: [{ license: { id: "MIT" } }, { license: { name: " ISC " } }, { license: { id: "MIT" } }, { license: {} }] },
+        { type: "library", name: "none", version: "1.0.0", purl: "pkg:npm/none@1.0.0" },
+      ],
+    })
+    expect(pkg(inv, "lodash").licenses).toEqual(["MIT"])
+    expect(pkg(inv, "cryptography").licenses).toEqual(["Apache-2.0 OR BSD-3-Clause"])
+    expect(pkg(inv, "bash").licenses).toEqual(["GPLv3+"])
+    expect(pkg(inv, "multi").licenses).toEqual(["MIT", "ISC"])
+    expect(pkg(inv, "none").licenses).toEqual([])
+  })
+})

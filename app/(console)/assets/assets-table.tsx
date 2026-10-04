@@ -17,6 +17,7 @@ export function AssetsTable({ data }: { data: AssetRow[] }) {
   const router = useRouter()
   const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set())
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set())
+  const [licenseFilter, setLicenseFilter] = useState<Set<string>>(new Set())
 
   const tagOptions = useMemo(() =>
     [...new Map(data.flatMap(a => a.tags).map(t => [t.id, t])).values()]
@@ -25,16 +26,22 @@ export function AssetsTable({ data }: { data: AssetRow[] }) {
     [data]
   )
 
+  const licenseOptions = useMemo(() =>
+    [...new Set(data.flatMap(a => a.licenses))].sort().map(v => ({ value: v, label: v })),
+    [data]
+  )
+
   const filteredData = useMemo(() =>
     data.filter(a => {
       if (typeFilter.size > 0 && !typeFilter.has(a.assetType)) return false
       if (tagFilter.size > 0 && !a.tags.some(t => tagFilter.has(t.id))) return false
+      if (licenseFilter.size > 0 && !a.licenses.some(l => licenseFilter.has(l))) return false
       return true
     }),
-    [data, typeFilter, tagFilter]
+    [data, typeFilter, tagFilter, licenseFilter]
   )
 
-  const hasFilter = typeFilter.size > 0 || tagFilter.size > 0
+  const hasFilter = typeFilter.size > 0 || tagFilter.size > 0 || licenseFilter.size > 0
 
   return (
     <div className="space-y-3">
@@ -51,8 +58,15 @@ export function AssetsTable({ data }: { data: AssetRow[] }) {
           selected={tagFilter}
           onSelectedChange={setTagFilter}
         />
+        <DataTableFacetedFilter
+          title="License"
+          options={licenseOptions}
+          selected={licenseFilter}
+          onSelectedChange={setLicenseFilter}
+          searchable
+        />
         {hasFilter && (
-          <Button variant="ghost" size="sm" onClick={() => { setTypeFilter(new Set()); setTagFilter(new Set()) }}>
+          <Button variant="ghost" size="sm" onClick={() => { setTypeFilter(new Set()); setTagFilter(new Set()); setLicenseFilter(new Set()) }}>
             Reset <X className="ml-1 size-4" />
           </Button>
         )}

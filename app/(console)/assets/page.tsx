@@ -26,10 +26,24 @@ async function getAssets() {
   })
   const openMap = countSeverityByKey(openAlertRows, (a) => a.assetId)
 
+  // The distinct license strings in each asset's inventory, for the License
+  // filter. Unnested in SQL: reading every package row just to collect these
+  // would pull the whole inventory of every asset into memory.
+  const licenseRows = await prisma.$queryRaw<{ assetId: string; license: string }[]>`
+    SELECT DISTINCT "assetId", unnest("licenses") AS license FROM "Package"
+  `
+  const licenseMap = new Map<string, string[]>()
+  for (const { assetId, license } of licenseRows) {
+    const list = licenseMap.get(assetId)
+    if (list) list.push(license)
+    else licenseMap.set(assetId, [license])
+  }
+
   return assets.map((a) => ({
     ...a,
     openAlerts: openMap.get(a.id) ?? emptySeverityCounts(),
     tags: a.assetTags.map(at => at.tag),
+    licenses: licenseMap.get(a.id) ?? [],
   }))
 }
 

@@ -229,6 +229,25 @@ describe("POST /api/assets — re-import diff", () => {
     expect(history.filter((h) => h.action === "removed").map((h) => h.packageName).sort()).toEqual(["curl", "lodash"])
     expect(history.filter((h) => h.action === "added").map((h) => h.packageName)).toEqual(["lodash"])
   })
+
+  it("stores heretix-cli's license string, and a re-import fills it in on an unchanged package", async () => {
+    const first = await POST(postRequest({
+      inventory: {
+        hostname: "host-3",
+        packages: [{ name: "lodash", version: "4.17.21", rawVersion: "4.17.21", ecosystem: "npm", source: "sbom" }],
+      },
+    }))
+    const asset = await first.json()
+    expect((await prisma.package.findFirstOrThrow({ where: { assetId: asset.id } })).licenses).toEqual([])
+
+    await POST(postRequest({
+      inventory: {
+        hostname: "host-3",
+        packages: [{ name: "lodash", version: "4.17.21", rawVersion: "4.17.21", ecosystem: "npm", source: "sbom", license: "MIT" }],
+      },
+    }))
+    expect((await prisma.package.findFirstOrThrow({ where: { assetId: asset.id } })).licenses).toEqual(["MIT"])
+  })
 })
 
 describe("POST /api/assets — hostname override", () => {
