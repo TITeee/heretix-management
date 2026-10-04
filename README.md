@@ -1,407 +1,136 @@
 # heretix-management
 
-Part of the **[heretix](https://titeee.github.io/heretix-web/)** project — a self-hosted suite that tracks CVEs across servers, containers, and network appliances (firewalls, VPNs) in one inventory (Apache-2.0).
+heretix-management is the web console of **[heretix](https://titeee.github.io/heretix-web/)**, a self-hosted suite that tracks CVEs across servers, containers and network appliances (firewalls, VPNs) in one inventory (Apache-2.0).
 
-This repository, heretix-management, is the web console: it imports server package information collected by [heretix-cli](../heretix-cli) and uses heretix-api to detect, track, and manage vulnerabilities.
-
-[日本語版 README](./README.ja.md)
+[日本語版 README](README.ja.md)
 
 ![Alert Management](docs/alerts.png)
 
+## What it does
+
+It keeps the inventory of what you run and the vulnerabilities found in it, and gives you one place to triage them:
+
+1. **Import** what each asset has installed: an SBOM from heretix-cli, Trivy or Syft, a CSV of appliances, or packages added by hand.
+2. **Scan** the inventory against heretix-api, which turns matches into alerts, keeps them current, and resolves the ones that no longer apply.
+3. **Triage**: track each alert from open to resolved or ignored, with SLA due dates, CISA KEV and EPSS signals, the distro's own rating and fix status, VEX exchange, and Slack notifications.
+
+Where it sits in heretix:
+
+```
+ servers / containers                 network appliances
+        │ heretix-cli, Trivy, Syft          │ added by hand / CSV
+        ▼                                   ▼
+ heretix-management (inventory + alerts) ── search ──► heretix-api (vulnerability data)
+        │
+        ▼
+ dashboard, alerts, VEX, Slack
+```
+
+- **[heretix-cli](https://github.com/TITeee/heretix-cli)** collects the packages on a host or image as a CycloneDX SBOM.
+- **heretix-management** (this repository) keeps the inventory and the findings.
+- **[heretix-api](https://github.com/TITeee/heretix-api)** answers "is this version vulnerable?" from its local copy of OSV, NVD, KEV, EPSS, and vendor advisories.
+
 ## Features
 
-- **Dashboard** — Two-tab layout: Overview / Tags
-  - **Overview** — Summary cards (assets, packages, alerts, open, critical, KEV), SLA status by severity, Mean Time to Resolve (MTTR) by severity, overall alert severity distribution and status breakdown, Top 10 vulnerable assets & packages, tag severity donut charts (Internet Facing / Public Endpoint), 8-week New vs. Resolved alert trend, KEV highlights, recent alerts
-  - **Tags** — Cards for packages and assets linked to tags, color-coded by severity
-- **Asset Management** — Import `inventory.json` or **CycloneDX BOM** from heretix-cli, **Trivy**, or **Syft** (incremental updates, PURL parsing with scoped npm / Go module / OS package support), asset list & detail views, edit & delete
-- **Dependency Graph** *(Beta)* — Visual dependency graph on the Asset detail page (Dependency Graph tab). Shows vulnerable packages (red) and their upstream dependents (configurable 1–8 hops), with automatic layout via dagre. Available for packages with lockfile-based dependency data (npm/pnpm fully supported; Go and PyPI partially). Works with SBOM or inventory.json from heretix-cli, and with standard CycloneDX SBOMs from tools such as Syft, trivy, and cdxgen
-- **Manual Asset Registration** — Register network devices and firewalls directly via GUI, one at a time, or in bulk via **Import CSV** (`Assets` → `Import CSV`): one row per asset+Advisory-package, repeat a hostname to add more than one package to the same asset. Validates every row against the same vendor/product catalog as the Advisory tab before importing, previews create/update/skip per row with nothing written until confirmed, and can optionally add packages to an asset whose hostname already exists instead of skipping it
-- **Tags** — Create color-coded tags for assets or packages (e.g. "Internet Facing", "Public Endpoint"), assign them from the asset/package detail pages, and view aggregated severity counts per tag on the Tags page and Dashboard
-- **Manual Package Management** — Add, edit, and delete software installed outside the package manager. The Advisory tab supports Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Check Point, Oracle, Splunk, Apache HTTP Server, Nginx, Apache Tomcat, and Zabbix products via dropdown selection
-- **Package Change History** — View added/updated/removed package history per asset at import time
-- **Vulnerability Scanning** — Detect vulnerabilities via heretix-api batch search and record alerts (creates new Alerts only; does not update or auto-resolve existing Alerts). Malicious package detection (`MAL-` alerts) is also supported via [ossf/malicious-packages](https://github.com/ossf/malicious-packages)
-- **Alert Management** — Status tracking (Open / In Progress / Resolved / Ignored), filters (Asset / Status / Severity / Tags / **Dependency** (Direct/Indirect), multi-value), bulk status update, **export to CSV / JSON** (reflects active filters). Note: Direct/Indirect classification requires either lockfile-based dependency data (npm/pnpm primarily) or an explicit direct-dependency marker in the SBOM (heretix-cli's own `heretix:direct` property, or a CycloneDX dependency graph rooted at the scanned project — Trivy's lockfile scans, cdxgen). OS packages from third-party SBOMs are never classified: Syft records no edge from the scanned image to its packages at all, and Trivy only lists the OS packages nothing else depends on, which says nothing about whether they were installed on purpose — so every such OS package comes back unclassified rather than guessed at. Trivy's installed-package scans (`node_modules`, `site-packages` inside an image), which carry no lockfile, are unclassified for the same reason. Manually added packages are unclassified too
-- **Auto-resolve Alerts** — Automatically marks old-version alerts as resolved when a package is upgraded during import
-- **SLA / Due Date** — Configurable SLA thresholds by CVSS severity (Critical / High / Medium / Low), with a fixed override for CISA KEV alerts. Each Alert's due date is calculated automatically on detection and recalculated when CVSS or KEV status changes. The Alerts table shows a **Due** column and filter (Overdue / Urgent / Warning / OK), and the Alert Detail panel shows the due date with status coloring. SLA tracking can be disabled entirely in Settings, which hides the Due column and filter
-- **Alert Metadata Refresh** — Re-fetches the latest CVSS score, severity, EPSS, and KEV data from heretix-api for all open/in-progress Alerts (does not create new Alerts)
-- **Alert Activity** — View all alert events (detections, status changes, metadata updates) across all assets in a single table. Filter by event type or asset. Accessible via the **Activity** button on the Alerts page
-- **Alert Detail Panel** — Click a row to open a slide-over panel with Overview (basic info, memo, resolution reason), NVD, OSV, Advisory (shown when advisory data exists), CNA (CVE Record data, shown when available), **Dependents** *(Beta)* (interactive graph showing packages that depend on the vulnerable package, with dependency paths), Timeline, and **AI Insight** (shown when the AI Assistant is enabled) tabs
-- **Alert Timeline** — Automatically records detection, status changes, memo saves (with author name and memo content), CVSS score changes, severity changes, KEV additions, and VEX justification changes in the Timeline tab
-- **AI Insight** *(optional)* — Claude-powered chat about a specific alert, in the Alert Detail Panel's AI Insight tab. The assistant is given the alert's CVSS/EPSS/KEV data plus how the same vulnerability was resolved on other assets, to help with triage. Disabled by default; configure the Anthropic API key and model, and test the connection, in **Settings → AI**
-- **VEX (Vulnerability Exploitability eXchange)** *(Beta)* — CycloneDX VEX support for producer and consumer workflows:
-  - **Export** (`GET /api/vex`, **Export VEX** button): Outputs ignored alerts as CycloneDX 1.6 VEX JSON. Compatible with `trivy image myapp --vex vex.json`
-  - **Import** (`POST /api/vex/import`, **Import VEX** button): Ingest a CycloneDX VEX document and auto-apply status changes to matching alerts. Records a `vex_imported` event in the Timeline for audit trail. Affected versions are read from the PURL (`pkg:npm/lodash@4.17.20`) or from `affects[].versions[]`; VERS ranges (`vers:npm/>=4.0.0|<4.17.21`) are reported back rather than evaluated, since misjudging one would silently ignore an exploitable finding
-  - **Ignoring an alert requires a reason**, because `ignored` covers more ground than VEX's `not_affected` and an unlabelled decision would drop out of the export with nothing left to find it by:
+- **Inventory**: import SBOMs (heretix-cli, Trivy, Syft, cdxgen) incrementally, register appliances by hand or by CSV, keep a per-asset package change history, and view each asset's dependency graph *(Beta)*
+- **Detection**: scan on demand, from CI with an access token, or on a daily schedule, including malicious packages (`MAL-*`)
+- **Alerts**: statuses, filters, bulk updates, CSV / JSON export, a timeline per alert, and a detail panel with NVD, OSV, vendor advisory, and CVE Record data
+- **Prioritization**: severity counted the same way on every screen, SLA due dates by severity with a shorter one for actively exploited (CISA KEV) vulnerabilities, exploit likelihood (EPSS), the distro's own rating (Ubuntu priority, Debian urgency, Red Hat impact), and whether the vendor will fix it ("will not fix", "fix deferred")
+- **VEX** *(Beta)*: export ignored alerts as CycloneDX VEX, import VEX documents, and reuse judgments made on other assets
+- **Tags**: group assets and packages (e.g. "Internet Facing") and see severity per tag
+- **Notifications and AI**: Slack notifications filtered by severity and tags, and an optional AI Insight chat per alert (Anthropic)
+- **Administration**: users and roles, an audit log, and Settings for heretix-api, Slack, AI, SLA, and access tokens
 
-    | Reason | Meaning | Exported as |
-    |---|---|---|
-    | **Not affected** | Vulnerable code is present but cannot be exploited here. Requires a CycloneDX justification (`code_not_reachable`, `code_not_present`, etc.) | `state: not_affected` + justification |
-    | **False positive** | The finding itself is wrong, e.g. the scanner matched the wrong package or version | `state: false_positive` |
-    | **Accepted risk** | Exploitable, but the team decided not to act | Not exported, kept internally |
+## Requirements
 
-    Accepted risk is withheld from the document on purpose: its faithful encoding (`state: exploitable` + `response: will_not_fix`) gives a consumer nothing actionable while stopping the finding from being suppressed in their scans.
-  - **Prior judgment reuse**: when the same finding (vulnerability + package + version + ecosystem) has already been judged on another asset, that judgment is shown on the alert with a one-click **Apply this judgment** button. Judgments are never applied automatically, because only `code_not_present` and `protected_by_compiler` describe the build itself. The other seven justifications describe the deployment (network placement, runtime protections, configuration, reachability from the calling code), so the panel warns when reuse needs re-verification and flags assets whose tags differ
-- **Vulnerability Search** — Search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or **Advisory mode** (Vendor Advisory search for Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Check Point, Oracle, Splunk, Apache HTTP Server, Nginx, Apache Tomcat, and Zabbix products)
-- **User Management** — Add, edit, and delete users (admin role only)
-- **Audit Log** — Admin-only page showing the last 500 events: login, user management, settings changes, asset operations. Accessible from the sidebar (admin only)
-- **Settings** — Tabbed configuration: **Vulnerability API** (heretix-api URL/API key, connection test), **Notifications** (Slack webhook — notify on new detections, severity changes, or new KEV alerts, filterable by minimum severity and asset tags, with a test-send button), **AI** (Anthropic API key and model for the AI Insight chat, connection test), **SLA** (enable/disable and configure thresholds), **Access Tokens** (admin only — tokens for CI uploads, see [CI Integration](#6-ci-integration-access-tokens)), **About** (version info)
-- **Scheduled Jobs** — On server start, node-cron registers daily jobs: Refresh Metadata (default 12:00 UTC) → Run Scan for all assets (default 13:00 UTC). Override with `CRON_REFRESH` / `CRON_SCAN` environment variables
-- **Structured Logging** — Scan progress (started, completed, failed) and auth events (login success/failure) are logged as JSON to stdout. Collect with `docker logs` in Docker deployments
+| | Requirement |
+|---|---|
+| heretix-api | A running [heretix-api](https://github.com/TITeee/heretix-api) **with its data loaded** (its quick start, step 3), and its API key. heretix-management has no vulnerability data of its own: every scan asks heretix-api |
+| Sizing | heretix-management itself is light. Size the server for heretix-api, whose database accounts for most of it: see the [heretix requirements](https://titeee.github.io/heretix-web/docs/) and heretix-api's README (figures cover both, for a PoC: 2 vCPU, 8 GB RAM, 20 GB disk) |
+| Software | Docker and Docker Compose v2, and git |
+| Network | heretix-management must reach heretix-api's port (5000 by default); users reach port 3000 |
 
-## Setup
+To run without Docker (Node.js 22, pnpm, PostgreSQL 15+), see [docs/operations.md](docs/operations.md#running-without-docker).
 
-### Option A: Docker (recommended)
+## Quick start
 
-**Prerequisites:** Docker, Docker Compose
+### 0. Set up heretix-api first
 
-1. Create `.env` in the project root:
-   ```env
-   # Required
-   AUTH_SECRET="your-secret-key"   # Generate with: openssl rand -base64 32
-   AUTH_URL="http://your-server-ip:3000"  # Set to the actual server IP/domain
-   POSTGRES_PASSWORD="changeme"
+Follow [heretix-api's quick start](https://github.com/TITeee/heretix-api#quick-start) through its step 3 (loading data), and note its `API_KEY`. Its first full NVD import takes several hours, but you can carry on here meanwhile: scans just find more once it finishes.
 
-   # Optional (can also be set via Settings page)
-   HERETIX_API_URL="http://localhost:5000"
-   HERETIX_API_KEY=""
+### 1. Get the code and configure it
 
-   # Scheduled job times (cron syntax, UTC — minute hour day month weekday):
-   #   CRON_REFRESH — re-fetches CVSS/severity/EPSS/KEV for existing Alerts (default 12:00)
-   #   CRON_SCAN    — scans all assets for new vulnerabilities, runs after refresh (default 13:00)
-   CRON_REFRESH="0 12 * * *"
-   CRON_SCAN="0 13 * * *"
-   ```
-
-2. Build and run:
-   ```bash
-   docker compose build
-   docker compose up -d
-   docker compose logs -f app
-   ```
-   Database migrations are applied automatically on container start.
-
-3. Initial setup (first time only) — create admin user and default tags:
-   ```bash
-   docker compose exec app node_modules/.bin/tsx prisma/seed.ts
-   # Default: admin@example.com / changeme
-   # Custom: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass docker compose exec app node_modules/.bin/tsx prisma/seed.ts
-   # Default tags created: "Internet Facing" (asset), "Public Endpoint" (package)
-   ```
-
-Open `http://localhost:3000` and log in.
-
-**Useful commands:**
 ```bash
-docker compose down       # Stop
-docker compose down -v    # Stop and delete database volume (full reset)
-docker compose logs -f app  # View logs
+git clone https://github.com/TITeee/heretix-management.git
+cd heretix-management
+cp .env.example .env
 ```
 
-### Option B: Manual (native PostgreSQL)
+Edit `.env` and set:
+- `AUTH_SECRET`: a random secret for signing sessions (`openssl rand -base64 32`).
+- `AUTH_URL`: the URL users will open, e.g. `http://192.0.2.10:3000`. Sign-in redirects go here, so it must not be `localhost` unless you only use the server's own browser.
+- `HERETIX_API_KEY`: the `API_KEY` from heretix-api's `.env`.
+- `POSTGRES_PASSWORD`: the password of the bundled database. Change it: the default, `changeme`, is only for a local trial.
 
-**Prerequisites:** Node.js 20+, pnpm, PostgreSQL (with `heretix_management` database created), [heretix-api](../heretix-api) running (default: `http://localhost:5000`)
+heretix-api's URL defaults to `http://host.docker.internal:5000`, which reaches a heretix-api on the same server from inside the container. Set `HERETIX_API_URL` only if heretix-api runs elsewhere. The URL and key can also be changed later on the Settings page.
 
-1. **Install dependencies**
-   ```bash
-   pnpm install
-   ```
-
-2. **Configure environment variables** — create `.env.local`:
-   ```env
-   DATABASE_URL="postgresql://postgres:password@localhost:5432/heretix_management?schema=public"
-   AUTH_SECRET="your-secret-key"
-   AUTH_URL="http://localhost:3000"
-   # heretix-api URL and API key can also be configured via the Settings page in the UI
-   HERETIX_API_URL="http://localhost:5000"
-   HERETIX_API_KEY="your-api-key"
-   # Scheduled job times (cron syntax, UTC — minute hour day month weekday):
-   #   CRON_REFRESH — re-fetches CVSS/severity/EPSS/KEV for existing Alerts (default 12:00)
-   #   CRON_SCAN    — scans all assets for new vulnerabilities, runs after refresh (default 13:00)
-   CRON_REFRESH="0 12 * * *"
-   CRON_SCAN="0 13 * * *"
-   ```
-
-3. **Generate Prisma client**
-   ```bash
-   pnpm exec prisma generate
-   ```
-
-4. **Apply DB schema**
-   ```bash
-   pnpm exec prisma db push
-   ```
-
-5. **Create admin user and default tags** (first time only)
-   ```bash
-   pnpm seed
-   # Default: admin@example.com / changeme
-   # Custom: SEED_EMAIL=you@example.com SEED_PASSWORD=yourpass pnpm seed
-   # Default tags created: "Internet Facing" (asset), "Public Endpoint" (package)
-   ```
-
-6. **Start the server**
-   ```bash
-   pnpm dev
-   ```
-   The server starts at `http://localhost:3000`.
-
-## Upgrading (On-Premises)
-
-When pulling updates that include schema changes or default tag updates:
+### 2. Start it
 
 ```bash
-# 1. Pull latest code
-git pull
-
-# 2. Install dependencies (if changed)
-pnpm install
-
-# 3. Regenerate Prisma client
-pnpm exec prisma generate
-
-# 4. Apply schema changes to DB
-pnpm exec prisma db push
-
-# 5. Update default tags (creates new defaults, removes isDefault from old ones)
-pnpm seed
-
-# 6. Restart dev server
-pnpm dev
+docker compose up --build -d
+docker compose ps                                          # db and app are both up
+curl -s -o /dev/null -w "%{http_code}\n" localhost:3000/login   # → 200
 ```
 
-> **Note:** Docker deployments handle steps 3–5 automatically on container start via `prisma migrate deploy` and do not require re-running the seed script.
+On first start, the container creates the database schema and then starts the console on port 3000. Logs: `docker compose logs -f app`.
 
-> **Note (migration `add_asset_hostname_unique`):** This update adds a unique constraint on `Asset.hostname`. If any existing assets share a hostname, the schema update will fail rather than corrupt data. Check for duplicates before upgrading:
-> ```sql
-> SELECT hostname, count(*) FROM "Asset" GROUP BY hostname HAVING count(*) > 1;
-> ```
-> Rename or delete the duplicates, then continue with the upgrade steps above.
-
-## Usage
-
-### 1. Registering Assets
-
-**Servers & VMs (via heretix-cli):**
-1. Open **Assets** in the sidebar and click **Import SBOM**
-2. Upload the SBOM generated by `heretix-cli collect` (a legacy `inventory.json` is accepted too)
-3. Packages are imported incrementally (only additions, updates, and removals are processed on re-import)
-4. Manually added packages are preserved across re-imports
-
-> **Matching key:** An upload is matched to an existing asset by **hostname** (`inventory.json`'s `hostname` field, or `metadata.component.name` for a CycloneDX BOM) — not by asset name. Re-uploading with the same hostname updates that asset; a different hostname creates a new one. The **Hostname** field on the import page (pre-filled from the file) overrides the file's value — use it to keep updating one asset when a scanner puts a changing value there. Editing it to a hostname no asset has asks for confirmation before creating a new asset, to catch typos. To update a specific asset, open it and click **Update from SBOM**: the hostname is fixed to that asset's, whatever the file says. Updating an existing asset keeps its current name unless a Display Name is entered.
->
-> **Docker images:** heretix-cli sets `hostname` to the `--name` value if given, otherwise the image reference itself (e.g. `myapp:1.0`). Since the tag is part of that string, rescanning `myapp:1.0` → `myapp:2.0` without `--name` creates a *new* asset per tag. To track one image across tag/version bumps as a single asset (matching the firmware-update pattern below), always pass a fixed `--name` (e.g. `--name myapp`) regardless of tag.
->
-> **Per-package diff on re-import** (packages matched by `name` + `ecosystem`, manually added packages excluded from the comparison):
-> | | Behavior |
-> |---|---|
-> | Newly added package | Created; recorded in Package Change History as `added` |
-> | Version changed | Existing package row updated; recorded as `updated` (old → new version). **Open/In Progress Alerts for the old version are auto-resolved** (see Auto-resolve Alerts in Features) |
-> | No longer present | Package row deleted; recorded as `removed`. **Its existing Alerts are *not* auto-resolved** — they stay open even after the package is gone, so review them manually |
-
-**Containers & projects (via Trivy / Syft):**
-
-A CycloneDX SBOM from Trivy or Syft can be uploaded on the same **Import SBOM** page:
+### 3. Create the admin user
 
 ```bash
-trivy image --format cyclonedx --output sbom.json myapp:1.0
-trivy fs    --format cyclonedx --output sbom.json ./my-project
+docker compose exec app node_modules/.bin/tsx prisma/seed.ts
+```
+
+This creates `admin@example.com` / `changeme` (set `SEED_EMAIL` and `SEED_PASSWORD` to choose your own) and the default tags. Sign in at your `AUTH_URL`, then change the password on the **Users** page.
+
+### 4. Connect to heretix-api
+
+Open **Settings → Vulnerability API**, check the URL and key, and press **Test Connection**. If it fails: check that heretix-api answers (`curl http://localhost:5000/health` on its server), that the key matches its `API_KEY`, and, with heretix-api on another server, that `HERETIX_API_URL` points there and port 5000 is reachable. A URL with `localhost` never works from inside the container.
+
+### 5. Import and scan your first asset
+
+Create an SBOM of something you run, with either tool:
+
+```bash
+# heretix-cli: build it once (Go 1.25+), see https://github.com/TITeee/heretix-cli#installation
+heretix-cli collect --image myapp:1.0 --name myapp --output sbom.json
+
+# or Syft
 syft myapp:1.0 -o cyclonedx-json=sbom.json
 ```
 
-- **Hostname:** taken from `metadata.component.name`, which the two tools fill differently for an image:
-  - **Trivy** uses the full image reference including its tag (`myapp:1.0`), so each tag becomes its own asset. Trivy has no option to change this; to track one image across tags, set the **Hostname** field on the import page to a fixed name (e.g. `myapp`).
-  - **Syft** uses the image name without the tag (`myapp`; the tag goes in `metadata.component.version`), so re-scanning a new tag updates the same asset. To keep two tags of one image apart (e.g. `myapp:prod` and `myapp:staging`), give each its own `--source-name`.
-  - For a directory scan, both use the scanned path.
-- **OS packages:** both tools record the OS point release (`rocky-9.3`, `debian-12.15`, `alpine-3.20.10`); it is normalized on import to the ecosystem heretix-api matches on (`Rocky Linux:9`, `Debian:12`, `Alpine:v3.20`).
-- **Direct/Indirect:** Trivy's lockfile scans (`trivy fs`) are classified; Syft records no dependency edges from the scanned project, so its packages stay unclassified.
-- **Language packages the OS installed (Syft):** Syft lists a language library an rpm/deb installed twice, once as the OS package and once as a PyPI/npm/RubyGems/Maven package at its upstream version (e.g. `python3-urllib3 1.26.5-8.el9_8` and `urllib3 1.26.5`). The upstream version doesn't reflect fixes the distro backports into its own release, so matching it raises false positives. On RHEL-family, Fedora, Debian, and Ubuntu images, a language package found under the distro's own install paths (`/usr/lib*/python3*/site-packages`, `/usr/lib/python3/dist-packages`, `/usr/lib/node_modules`, `/usr/share/nodejs`, `/usr/share/gems`, `/usr/share/java`, `/usr/lib/jvm`, and similar) is marked **OS-managed** on import. It stays in the inventory but is excluded from scanning, and its findings come from the OS package instead. Packages installed with pip, npm, or gem go to `/usr/local` on these distros and are unaffected. Alpine is not covered, because its pip and npm also install into `/usr/lib`. Go binaries are not covered either, because `/usr/bin` also holds an image's own binaries.
-- **Not available** from these tools: the kernel/build-toolchain classification (`heretix:category`), which only heretix-cli emits. Vulnerabilities embedded in the SBOM (Trivy's `--scanners vuln`) are ignored — detection always goes through heretix-api.
-- **Syft on Windows** cannot scan Linux container images correctly (image layers fail to extract, and the OS is not detected from an extracted filesystem either); run Syft on Linux/macOS or in its Docker image.
+Upload `sbom.json` on **Assets → Import SBOM**, then press **Run Scan** on the new asset's page.
 
-**Network Devices & Firewalls (manual registration):**
-1. Go to **Assets** → **Add Manually** in the sidebar
-2. Enter Name, Hostname, and Type, then click **Create Asset**
-3. On the asset detail page, click **Add Package** → **Advisory tab**
-   - Select Vendor (Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Check Point / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix) and product from the dropdown, then enter the version
-4. Click **Run Scan** to detect vulnerabilities (uses heretix-api Vendor Advisory data)
-5. After a firmware update, click **Edit** on the package to change the version and re-scan
+Findings appear for the ecosystems heretix-api has imported. An SBOM's OS packages need that distro's data in heretix-api, and appliances need its vendor advisories. After this, the daily jobs refresh and rescan every asset ([docs/alerts.md](docs/alerts.md#scanning)).
 
-### 2. Adding Manual Packages
+### Stop and update
 
-1. Click **Add Package** in the top-right of the package table on the asset detail page
-2. Select a tab and fill in the details:
-   - **General** — Package name, version, and ecosystem (Linux, npm, PyPI, Go, Packagist, etc.)
-   - **Advisory** — Select Vendor (Fortinet / Palo Alto Networks / Cisco / Sophos / SonicWall / Broadcom/VMware / Check Point / Oracle / Splunk / Apache HTTP Server / Nginx / Apache Tomcat / Zabbix) and product from the dropdown, enter version (for network devices and firewalls)
-   - **CPE** — Enter a CPE 2.3 string directly
-3. Packages with a `manual` badge can be edited or deleted
-4. Click the badge in the Alerts column to navigate to the alert list for that package
-
-### 3. Vulnerability Scanning
-
-1. Open the asset detail page
-2. Click **Run Scan**
-3. heretix-api checks all packages (including manually added ones) and generates alerts
-
-### 4. Managing Alerts
-
-1. Check the alert list under **Alerts** in the sidebar
-2. Use **filters** (Asset / Status / Severity / Tags / Dependency / Due) to narrow down results (multiple values supported)
-3. Select multiple alerts via checkboxes → bulk status update available
-4. Click an alert row to open the detail panel:
-   - **Overview** tab — Basic info (including **Fixed in** version when available), status change, memo, auto-resolution reason
-   - **NVD** tab — CVSS detailed scores, CWE, CISA KEV info, reference links
-   - **OSV** tab — Description, affected versions, reference links
-   - **Advisory** tab — Vendor advisory ID, severity, affected products and versions (shown only when advisory data exists)
-5. Track progress by changing status: `Open` → `In Progress` → `Resolved` / `Ignored`
-   - When setting **Ignored**, pick a **Reason** (Not affected / False positive / Accepted risk). Choosing *Not affected* also requires a **VEX Justification** (e.g., `code_not_reachable`). The status is not saved until the reason is recorded
-   - If the same finding was already judged on another asset, that judgment appears above the status field. Review whether it still holds on this asset, then click **Apply this judgment** to reuse it
-6. Click **Refresh Metadata** to sync the latest data from heretix-api
-7. Click **Export VEX** to download a CycloneDX VEX JSON (ignored alerts with justification → `not_affected`) — feed into `trivy --vex vex.json` to suppress false positives
-8. Click **Import VEX** to ingest a vendor-published or externally generated CycloneDX VEX and auto-apply its decisions to matching alerts
-
-> **Run Scan vs. Refresh Metadata:**
-> | | Run Scan | Refresh Metadata |
-> |---|---|---|
-> | Target | Packages of a specific asset | All Alerts (open / in_progress) |
-> | Action | Batch search packages via heretix-api | Re-fetch each Alert by externalId |
-> | Result | **Creates** new Alerts | **Updates** score, severity, etc. of existing Alerts |
-> | Use case | Detecting new vulnerabilities | Keeping up with CVE score revisions, KEV additions, etc. |
-
-### 5. Vulnerability Search
-
-Use **Search** in the sidebar to search by package name / version / ecosystem, CVE/OSV ID, CPE 2.3 string, or vendor advisory (**Advisory** mode: select Vendor and product to search Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Check Point, Oracle, Splunk, Apache HTTP Server, Nginx, Apache Tomcat, and Zabbix advisories).
-
-### 6. CI Integration (Access Tokens)
-
-A CI job can upload an SBOM and scan it in one request, authenticated with an access token instead of a login.
-
-1. **Settings → Access Tokens** (admin only): enter a name, choose scopes, and an expiry (30–365 days; required), then **Create Token**. The token is shown **once** — store it as a CI secret.
-   - `import` — `POST /api/assets` (upload an inventory / SBOM)
-   - `scan` — `POST /api/assets/[id]/scan`, and `?scan=true` on import
-   A token works only on those two endpoints. It cannot sign in to the console or reach alerts, users, or settings; only its SHA-256 hash is stored. Revoke it from the same page; a revoked or expired token can then be deleted from the list (its history stays in the audit log).
-2. Post the SBOM as the request body:
-
-   ```bash
-   curl -fsS -X POST "https://heretix.example.com/api/assets?hostname=myapp&scan=true" \
-     -H "Authorization: Bearer $HERETIX_TOKEN" \
-     -H "Content-Type: application/json" \
-     --data-binary @sbom.json
-   ```
-
-   - `hostname` — the asset to import into, overriding the file's own name. Set it to a fixed value (e.g. `myapp`) for a Trivy SBOM, whose name includes the tag and would otherwise create a new asset per tag.
-   - `scan=true` — scan right after the import (needs both scopes). The response includes `scan: { newAlerts, resolvedAlerts }`. If the scan fails the response is **502** with the import already saved, so the job fails and can simply be re-run.
-
-   GitHub Actions example:
-
-   ```yaml
-   - run: trivy image --format cyclonedx --output sbom.json myapp:${{ github.sha }}
-   - run: |
-       curl -fsS -X POST "${{ vars.HERETIX_URL }}/api/assets?hostname=myapp&scan=true" \
-         -H "Authorization: Bearer ${{ secrets.HERETIX_TOKEN }}" \
-         -H "Content-Type: application/json" --data-binary @sbom.json
-   ```
-
-## Directory Structure
-
-```
-heretix-management/
-├── app/
-│   ├── (console)/              # Authenticated console screens
-│   │   ├── layout.tsx          # Sidebar + topbar
-│   │   ├── page.tsx            # Dashboard (Overview / Tags tabs)
-│   │   ├── assets/             # Asset list, detail, import, manual registration
-│   │   ├── alerts/             # Alert list
-│   │   ├── users/              # User management (admin only)
-│   │   ├── search/             # Vulnerability search
-│   │   ├── tags/               # Tag management (list, create, edit, delete)
-│   │   └── settings/           # Settings (API / Notifications / SLA / About tabs)
-│   ├── api/                    # API routes
-│   │   ├── assets/
-│   │   ├── alerts/
-│   │   ├── users/
-│   │   ├── search/
-│   │   ├── tags/
-│   │   └── settings/
-│   └── login/                  # Login page
-├── components/
-│   ├── ui/                     # shadcn/ui components (including severity-badge)
-│   ├── layout/                 # Sidebar & topbar
-│   ├── data-table/             # Shared DataTable & facet filters
-│   ├── dashboard/              # Dashboard chart components (critical-packages-card, production-assets-card, etc.)
-│   └── assets/                 # Asset column definitions
-├── instrumentation.ts          # Initializes scheduler on server start
-├── lib/
-│   ├── auth.ts                 # Auth.js configuration
-│   ├── db.ts                   # Prisma client
-│   ├── severity.ts             # Severity & status color constants and helpers
-│   ├── heretix-api.ts          # heretix-api client
-│   ├── logger.ts               # Structured JSON log utility
-│   ├── scan.ts                 # Scan logic (shared by route handler & scheduler)
-│   ├── refresh.ts              # Metadata refresh logic (shared)
-│   ├── sla.ts                  # SLA due-date calculation and status helpers
-│   ├── advisory-products.ts    # Vendor/product lists for the Advisory tab dropdowns
-│   └── scheduler.ts            # node-cron schedule definitions
-├── prisma/
-│   ├── schema.prisma
-│   └── seed.ts
-└── middleware.ts               # Auth guard
+```bash
+docker compose down                        # stop; data is kept (add -v to delete it)
+git pull && docker compose up --build -d   # update to the latest version
 ```
 
-## API Endpoints
+On start, the container applies any new database migrations before the console answers. Notes for specific upgrades: [docs/operations.md](docs/operations.md#upgrading).
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/assets` | List assets |
-| POST | `/api/assets` | Create/update asset (inventory.json or CycloneDX BOM incremental import). With `inventory`, an optional `hostname` overrides the file's hostname (also accepted as `?hostname=`, for a raw SBOM body); `dryRun: true` previews the match and returns the resolved `hostname`; `?scan=true` scans after importing. Accepts an access token with the `import` scope (`scan` too for `?scan=true`) |
-| POST | `/api/assets/import-csv` | Bulk-register assets + Advisory packages from a parsed CSV (`commit: false` for a dry-run preview) |
-| GET | `/api/assets/[id]` | Asset detail |
-| PATCH | `/api/assets/[id]` | Update an asset: `name`, `hostname` (trimmed, must be unique), and `assetType` for a manually registered asset. OS fields are not editable (set by imports). Changes are audited |
-| DELETE | `/api/assets/[id]` | Delete asset |
-| POST | `/api/assets/[id]/scan` | Run vulnerability scan. Accepts an access token with the `scan` scope |
-| POST | `/api/assets/[id]/tags` | Add and remove the asset's tags. Body: `{ "add": [tagIds], "remove": [tagIds] }` (either may be omitted); `add` accepts asset tags only |
-| POST | `/api/assets/[id]/packages` | Add manual package |
-| PATCH | `/api/assets/[id]/packages/[pkgId]` | Edit manual package |
-| DELETE | `/api/assets/[id]/packages/[pkgId]` | Delete manual package |
-| GET | `/api/alerts` | List alerts |
-| PATCH | `/api/alerts/[id]` | Update alert status / memo |
-| GET | `/api/alerts/[id]/events` | List alert event history |
-| POST | `/api/alerts/refresh` | Bulk refresh alert metadata from heretix-api |
-| GET | `/api/alerts/events` | List all alert events across all alerts |
-| GET | `/api/alerts/[id]/dependents` | Dependency paths to the vulnerable package (npm/pnpm) |
-| GET | `/api/alerts/[id]/vex-suggestions` | Prior VEX judgments for the same finding on other assets |
-| GET | `/api/alerts/[id]/tags` | Tags the alert falls under: `assetTags` on its asset, `packageTags` on its package name |
-| GET | `/api/alerts/[id]/chat` | AI Insight chat history for an alert |
-| POST | `/api/alerts/[id]/chat` | Send a message to the AI Insight assistant for an alert |
-| GET | `/api/assets/[id]/dependency-graph` | Dependency graph nodes and edges for visualization |
-| GET | `/api/packages` | Package name autocomplete for manual package entry |
-| GET | `/api/vex` | Export CycloneDX VEX JSON (`?assetId=`, `?download=true`) |
-| POST | `/api/vex/import` | Import CycloneDX VEX and apply to matching alerts |
-| GET | `/api/search` | Vulnerability search (heretix-api proxy) |
-| GET | `/api/search/suggest` | Package name autocomplete for Vulnerability Search |
-| GET | `/api/tags` | List tags |
-| POST | `/api/tags` | Create tag |
-| GET | `/api/tags/[id]` | Tag detail (with tagged assets/packages) |
-| PATCH | `/api/tags/[id]` | Update tag |
-| DELETE | `/api/tags/[id]` | Delete tag |
-| POST | `/api/tags/[id]/assets` | Add or remove the tag on assets. Body: `{ "action": "add" \| "remove", "assetIds": [...] }` (a single `assetId` is also accepted); adding an already-tagged asset is a no-op |
-| POST | `/api/tags/[id]/packages` | Add or remove the tag on packages. Body: `{ "action": "add" \| "remove", "packageNames": [...] }` (a single `packageName` is also accepted); adding an already-tagged package is a no-op |
-| GET | `/api/settings` | Get settings |
-| PATCH | `/api/settings` | Update settings |
-| POST | `/api/settings/test` | Test heretix-api connectivity |
-| POST | `/api/settings/slack-test` | Send a test Slack notification |
-| POST | `/api/settings/ai-test` | Test AI (Anthropic) connectivity |
-| GET | `/api/settings/sla` | Get SLA configuration |
-| POST | `/api/settings/sla` | Update SLA configuration |
-| POST | `/api/settings/sla/recalculate` | Recalculate due dates for existing alerts after an SLA config change |
-| GET | `/api/settings/api-tokens` | List access tokens (admin only) |
-| POST | `/api/settings/api-tokens` | Create an access token — `name`, `scopes`, `expiresInDays` (1–365); the token is returned once (admin only) |
-| POST | `/api/settings/api-tokens/[id]/revoke` | Revoke an access token (admin only) |
-| DELETE | `/api/settings/api-tokens/[id]` | Delete a revoked or expired access token; an active one returns 409 (admin only) |
-| GET | `/api/users` | List users (admin only) |
-| POST | `/api/users` | Create user (admin only) |
-| PATCH | `/api/users/[id]` | Update user (admin only) |
-| DELETE | `/api/users/[id]` | Delete user (admin only) |
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [docs/importing-assets.md](docs/importing-assets.md) | Importing SBOMs, matching and re-import, appliances and CSV, manual packages, CI uploads |
+| [docs/alerts.md](docs/alerts.md) | Scanning, alert lifecycle, severity and SLA, VEX, the detail panel, notifications |
+| [docs/operations.md](docs/operations.md) | Manual setup, environment variables, upgrading, scheduled jobs, settings, logging |
+| [docs/api.md](docs/api.md) | `/api/*` endpoint reference |
+| [docs/architecture.md](docs/architecture.md) | Code layout and where the main logic lives |
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE) for details.
+Apache License 2.0. See [LICENSE](LICENSE) for details.
