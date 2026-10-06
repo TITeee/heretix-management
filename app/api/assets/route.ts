@@ -254,7 +254,9 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
     const asset = await prisma.asset.update({
       where: { id: existing.id },
       data: {
-        name: name ?? hostname,
+        // Only a given name renames the asset: a CI upload without one must
+        // keep the display name someone set in the console.
+        ...(typeof name === "string" && name.trim() !== "" && { name: name.trim() }),
         assetType,
         osId: inventory.os?.id ?? "unknown",
         osVersionId: inventory.os?.versionId ?? "unknown",

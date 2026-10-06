@@ -230,6 +230,21 @@ describe("POST /api/assets — re-import diff", () => {
     expect(history.filter((h) => h.action === "added").map((h) => h.packageName)).toEqual(["lodash"])
   })
 
+  it("keeps the display name on a re-import without one, and renames only when given a name", async () => {
+    const inventory = {
+      hostname: "host-4",
+      packages: [{ name: "lodash", version: "4.17.21", rawVersion: "4.17.21", ecosystem: "npm", source: "sbom" }],
+    }
+    const asset = await (await POST(postRequest({ name: "Billing API", inventory }))).json()
+
+    await POST(postRequest({ inventory }))
+    await POST(postRequest({ name: "  ", inventory }))
+    expect((await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } })).name).toBe("Billing API")
+
+    await POST(postRequest({ name: "Billing API v2", inventory }))
+    expect((await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } })).name).toBe("Billing API v2")
+  })
+
   it("stores heretix-cli's license string, and a re-import fills it in on an unchanged package", async () => {
     const first = await POST(postRequest({
       inventory: {
