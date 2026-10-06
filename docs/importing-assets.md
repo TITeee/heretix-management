@@ -11,7 +11,9 @@ An asset is one host, container image, project, or appliance, and its inventory 
 
 ## SBOM import
 
-Open **Assets → Import SBOM** and upload a CycloneDX JSON SBOM (or a legacy heretix-cli `inventory.json`). Re-importing updates the asset incrementally: only added, changed, and removed packages are processed.
+Open **Assets → Import SBOM** and upload a CycloneDX JSON SBOM. Re-importing updates the asset incrementally: only added, changed, and removed packages are processed.
+
+> **Deprecated:** the legacy heretix-cli `inventory.json` (heretix-cli no longer writes it) is still accepted, from the console and from the API, but support ends in heretix-management 0.4.0. Update heretix-cli and collect a CycloneDX SBOM instead.
 
 ```bash
 heretix-cli collect --image myapp:1.0 --name myapp --output sbom.json   # container image

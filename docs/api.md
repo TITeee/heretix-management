@@ -11,7 +11,7 @@ The console's own routes under `/api`. All of them need a signed-in session, exc
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/assets` | List assets (`?search=` on name/hostname, `?limit=`) |
-| POST | `/api/assets` | Create or update an asset from an `inventory.json` or a CycloneDX SBOM (incremental import). `hostname` (body, or `?hostname=` for a raw SBOM body) overrides the file's hostname; `dryRun: true` previews the match; `?scan=true` scans after importing. **Token**: `import` scope (plus `scan` for `?scan=true`) |
+| POST | `/api/assets` | Create or update an asset from a CycloneDX SBOM (incremental import; the legacy `inventory.json` is deprecated and ends in 0.4.0). `name` sets the display name, which a re-import without one keeps; `hostname` (body, or `?hostname=` for a raw SBOM body) overrides the file's hostname; `dryRun: true` previews the match; `?scan=true` scans after importing. **Token**: `import` scope (plus `scan` for `?scan=true`) |
 | POST | `/api/assets/import-csv` | Register assets and Advisory packages from parsed CSV rows; `commit: false` previews |
 | GET | `/api/assets/[id]` | Asset detail |
 | PATCH | `/api/assets/[id]` | Update `name`, `hostname` (unique), and `assetType` (manually registered assets). OS fields come from imports and are not editable. Audited |

@@ -38,6 +38,12 @@ type OverwritePreview = {
 }
 
 // The hostname an import is matched on, as the file itself states it.
+// heretix-cli's own inventory format, dropped from heretix-cli and deprecated
+// here; anything that isn't CycloneDX is that.
+function isLegacyInventory(parsed: unknown): boolean {
+  return !!parsed && typeof parsed === "object" && (parsed as { bomFormat?: string }).bomFormat !== "CycloneDX"
+}
+
 function hostnameInFile(inventory: { bomFormat?: string; hostname?: string; metadata?: { component?: { name?: string } } }): string {
   const raw = inventory.bomFormat === "CycloneDX" ? inventory.metadata?.component?.name : inventory.hostname
   return typeof raw === "string" ? raw.trim() : ""
@@ -216,7 +222,7 @@ function ImportSbomForm() {
         <CardHeader>
           <CardTitle className="text-base">Upload Inventory / SBOM</CardTitle>
           <CardDescription>
-            An <code>inventory.json</code> or CycloneDX SBOM from <code>heretix-cli collect</code>, Trivy, or Syft.
+            A CycloneDX SBOM from <code>heretix-cli collect</code>, Trivy, or Syft. The legacy heretix-cli <code>inventory.json</code> is still accepted but deprecated.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -243,6 +249,12 @@ function ImportSbomForm() {
                 className="hidden"
                 onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
               />
+              {isLegacyInventory(inventory) && (
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  This is a legacy heretix-cli <code>inventory.json</code>. It still imports, but support
+                  ends in heretix-management 0.4.0. Update heretix-cli and collect a CycloneDX SBOM instead.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <label htmlFor="hostname" className="text-sm font-medium">Hostname</label>
