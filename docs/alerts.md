@@ -10,6 +10,7 @@ An alert is one vulnerability (CVE, GHSA, vendor advisory, or malicious-package 
 - A finding that is already an alert updates its metadata: CVSS, severity, EPSS, KEV, fixed version, the distro's rating and fix status.
 - A finding that heretix-api now reports under a new ID (e.g. a CVE assigned to a GHSA) keeps its alert, renamed.
 - An open alert that heretix-api no longer reports, for a package still in the inventory, is **resolved** automatically ("Auto-resolved: no longer detected by scan"). If a later scan reports it again, it is reopened.
+- An alert accepted from the Remediation tab's *No fix available* group is **reopened** once heretix-api reports a fixed version for it ("Fix now available"). See [Remediation](#remediation).
 - Excluded packages (dev-only, kernel/build, OS-managed; see [importing-assets.md](importing-assets.md#reference-how-packages-are-classified)) are not sent, and their earlier alerts are resolved the same way.
 
 **Refresh Metadata** on the Alerts page (and the daily refresh job) re-fetches CVSS, severity, EPSS, and KEV for every open and in-progress alert, without scanning:
@@ -66,6 +67,27 @@ Distro Rating and Fix Status are set by a scan, not by Refresh Metadata, since t
 - **Grouping**: one CVE reported against several binary packages built from the same source package (e.g. binutils) is one row that lists every package.
 - **Export**: CSV or JSON of the filtered alerts.
 - Badges elsewhere (asset pages, tags) link here with the matching filter, and list exactly the alerts they counted.
+
+## Remediation
+
+Every asset page (container image, host, or appliance) opens on a **Remediation** tab that groups its open and in-progress alerts by the change that fixes them, instead of listing one row per finding. Every alert lands in exactly one group; a group is only a view, and every decision is applied to the alerts inside it.
+
+**Changes to make** (findings with a fixed version):
+
+| Change | Groups |
+|---|---|
+| Update an OS package | OS findings by source package (e.g. `openssh` and `openssh-clients` together) |
+| Upgrade a direct dependency | A vulnerable package that the project depends on directly |
+| Upgrade through direct dependencies | A vulnerable transitive package, under the direct dependencies that pull it in (from the SBOM's dependency graph). The version to raise them to is not worked out |
+| Rebuild Go binaries | Findings in Go's standard library (`stdlib`), fixed by building with a newer Go |
+| Update a product | A product registered by hand or by CSV import (appliance firmware, software outside a package manager) |
+| Update a package | A language package whose place in the dependency graph is unknown |
+
+Changes are ordered with KEV first, then by the worst severity, then by the number of findings. Each shows the fixed versions and lists its alerts; click one to open the detail panel.
+
+**No fix available** (findings with no fixed version) are grouped by the distro's fix status (Under investigation, Affected, Fix deferred, Will not fix, Out of support, or none given), with the distro ratings counted. No upgrade resolves these, so each group can be left open to wait for a fix, or **accepted** at once: its alerts become Ignored with the reason Accepted risk (not exported to VEX) and an optional memo on each timeline, and each one reopens automatically when a scan finds a fixed version for it. Changing such an alert's status or reason by hand afterward drops the automatic reopening.
+
+**Accepted, but a fix is now available** lists, grouped the same way as the changes, the alerts ignored as Accepted risk by hand that a later scan found a fixed version for. They stay ignored, since a hand-made acceptance may rest on more than the missing fix; open one to reconsider it.
 
 ## The detail panel
 

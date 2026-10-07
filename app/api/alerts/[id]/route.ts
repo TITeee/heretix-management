@@ -26,6 +26,7 @@ export const PATCH = withApiErrorHandling("alerts.update", async (
     resolvedAt?: Date | null
     vexJustification?: string | null
     ignoreReason?: string | null
+    reopenOnFix?: boolean
   } = {}
 
   // Ignoring an alert is a judgment that has to say what kind of judgment it is,
@@ -54,6 +55,12 @@ export const PATCH = withApiErrorHandling("alerts.update", async (
     update.resolvedAt = status === "resolved" ? new Date() : null
   }
   if (notes !== undefined) update.notes = notes
+
+  // "Reopen once a fix exists" belongs to the no-fix acceptance it was set
+  // with; a person changing the status or the reason has made a new decision.
+  if (leavingIgnored || (ignoreReason !== undefined && (ignoreReason || null) !== current?.ignoreReason)) {
+    update.reopenOnFix = false
+  }
 
   if (leavingIgnored) {
     update.ignoreReason = null

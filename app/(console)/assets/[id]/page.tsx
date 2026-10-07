@@ -18,6 +18,7 @@ import { PackagesTable } from "./packages-table"
 import { ScanHistoryModal } from "./scan-history-modal"
 import { PackageHistoryModal } from "./package-history-modal"
 import { DependencyGraphLoader } from "./dependency-graph-loader"
+import { RemediationTab } from "./remediation-tab"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { AlertSummaryBadges, buildAlertSummary, type AlertSummary } from "@/components/alerts/alert-summary-badges"
 import { countSeverityByKey, emptySeverityCounts } from "@/lib/severity"
@@ -251,10 +252,12 @@ export default async function AssetDetailPage({
         <AlertSummaryBadges summary={alertSummary} kevCount={kevCount} assetId={id} />
       </div>
 
-      {/* Packages / Dependency Graph tabs */}
-      <Tabs defaultValue="packages">
+      {/* Remediation / Packages / Dependency Graph tabs. Opens on Remediation:
+          what to change comes before the package list. */}
+      <Tabs defaultValue="remediation">
         <div className="flex items-center justify-between mb-3">
           <TabsList>
+            <TabsTrigger value="remediation">Remediation</TabsTrigger>
             <TabsTrigger value="packages">Packages</TabsTrigger>
             <TabsTrigger value="graph">Dependency Graph</TabsTrigger>
           </TabsList>
@@ -265,6 +268,9 @@ export default async function AssetDetailPage({
             <AddPackageDialog assetId={id} />
           </div>
         </div>
+        <TabsContent value="remediation">
+          <RemediationTab assetId={id} />
+        </TabsContent>
         <TabsContent value="packages">
           <PackagesTable data={packagesWithAlerts} assetId={id} />
         </TabsContent>

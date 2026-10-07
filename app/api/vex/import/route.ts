@@ -127,6 +127,8 @@ export const POST = withApiErrorHandling("vex.import", async (req: NextRequest) 
               status: newStatus,
               vexJustification: newVexJustification,
               ignoreReason: newIgnoreReason,
+              // An imported judgment replaces a "reopen once fixed" acceptance.
+              reopenOnFix: false,
               ...(newStatus === "resolved" ? { resolvedAt: new Date() } : {}),
               ...(newStatus !== "resolved" && alert.status === "resolved" ? { resolvedAt: null } : {}),
             },

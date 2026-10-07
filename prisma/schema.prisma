@@ -117,6 +117,11 @@ model Alert {
   resolveReason     String?
   ignoreReason      String?
   vexJustification  String?
+  // Set when the alert was accepted from the Remediation view's "no fix
+  // available" group: the decision only holds while there is no fix, so a scan
+  // that finds a fixedVersion reopens it. Cleared by any later manual change to
+  // its status or ignore reason.
+  reopenOnFix       Boolean   @default(false)
   // Denormalized copy of the matched Package's sourcePackage, refreshed on
   // every scan. Display-only: groups sibling findings (e.g. binutils's eight
   // binary packages) into one row in the Alerts table. Never part of alert

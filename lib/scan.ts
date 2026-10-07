@@ -127,6 +127,7 @@ export async function scanAsset(
         distroPriority: true,
         fixStatus: true,
         fixStatusDetail: true,
+        reopenOnFix: true,
       },
     })
     const alertsByFinding = new Map(
@@ -231,6 +232,27 @@ export async function scanAsset(
       reopenedCount++
     }
 
+    // An alert accepted because no fix existed (the Remediation view's "no fix
+    // available" group) is accepted only until one does. Runs after the metadata
+    // update, which is what brings in the new fixedVersion.
+    const reopenIfFixAvailable = async (alert: (typeof existingAlerts)[number]) => {
+      if (alert.status !== "ignored" || !alert.reopenOnFix || !alert.fixedVersion) return
+      await prisma.alert.update({
+        where: { id: alert.id },
+        data: { status: "open", ignoreReason: null, vexJustification: null, reopenOnFix: false },
+      })
+      await prisma.alertEvent.create({
+        data: {
+          alertId: alert.id,
+          type: "status_changed",
+          data: { from: "ignored", to: "open", reason: `Fix now available: ${alert.fixedVersion}` },
+        },
+      })
+      alert.status = "open"
+      alert.reopenOnFix = false
+      reopenedCount++
+    }
+
     /**
      * Finds an alert raised under an id this finding used to be reported by.
      *
@@ -275,6 +297,7 @@ export async function scanAsset(
       if (existing) {
         await updateMetadataIfChanged(existing, v)
         await reopenIfAutoResolved(existing)
+        await reopenIfFixAvailable(existing)
         await syncScanOnlyFields(existing, scanOnly)
         return
       }
@@ -306,6 +329,7 @@ export async function scanAsset(
         alertsByFinding.delete(findingKey(packageName, packageVersion, alias))
         alertsByFinding.set(key, prior)
         await reopenIfAutoResolved(prior)
+        await reopenIfFixAvailable(prior)
         renamedCount++
         return
       }
@@ -372,6 +396,7 @@ export async function scanAsset(
         epssPercentile,
         fixedVersion,
         detectedAt,
+        reopenOnFix: false,
         ...scanOnly,
       })
       newAlertsList.push({

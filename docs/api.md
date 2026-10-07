@@ -22,6 +22,8 @@ The console's own routes under `/api`. All of them need a signed-in session, exc
 | PATCH | `/api/assets/[id]/packages/[pkgId]` | Edit a manual package |
 | DELETE | `/api/assets/[id]/packages/[pkgId]` | Delete a manual package |
 | GET | `/api/assets/[id]/dependency-graph` | Nodes and edges for the dependency graph |
+| GET | `/api/assets/[id]/remediation` | The asset's open and in-progress alerts grouped into changes to make and no-fix groups (`plan`), the alerts ignored as accepted risk that now have a fixed version (`acceptedWithFix`), and the alerts themselves |
+| POST | `/api/assets/[id]/remediation/accept` | Accept no-fix alerts: `{ "alertIds": [...], "memo": "..." }` sets each open/in-progress alert of this asset with no fixed version to Ignored (Accepted risk) and reopens it once a fix exists; other ids are skipped. Returns `{ accepted, skipped }`. Audited |
 
 ## Alerts
 

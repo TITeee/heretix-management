@@ -112,6 +112,24 @@ describe("PATCH /api/alerts/[id]", () => {
     expect(events.map((e) => e.type)).toEqual(["ignore_reason_changed"])
   })
 
+  it("keeps reopenOnFix while the no-fix acceptance stands, and drops it on a new decision", async () => {
+    const accepted = { status: "ignored", ignoreReason: "accepted_risk", reopenOnFix: true }
+
+    const resaved = await createAlert(accepted)
+    await patch(resaved.id, { status: "ignored", ignoreReason: "accepted_risk", notes: "checked again" })
+    expect((await prisma.alert.findUniqueOrThrow({ where: { id: resaved.id } })).reopenOnFix).toBe(true)
+
+    await resetDb()
+    const reopened = await createAlert(accepted)
+    await patch(reopened.id, { status: "open" })
+    expect((await prisma.alert.findUniqueOrThrow({ where: { id: reopened.id } })).reopenOnFix).toBe(false)
+
+    await resetDb()
+    const rejudged = await createAlert(accepted)
+    await patch(rejudged.id, { status: "ignored", ignoreReason: "false_positive" })
+    expect((await prisma.alert.findUniqueOrThrow({ where: { id: rejudged.id } })).reopenOnFix).toBe(false)
+  })
+
   it("drops the justification when the ignore reason is not not_affected", async () => {
     const alert = await createAlert()
     await patch(alert.id, {

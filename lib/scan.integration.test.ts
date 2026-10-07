@@ -143,3 +143,61 @@ describe("scanAsset — Alert.sourcePackage (display-only grouping label)", () =
     expect(alert.sourcePackage).toBeNull()
   })
 })
+
+describe("scanAsset — reopening a no-fix acceptance once a fix exists", () => {
+  beforeEach(async () => {
+    await resetDb()
+    mockedBatchSearch.mockReset().mockResolvedValue([])
+    mockedSearchByCPE.mockReset().mockResolvedValue({ results: [] })
+  })
+
+  afterAll(async () => {
+    await prisma.$disconnect()
+  })
+
+  const finding = (fixedVersion: string | null) => [{
+    package: "libxml2", version: "2.9.13-1", ecosystem: "Red Hat:9",
+    vulnerabilities: [{
+      id: "CVE-2026-0004", externalId: "CVE-2026-0004", source: "osv", sources: ["osv"],
+      severity: "MEDIUM", cvssScore: 5.0, cvssVector: null, summary: null, publishedAt: null,
+      approximateMatch: false, isKev: false, epssScore: null, epssPercentile: null, fixedVersion,
+    }],
+  }]
+
+  async function acceptedAlert(reopenOnFix: boolean) {
+    const asset = await createAsset()
+    await prisma.package.create({
+      data: { assetId: asset.id, name: "libxml2", version: "2.9.13-1", rawVersion: "2.9.13-1", ecosystem: "Red Hat:9", source: "sbom", deps: [] },
+    })
+    const alert = await prisma.alert.create({
+      data: {
+        assetId: asset.id, packageName: "libxml2", packageVersion: "2.9.13-1", ecosystem: "Red Hat:9",
+        externalId: "CVE-2026-0004", sources: ["osv"], severity: "MEDIUM", cvssScore: 5.0,
+        status: "ignored", ignoreReason: "accepted_risk", reopenOnFix,
+      },
+    })
+    return { asset, alert }
+  }
+
+  it("keeps it ignored while there is still no fix, and reopens it when a scan reports a fixed version", async () => {
+    const { asset, alert } = await acceptedAlert(true)
+
+    mockedBatchSearch.mockResolvedValue(finding(null))
+    await scanAsset(asset.id)
+    expect((await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })).status).toBe("ignored")
+
+    mockedBatchSearch.mockResolvedValue(finding("2.9.13-6.el9"))
+    await scanAsset(asset.id)
+    const reopened = await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })
+    expect(reopened).toMatchObject({ status: "open", ignoreReason: null, reopenOnFix: false, fixedVersion: "2.9.13-6.el9" })
+    const events = await prisma.alertEvent.findMany({ where: { alertId: alert.id, type: "status_changed" } })
+    expect(events.map((e) => e.data)).toContainEqual(expect.objectContaining({ from: "ignored", to: "open" }))
+  })
+
+  it("leaves an accepted risk decided some other way ignored when a fix appears", async () => {
+    const { asset, alert } = await acceptedAlert(false)
+    mockedBatchSearch.mockResolvedValue(finding("2.9.13-6.el9"))
+    await scanAsset(asset.id)
+    expect((await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })).status).toBe("ignored")
+  })
+})
