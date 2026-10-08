@@ -481,7 +481,7 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
           `/alerts?assetId=${assetId}&packageName=${encodeURIComponent(row.original.name)}&packageVersion=${encodeURIComponent(row.original.version)}&severity=${severity}`
         const totalHref = `/alerts?assetId=${assetId}&packageName=${encodeURIComponent(row.original.name)}&packageVersion=${encodeURIComponent(row.original.version)}`
         return (
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-nowrap whitespace-nowrap">
             {critical > 0 && <Link href={severityHref("CRITICAL")}><Badge style={{ backgroundColor: SEVERITY_COLORS.critical }} className="text-white cursor-pointer rounded-md">{critical}</Badge></Link>}
             {high > 0 && <Link href={severityHref("HIGH")}><Badge style={{ backgroundColor: SEVERITY_COLORS.high }} className="text-white cursor-pointer rounded-md">{high}</Badge></Link>}
             {medium > 0 && <Link href={severityHref("MEDIUM")}><Badge style={{ backgroundColor: SEVERITY_COLORS.medium }} className="text-white cursor-pointer rounded-md">{medium}</Badge></Link>}
@@ -598,6 +598,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
         filterColumn="name"
         filterPlaceholder="Search packages..."
         initialSorting={[{ id: "alerts", desc: true }]}
+        initialColumnVisibility={{ location: false }}
       />
     </div>
   )
