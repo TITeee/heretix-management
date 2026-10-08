@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { buildRemediationPlan, isOsEcosystem, type RemediationAlertInput, type RemediationPackageInput } from "./remediation"
+import { buildRemediationPlan, compareAlertUrgency, isOsEcosystem, type RemediationAlertInput, type RemediationPackageInput } from "./remediation"
 
 let seq = 0
 function alert(overrides: Partial<RemediationAlertInput>): RemediationAlertInput {
@@ -108,5 +108,28 @@ describe("buildRemediationPlan", () => {
     ], [])
     expect(plan.actions.map((a) => a.target)).toEqual(["kev", "crit", "big"])
     expect(plan.actions[1]).toMatchObject({ worst: "critical", severities: { critical: 1 } })
+  })
+})
+
+describe("compareAlertUrgency", () => {
+  const a = (externalId: string, severity: string | null, cvssScore: number | null, isKev = false) => ({ externalId, severity, cvssScore, isKev })
+
+  it("orders KEV first, then severity tier, then CVSS score highest first, then id", () => {
+    const sorted = [
+      a("CVE-5", "HIGH", 7.5),
+      a("CVE-2", "MEDIUM", 6.1),
+      a("CVE-4", "CRITICAL", 9.1),
+      a("CVE-1", "LOW", 2.0, true),
+      a("CVE-3", "CRITICAL", 9.8),
+      a("CVE-7", null, null),
+      a("CVE-6", "HIGH", 7.5),
+    ].sort(compareAlertUrgency)
+    expect(sorted.map((x) => x.externalId)).toEqual(["CVE-1", "CVE-3", "CVE-4", "CVE-5", "CVE-6", "CVE-2", "CVE-7"])
+  })
+
+  it("tiers by the severity word, not by re-bucketing the score", () => {
+    // A CVSS v2 10.0 rated HIGH sorts as High, below a Critical of 9.0.
+    const sorted = [a("v2", "HIGH", 10), a("v3", "CRITICAL", 9.0)].sort(compareAlertUrgency)
+    expect(sorted.map((x) => x.externalId)).toEqual(["v3", "v2"])
   })
 })

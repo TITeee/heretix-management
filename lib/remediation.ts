@@ -105,6 +105,19 @@ function addToStats(stats: GroupStats, alert: RemediationAlertInput) {
   if (TIER_RANK[tier] < TIER_RANK[stats.worst]) stats.worst = tier
 }
 
+/**
+ * Orders the alerts inside a group: KEV first, then by severity tier, then by
+ * CVSS score, highest first (no score last), with the id as a stable tiebreak.
+ */
+type UrgencyKey = { isKev: boolean; severity?: string | null; cvssScore: number | null; externalId: string }
+
+export function compareAlertUrgency(a: UrgencyKey, b: UrgencyKey): number {
+  return (b.isKev ? 1 : 0) - (a.isKev ? 1 : 0)
+    || TIER_RANK[getAlertSeverityTier(a.severity, a.cvssScore)] - TIER_RANK[getAlertSeverityTier(b.severity, b.cvssScore)]
+    || (b.cvssScore ?? -1) - (a.cvssScore ?? -1)
+    || a.externalId.localeCompare(b.externalId)
+}
+
 /** KEV first, then the worst severity, then the most findings. */
 function byUrgency(a: GroupStats, b: GroupStats): number {
   return (b.kev > 0 ? 1 : 0) - (a.kev > 0 ? 1 : 0)

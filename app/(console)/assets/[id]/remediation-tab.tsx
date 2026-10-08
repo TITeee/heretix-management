@@ -20,7 +20,7 @@ import { SeverityBadge, StatusBadge } from "@/components/ui/severity-badge"
 import { AlertDetailSheet, type SheetAlert } from "@/components/alerts/alert-detail-sheet"
 import { SEVERITY_COLORS, type SeverityCounts, type SeverityTier } from "@/lib/severity"
 import { fixStatusLabel } from "@/lib/fix-status"
-import type { NoFixGroup, RemediationAction, RemediationKind, RemediationPlan } from "@/lib/remediation"
+import { compareAlertUrgency, type NoFixGroup, type RemediationAction, type RemediationKind, type RemediationPlan } from "@/lib/remediation"
 
 type ApiAlert = Omit<SheetAlert, "detectedAt" | "dueDate" | "resolvedAt"> & {
   detectedAt: string
@@ -87,6 +87,10 @@ function KevBadge({ count }: { count: number }) {
 }
 
 function AlertList({ ids, alerts, onSelect }: { ids: string[]; alerts: Map<string, ApiAlert>; onSelect: (a: ApiAlert) => void }) {
+  const sorted = ids
+    .map((id) => alerts.get(id))
+    .filter((a): a is ApiAlert => !!a)
+    .sort(compareAlertUrgency)
   return (
     <table className="mt-2 w-full text-xs">
       <thead className="text-muted-foreground">
@@ -99,11 +103,9 @@ function AlertList({ ids, alerts, onSelect }: { ids: string[]; alerts: Map<strin
         </tr>
       </thead>
       <tbody>
-        {ids.map((id) => {
-          const a = alerts.get(id)
-          if (!a) return null
+        {sorted.map((a) => {
           return (
-            <tr key={id} className="border-b last:border-0 cursor-pointer hover:bg-muted/50" onClick={() => onSelect(a)}>
+            <tr key={a.id} className="border-b last:border-0 cursor-pointer hover:bg-muted/50" onClick={() => onSelect(a)}>
               <td className="py-1.5 font-mono"><span className="inline-flex items-center gap-1.5">{a.externalId}{a.isKev && (
                 <span title="CISA Known Exploited Vulnerability"><FaTriangleExclamation className="h-3.5 w-3.5 text-red-600" /></span>
               )}</span></td>
