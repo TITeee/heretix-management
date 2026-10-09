@@ -67,6 +67,13 @@ describe("validateCsvRows", () => {
     expect(byLabel.ok && byLabel.row.vendor).toBe("ivanti")
   })
 
+  it("resolves a NetScaler row by its vendor label, and its product case-insensitively to the stored name", () => {
+    const [result] = validateCsvRows([row({ vendor: "NetScaler", product: "netscaler adc fips and ndcpp", version: "13.1-37.235" })], new Set())
+    expect(result.ok && result.row.vendor).toBe("citrix")
+    expect(result.ok && result.row.product).toBe("NetScaler ADC FIPS and NDcPP")
+    expect(result.ok && result.row.version).toBe("13.1-37.235")
+  })
+
   it("rejects an Ivanti product under another vendor, and the vendor-prefixed spelling under Ivanti", () => {
     const [other] = validateCsvRows([row({ vendor: "fortinet", product: "Connect Secure" })], new Set())
     expect(other.ok).toBe(false)

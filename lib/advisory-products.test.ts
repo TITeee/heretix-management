@@ -11,6 +11,7 @@ import {
   BROADCOM_PRODUCTS,
   CHECKPOINT_PRODUCTS,
   IVANTI_PRODUCTS,
+  CITRIX_PRODUCTS,
   APACHE_PRODUCTS,
   NGINX_PRODUCTS,
   TOMCAT_PRODUCTS,
@@ -30,6 +31,7 @@ describe("getProductsByVendor", () => {
     ["broadcom", BROADCOM_PRODUCTS],
     ["checkpoint", CHECKPOINT_PRODUCTS],
     ["ivanti", IVANTI_PRODUCTS],
+    ["citrix", CITRIX_PRODUCTS],
     ["apache", APACHE_PRODUCTS],
     ["nginx", NGINX_PRODUCTS],
     ["tomcat", TOMCAT_PRODUCTS],
@@ -67,5 +69,22 @@ describe("Ivanti", () => {
 
   it("keeps the Pulse names out: heretix-api aliases them to Connect Secure and Policy Secure", () => {
     expect(IVANTI_PRODUCTS.some((p) => /^Pulse\b/.test(p))).toBe(false)
+  })
+})
+
+describe("NetScaler", () => {
+  it("is offered as a vendor, labelled NetScaler", () => {
+    expect(ADVISORY_VENDORS).toContainEqual({ value: "citrix", label: "NetScaler" })
+  })
+
+  it("lists the products as heretix-api stores them, each once, NetScaler ADC first (the default pick)", () => {
+    expect(CITRIX_PRODUCTS[0]).toBe("NetScaler ADC")
+    expect(new Set(CITRIX_PRODUCTS).size).toBe(CITRIX_PRODUCTS.length)
+    for (const name of CITRIX_PRODUCTS) expect(name).toMatch(/^NetScaler /)
+  })
+
+  it("keeps the FIPS / NDcPP builds a product of their own, and the old Citrix names out", () => {
+    expect(CITRIX_PRODUCTS).toContain("NetScaler ADC FIPS and NDcPP")
+    expect(CITRIX_PRODUCTS.some((p) => /^Citrix/.test(p))).toBe(false)
   })
 })

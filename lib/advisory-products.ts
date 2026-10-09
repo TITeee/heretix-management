@@ -195,6 +195,23 @@ export const IVANTI_PRODUCTS = [
   "Velocity License Server",
 ]
 
+// Matched against AdvisoryAffectedProduct.product by exact string. NetScaler
+// (formerly Citrix ADC / Gateway) bulletins are stored under the NetScaler names
+// and the vendor key "citrix"; see productNames() in heretix-api's
+// citrix-fetcher.ts. heretix-api aliases the other spellings (Citrix ADC, Citrix
+// Gateway, NetScaler ADM, NVD's netscaler_gateway), so only the stored name
+// appears here. The FIPS / NDcPP builds have their own numbering and are a
+// product of their own: search them under "NetScaler ADC FIPS and NDcPP", not
+// "NetScaler ADC".
+export const CITRIX_PRODUCTS = [
+  "NetScaler ADC",
+  "NetScaler Gateway",
+  "NetScaler ADC FIPS and NDcPP",
+  "NetScaler Console",
+  "NetScaler Agent",
+  "NetScaler SDX (SVM)",
+]
+
 export type AdvisoryVendor =
   | "fortinet"
   | "paloalto"
@@ -206,6 +223,7 @@ export type AdvisoryVendor =
   | "broadcom"
   | "checkpoint"
   | "ivanti"
+  | "citrix"
   | "apache"
   | "nginx"
   | "tomcat"
@@ -225,6 +243,7 @@ export const ADVISORY_VENDORS: { value: AdvisoryVendor; label: string }[] = [
   { value: "broadcom", label: "Broadcom/VMware" },
   { value: "checkpoint", label: "Check Point" },
   { value: "ivanti", label: "Ivanti" },
+  { value: "citrix", label: "NetScaler" },
   { value: "oracle", label: "Oracle" },
   { value: "splunk", label: "Splunk" },
   { value: "apache", label: "Apache HTTP Server" },
@@ -243,6 +262,7 @@ export function getProductsByVendor(vendor: AdvisoryVendor): string[] {
   if (vendor === "broadcom") return BROADCOM_PRODUCTS
   if (vendor === "checkpoint") return CHECKPOINT_PRODUCTS
   if (vendor === "ivanti") return IVANTI_PRODUCTS
+  if (vendor === "citrix") return CITRIX_PRODUCTS
   if (vendor === "apache") return APACHE_PRODUCTS
   if (vendor === "nginx") return NGINX_PRODUCTS
   if (vendor === "tomcat") return TOMCAT_PRODUCTS
