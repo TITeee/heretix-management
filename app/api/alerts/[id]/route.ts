@@ -4,6 +4,19 @@ import { auth } from "@/lib/auth"
 import { isIgnoreReason, IGNORE_REASONS, REASON_REQUIRES_JUSTIFICATION } from "@/lib/vex"
 import { withApiErrorHandling } from "@/lib/api-handler"
 
+export const GET = withApiErrorHandling("alerts.get", async (
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) => {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { id } = await params
+  const alert = await prisma.alert.findUnique({ where: { id } })
+  if (!alert) return NextResponse.json({ error: "Alert not found" }, { status: 404 })
+  return NextResponse.json(alert)
+})
+
 export const PATCH = withApiErrorHandling("alerts.update", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

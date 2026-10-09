@@ -6,6 +6,7 @@ import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
 import { logger } from "@/lib/logger"
 import { calculateDueDate, DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
 import { diffAlertMetadata } from "@/lib/alert-metadata"
+import { decideAbsentAlerts, type AbsenceCause } from "@/lib/scan-resolve"
 
 const BATCH_SIZE = 1000
 
@@ -21,6 +22,14 @@ const CPE_RESULT_CAP = 50
  * once the scan reports them again; a human decision carries no prefix and stands.
  */
 export const AUTO_RESOLVE_PREFIX = "Auto-resolved: "
+
+// Kept apart so the timeline, and any metric that wants only fixes, can tell
+// a package update from a data change in heretix-api.
+const RESOLVE_REASONS: Record<AbsenceCause, string> = {
+  package_updated: `${AUTO_RESOLVE_PREFIX}no longer detected after the package was updated`,
+  package_excluded: `${AUTO_RESOLVE_PREFIX}package is excluded from scanning`,
+  not_reported: `${AUTO_RESOLVE_PREFIX}no longer reported by heretix-api`,
+}
 
 // Findings are keyed on package name + version + externalId. Ecosystem is left out
 // because heretix-api may report a different one for the same finding between scans.
@@ -52,7 +61,7 @@ export async function failInterruptedScanJobs(): Promise<number> {
 
 export async function scanAsset(
   assetId: string
-): Promise<{ newAlerts: number; resolvedAlerts: number }> {
+): Promise<{ newAlerts: number; resolvedAlerts: number; heldAlerts: number }> {
   const asset = await prisma.asset.findUnique({
     where: { id: assetId },
     include: { packages: true, assetTags: true },
@@ -71,6 +80,14 @@ export async function scanAsset(
       // Use default if parsing fails
     }
   }
+
+  // The scan before this one: a package update since then is what lets an
+  // alert that vanished be resolved at once (see lib/scan-resolve.ts).
+  const previousScan = await prisma.scanJob.findFirst({
+    where: { assetId, status: "completed" },
+    orderBy: { completedAt: "desc" },
+    select: { completedAt: true, heldAlerts: true },
+  })
 
   const job = await prisma.scanJob.create({
     data: { assetId, status: "running", startedAt: new Date() },
@@ -128,6 +145,7 @@ export async function scanAsset(
         fixStatus: true,
         fixStatusDetail: true,
         reopenOnFix: true,
+        missingSince: true,
       },
     })
     const alertsByFinding = new Map(
@@ -397,6 +415,7 @@ export async function scanAsset(
         fixedVersion,
         detectedAt,
         reopenOnFix: false,
+        missingSince: null,
         ...scanOnly,
       })
       newAlertsList.push({
@@ -448,35 +467,83 @@ export async function scanAsset(
       await prisma.alertEvent.createMany({ data: pendingNewEvents })
     }
 
-    // Close the alerts the scan no longer reports. Only packages that were actually
+    // Alerts reported again are no longer missing.
+    const reappeared = existingAlerts.filter((a) =>
+      a.missingSince && seen.has(findingKey(a.packageName, a.packageVersion, a.externalId))
+    )
+    if (reappeared.length > 0) {
+      await prisma.alert.updateMany({
+        where: { id: { in: reappeared.map((a) => a.id) } },
+        data: { missingSince: null },
+      })
+    }
+
+    // Deal with the alerts the scan no longer reports. Only packages that were actually
     // queried and came back with a complete result set take part: a package that left
     // the inventory, was skipped, or hit the result cap says nothing about whether its
     // findings still apply, and a partial answer must never close a real finding.
-    const resolveReason = `${AUTO_RESOLVE_PREFIX}no longer detected by scan`
-    const resolvedAt = new Date()
-    const toResolve = existingAlerts.filter((a) =>
-      (a.status === "open" || a.status === "in_progress") &&
+    // Why one vanished decides what happens to it (lib/scan-resolve.ts).
+    const openAlerts = existingAlerts.filter((a) => a.status === "open" || a.status === "in_progress")
+    const absent = openAlerts.filter((a) =>
       reconcilable.has(packageKey(a.packageName, a.packageVersion)) &&
       !seen.has(findingKey(a.packageName, a.packageVersion, a.externalId))
     )
-    if (toResolve.length > 0) {
+    const excludedKeys = new Set(excludedPkgs.map((p) => packageKey(p.name, p.version)))
+    const updatedIds = absent.length === 0 ? new Set<string>() : new Set(
+      (await prisma.alertEvent.findMany({
+        where: {
+          alertId: { in: absent.map((a) => a.id) },
+          type: "package_changed",
+          createdAt: { gt: previousScan?.completedAt ?? new Date(0) },
+        },
+        select: { alertId: true },
+      })).map((e) => e.alertId)
+    )
+    const now = new Date()
+    const decision = decideAbsentAlerts(
+      absent.map((a) => ({
+        id: a.id,
+        missingSince: a.missingSince,
+        cause: excludedKeys.has(packageKey(a.packageName, a.packageVersion)) ? "package_excluded"
+          : updatedIds.has(a.id) ? "package_updated"
+          : "not_reported",
+      })),
+      openAlerts.length,
+      now
+    )
+
+    const byId = new Map(existingAlerts.map((a) => [a.id, a]))
+    for (const cause of Object.keys(RESOLVE_REASONS) as AbsenceCause[]) {
+      const ids = decision.resolve.filter((r) => r.cause === cause).map((r) => r.id)
+      if (ids.length === 0) continue
       await prisma.alert.updateMany({
-        where: { id: { in: toResolve.map((a) => a.id) } },
-        data: { status: "resolved", resolvedAt, resolveReason },
+        where: { id: { in: ids } },
+        data: { status: "resolved", resolvedAt: now, resolveReason: RESOLVE_REASONS[cause], missingSince: null },
       })
       await prisma.alertEvent.createMany({
-        data: toResolve.map((a) => ({
-          alertId: a.id,
+        data: ids.map((id) => ({
+          alertId: id,
           type: "status_changed",
-          data: { from: a.status, to: "resolved", reason: resolveReason },
+          data: { from: byId.get(id)!.status, to: "resolved", reason: RESOLVE_REASONS[cause] },
         })),
       })
     }
-    const resolvedCount = toResolve.length
+    if (decision.startMissing.length > 0) {
+      await prisma.alert.updateMany({
+        where: { id: { in: decision.startMissing } },
+        data: { missingSince: now },
+      })
+    }
+    const resolvedCount = decision.resolve.length
+    const heldCount = decision.held.length
+    const heldAlertsList: AlertSummary[] = decision.held.map((id) => {
+      const a = byId.get(id)!
+      return { packageName: a.packageName, packageVersion: a.packageVersion, externalId: a.externalId, severity: a.severity, cvssScore: a.cvssScore }
+    })
 
     await prisma.scanJob.update({
       where: { id: job.id },
-      data: { status: "completed", completedAt: new Date(), newAlerts: newAlertCount },
+      data: { status: "completed", completedAt: new Date(), newAlerts: newAlertCount, heldAlerts: heldCount },
     })
     await prisma.asset.update({
       where: { id: assetId },
@@ -487,6 +554,7 @@ export async function scanAsset(
       assetId,
       newAlerts: newAlertCount,
       resolvedAlerts: resolvedCount,
+      heldAlerts: heldCount,
       reopenedAlerts: reopenedCount,
       renamedAlerts: renamedCount,
       metadataUpdatedAlerts: metadataUpdatedCount,
@@ -521,7 +589,16 @@ export async function scanAsset(
       }).catch(() => {})
     }
 
-    return { newAlerts: newAlertCount, resolvedAlerts: resolvedCount }
+    if (heldAlertsList.length > 0 && !previousScan?.heldAlerts) {
+      await notifySlackIfNeeded({
+        assetName: asset.name || asset.hostname,
+        assetTagIds,
+        triggerType: "scan_held",
+        alerts: heldAlertsList,
+      }).catch(() => {})
+    }
+
+    return { newAlerts: newAlertCount, resolvedAlerts: resolvedCount, heldAlerts: heldCount }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error"
     await prisma.scanJob.update({

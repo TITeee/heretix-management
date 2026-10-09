@@ -28,6 +28,7 @@ import { FaTriangleExclamation, FaVirus, FaCircleExclamation } from "react-icons
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { getSlaStatus, formatDaysUntilDue } from "@/lib/sla"
+import { graceEndsAt } from "@/lib/scan-resolve"
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/severity"
 import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
 import { cvssVersionLabel } from "@/lib/cvss"
@@ -644,6 +645,10 @@ export function AlertDetailSheet({
   // Tagged with the alert it was fetched for, so switching alerts never shows
   // the previous one's tags while the next request is in flight.
   const [fetchedTags, setFetchedTags] = useState<{ alertId: string; tags: AlertTags | null } | null>(null)
+  // When a scan first found the alert no longer reported by heretix-api, if it is
+  // waiting out the grace period before being auto-resolved. Read from the alert
+  // itself because not every list that opens this sheet carries the field.
+  const [fetchedMissing, setFetchedMissing] = useState<{ alertId: string; missingSince: string | null } | null>(null)
   // Package tags of each group member, by member alert id. Package tags are
   // keyed by package name, so siblings can differ from the alert's own.
   const [fetchedMemberTags, setFetchedMemberTags] = useState<{ alertId: string; byId: Record<string, AlertTag[]> } | null>(null)
@@ -734,6 +739,20 @@ export function AlertDetailSheet({
     }
     return () => { cancelled = true }
     // Same reasoning: keyed by id, not the alert object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, alert?.id])
+
+  useEffect(() => {
+    if (!open || !alert) return
+    const alertId = alert.id
+    let cancelled = false
+    fetch(`/api/alerts/${alertId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then((a: { missingSince?: string | null } | null) => {
+        if (!cancelled) setFetchedMissing({ alertId, missingSince: a?.missingSince ?? null })
+      })
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, alert?.id])
 
@@ -829,6 +848,9 @@ export function AlertDetailSheet({
 
   const assetLabel = alert.asset.name || alert.asset.hostname
   const alertTags = fetchedTags?.alertId === alert.id ? fetchedTags.tags : null
+  const missingSince = fetchedMissing?.alertId === alert.id && fetchedMissing.missingSince
+    ? new Date(fetchedMissing.missingSince)
+    : null
   const grouped = group && group.members.length > 1 ? group : null
   const memberTags = (memberId: string) =>
     memberId === alert.id
@@ -1090,6 +1112,16 @@ export function AlertDetailSheet({
                     </SelectContent>
                   </Select>
                 </div>
+                {missingSince && (status === "open" || status === "in_progress") && (
+                  <p className="flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                    <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span suppressHydrationWarning>
+                      heretix-api has not reported this vulnerability since {missingSince.toLocaleString()}, although
+                      the package has not changed. If it stays unreported, it is resolved automatically after{" "}
+                      {graceEndsAt(missingSince).toLocaleString()}.
+                    </span>
+                  </p>
+                )}
                 {vexSuggestions.length > 0 && (
                   <div className="rounded-md border bg-muted/40 p-3 space-y-3">
                     <p className="flex items-center gap-1.5 text-xs font-medium">

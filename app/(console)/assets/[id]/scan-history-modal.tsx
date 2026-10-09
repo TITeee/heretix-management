@@ -18,6 +18,7 @@ type ScanJob = {
   startedAt: Date | null
   completedAt: Date | null
   newAlerts: number
+  heldAlerts: number
   errorMsg: string | null
 }
 
@@ -53,6 +54,14 @@ export function ScanHistoryModal({ scanJobs }: { scanJobs: ScanJob[] }) {
                   <div className="flex items-center gap-2">
                     {job.newAlerts > 0 && (
                       <span className="text-xs text-destructive">+{job.newAlerts} alerts</span>
+                    )}
+                    {job.heldAlerts > 0 && (
+                      <span
+                        className="text-xs text-amber-700 dark:text-amber-400"
+                        title="An unusually large share of this asset's open alerts stopped being reported although their packages did not change, so the scan resolved none of them."
+                      >
+                        {job.heldAlerts} kept open
+                      </span>
                     )}
                     <Badge
                       variant={

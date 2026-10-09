@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db"
 import { resetDb } from "@/lib/test-utils/db"
 import { batchSearch, searchByCPE } from "@/lib/heretix-api"
 import { scanAsset } from "@/lib/scan"
+import { notifySlackIfNeeded } from "@/lib/slack"
+import { MISSING_GRACE_MS } from "@/lib/scan-resolve"
 
 vi.mock("@/lib/heretix-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/heretix-api")>("@/lib/heretix-api")
@@ -19,6 +21,8 @@ const mockedSearchByCPE = searchByCPE as unknown as ReturnType<typeof vi.fn>
 vi.mock("@/lib/slack", () => ({
   notifySlackIfNeeded: vi.fn().mockResolvedValue(undefined),
 }))
+
+const mockedSlack = notifySlackIfNeeded as unknown as ReturnType<typeof vi.fn>
 
 async function createAsset() {
   return prisma.asset.create({
@@ -85,7 +89,7 @@ describe("scanAsset — scope=excluded packages", () => {
     expect(mockedBatchSearch).not.toHaveBeenCalled()
     const updated = await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })
     expect(updated.status).toBe("resolved")
-    expect(updated.resolveReason).toBe("Auto-resolved: no longer detected by scan")
+    expect(updated.resolveReason).toBe("Auto-resolved: package is excluded from scanning")
   })
 })
 
@@ -199,5 +203,111 @@ describe("scanAsset — reopening a no-fix acceptance once a fix exists", () => 
     mockedBatchSearch.mockResolvedValue(finding("2.9.13-6.el9"))
     await scanAsset(asset.id)
     expect((await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })).status).toBe("ignored")
+  })
+})
+
+describe("scanAsset — alerts heretix-api stops reporting", () => {
+  const DAY = 24 * 60 * 60 * 1000
+
+  beforeEach(async () => {
+    await resetDb()
+    mockedBatchSearch.mockReset().mockResolvedValue([])
+    mockedSearchByCPE.mockReset().mockResolvedValue({ results: [] })
+    mockedSlack.mockClear()
+  })
+
+  afterAll(async () => {
+    await prisma.$disconnect()
+  })
+
+  // A complete, empty answer for a package: what makes its absences meaningful.
+  const noFindings = (name: string, version: string) => [{ package: name, version, ecosystem: "npm", vulnerabilities: [] }]
+
+  async function setup(ids: string[], alertData: Record<string, unknown> = {}) {
+    const asset = await createAsset()
+    await prisma.package.create({
+      data: { assetId: asset.id, name: "lodash", version: "4.17.20", rawVersion: "4.17.20", ecosystem: "npm", source: "sbom", deps: [] },
+    })
+    const alerts = []
+    for (const externalId of ids) {
+      alerts.push(await prisma.alert.create({
+        data: { assetId: asset.id, packageName: "lodash", packageVersion: "4.17.20", ecosystem: "npm", externalId, sources: ["osv"], status: "open", ...alertData },
+      }))
+    }
+    mockedBatchSearch.mockResolvedValue(noFindings("lodash", "4.17.20"))
+    return { asset, alerts }
+  }
+
+  it("starts a grace period at the first miss, and resolves only once it has run out", async () => {
+    const { asset, alerts } = await setup(["CVE-2026-3001"])
+    const [alert] = alerts
+
+    const first = await scanAsset(asset.id)
+    expect(first).toMatchObject({ resolvedAlerts: 0, heldAlerts: 0 })
+    const waiting = await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })
+    expect(waiting.status).toBe("open")
+    expect(waiting.missingSince).not.toBeNull()
+
+    // Still inside the grace period on a second scan straight away.
+    expect((await scanAsset(asset.id)).resolvedAlerts).toBe(0)
+
+    await prisma.alert.update({ where: { id: alert.id }, data: { missingSince: new Date(Date.now() - MISSING_GRACE_MS - 60_000) } })
+    expect((await scanAsset(asset.id)).resolvedAlerts).toBe(1)
+    const resolved = await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })
+    expect(resolved).toMatchObject({ status: "resolved", resolveReason: "Auto-resolved: no longer reported by heretix-api", missingSince: null })
+  })
+
+  it("clears the grace period when heretix-api reports the finding again", async () => {
+    const { asset, alerts } = await setup(["CVE-2026-3002"], { missingSince: new Date(Date.now() - MISSING_GRACE_MS - DAY) })
+    mockedBatchSearch.mockResolvedValue([{
+      package: "lodash", version: "4.17.20", ecosystem: "npm",
+      vulnerabilities: [{
+        id: "CVE-2026-3002", externalId: "CVE-2026-3002", source: "osv", sources: ["osv"],
+        severity: "MEDIUM", cvssScore: 5.0, cvssVector: null, summary: null, publishedAt: null,
+        approximateMatch: false, isKev: false, epssScore: null, epssPercentile: null, fixedVersion: null,
+      }],
+    }])
+
+    expect((await scanAsset(asset.id)).resolvedAlerts).toBe(0)
+    expect(await prisma.alert.findUniqueOrThrow({ where: { id: alerts[0].id } })).toMatchObject({ status: "open", missingSince: null })
+  })
+
+  it("resolves at once an alert whose package was updated since the last scan", async () => {
+    const { asset, alerts } = await setup(["CVE-2026-3003"])
+    await prisma.alertEvent.create({
+      data: { alertId: alerts[0].id, type: "package_changed", data: { from: "lodash@4.17.19", to: "lodash@4.17.20" } },
+    })
+
+    expect((await scanAsset(asset.id)).resolvedAlerts).toBe(1)
+    expect(await prisma.alert.findUniqueOrThrow({ where: { id: alerts[0].id } })).toMatchObject({
+      status: "resolved", resolveReason: "Auto-resolved: no longer detected after the package was updated",
+    })
+  })
+
+  it("does not count a package update that an earlier scan has already seen", async () => {
+    const { asset, alerts } = await setup(["CVE-2026-3004"])
+    await prisma.alertEvent.create({
+      data: { alertId: alerts[0].id, type: "package_changed", data: {}, createdAt: new Date(Date.now() - 3 * DAY) },
+    })
+    await prisma.scanJob.create({ data: { assetId: asset.id, status: "completed", completedAt: new Date(Date.now() - DAY) } })
+
+    expect((await scanAsset(asset.id)).resolvedAlerts).toBe(0)
+    expect((await prisma.alert.findUniqueOrThrow({ where: { id: alerts[0].id } })).status).toBe("open")
+  })
+
+  it("keeps open, and says so, when a large share of the asset's alerts would close at once", async () => {
+    const ids = Array.from({ length: 12 }, (_, i) => `CVE-2026-31${String(i).padStart(2, "0")}`)
+    const { asset } = await setup(ids, { missingSince: new Date(Date.now() - MISSING_GRACE_MS - DAY) })
+
+    const result = await scanAsset(asset.id)
+    expect(result).toMatchObject({ resolvedAlerts: 0, heldAlerts: 12 })
+    expect(await prisma.alert.count({ where: { assetId: asset.id, status: "open" } })).toBe(12)
+    expect((await prisma.scanJob.findFirstOrThrow({ where: { assetId: asset.id }, orderBy: { createdAt: "desc" } })).heldAlerts).toBe(12)
+    expect(mockedSlack).toHaveBeenCalledWith(expect.objectContaining({ triggerType: "scan_held" }))
+
+    // The next scan holds them again, but does not send the same warning twice.
+    mockedSlack.mockClear()
+    expect((await scanAsset(asset.id)).heldAlerts).toBe(12)
+    expect(mockedSlack).not.toHaveBeenCalled()
   })
 })

@@ -9,7 +9,7 @@ export type AlertSummary = {
   cvssScore: number | null
 }
 
-type TriggerType = "detected" | "severity_changed" | "kev_added"
+type TriggerType = "detected" | "severity_changed" | "kev_added" | "scan_held"
 
 const SEVERITY_ORDER = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
@@ -51,9 +51,10 @@ export async function notifySlackIfNeeded(params: {
     if (!hasMatch) return
   }
 
-  // Severity filter (kev_added bypasses it)
+  // Severity filter (kev_added and scan_held bypass it: a held scan is about the
+  // scan's data, whatever the severity of the alerts it kept open)
   const minSeverity = cfg.SLACK_MIN_SEVERITY ?? "ALL"
-  const filtered = triggerType === "kev_added"
+  const filtered = triggerType === "kev_added" || triggerType === "scan_held"
     ? alerts
     : alerts.filter((a) => meetsMinSeverity(a, minSeverity))
 
@@ -71,6 +72,16 @@ export async function notifySlackIfNeeded(params: {
 
 function buildMessage(assetName: string, triggerType: TriggerType, alerts: AlertSummary[]): string {
   const ts = new Date().toISOString()
+
+  if (triggerType === "scan_held") {
+    const shown = alerts.slice(0, 10).map((a) => {
+      const pkg = a.packageVersion ? `${a.packageName} ${a.packageVersion}` : a.packageName
+      return `${a.externalId}  ${pkg}`
+    })
+    const more = alerts.length > shown.length ? `\n…and ${alerts.length - shown.length} more` : ""
+    const intro = "heretix-api stopped reporting an unusually large share of this asset's open alerts although their packages did not change, so none of them were auto-resolved. Check heretix-api's data."
+    return `⛔ *Scan kept ${alerts.length} alert(s) open* on *${assetName}*\n\n${intro}\n\n${shown.join("\n")}${more}\n\n${ts}`
+  }
 
   if (triggerType === "kev_added") {
     const lines = alerts.map((a) => {

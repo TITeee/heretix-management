@@ -91,6 +91,9 @@ model ScanJob {
   completedAt DateTime?
   errorMsg    String?
   newAlerts   Int       @default(0)
+  // Alerts the scan would have auto-resolved but kept open because too large a
+  // share of the asset's open alerts vanished at once (see lib/scan-resolve.ts).
+  heldAlerts  Int       @default(0)
   createdAt   DateTime  @default(now())
 }
 
@@ -122,6 +125,10 @@ model Alert {
   // that finds a fixedVersion reopens it. Cleared by any later manual change to
   // its status or ignore reason.
   reopenOnFix       Boolean   @default(false)
+  // When a scan first found this open alert no longer reported by heretix-api
+  // although its package is unchanged. Cleared when it is reported again; it is
+  // resolved once this is older than the grace period (lib/scan-resolve.ts).
+  missingSince      DateTime?
   // Denormalized copy of the matched Package's sourcePackage, refreshed on
   // every scan. Display-only: groups sibling findings (e.g. binutils's eight
   // binary packages) into one row in the Alerts table. Never part of alert

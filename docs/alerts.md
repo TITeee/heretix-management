@@ -9,9 +9,17 @@ An alert is one vulnerability (CVE, GHSA, vendor advisory, or malicious-package 
 - A new finding becomes an **open** alert, with an SLA due date.
 - A finding that is already an alert updates its metadata: CVSS, severity, EPSS, KEV, fixed version, the distro's rating and fix status.
 - A finding that heretix-api now reports under a new ID (e.g. a CVE assigned to a GHSA) keeps its alert, renamed.
-- An open alert that heretix-api no longer reports, for a package still in the inventory, is **resolved** automatically ("Auto-resolved: no longer detected by scan"). If a later scan reports it again, it is reopened.
+- An open alert that heretix-api no longer reports, for a package still in the inventory, is **resolved** automatically, and reopened if a later scan reports it again. What happens first depends on why it vanished:
+
+  | Why | What the scan does | Resolve reason |
+  |---|---|---|
+  | The package was updated since the last scan | Resolves it at once | "Auto-resolved: no longer detected after the package was updated" |
+  | The package is now excluded from scanning (see below) | Resolves it at once | "Auto-resolved: package is excluded from scanning" |
+  | Nothing about the package changed; heretix-api just stopped reporting it (a rejected CVE, a corrected range, or a broken data load) | Waits: the alert stays open with a note in its detail panel, and is resolved if it is still unreported about three days after it was first missed | "Auto-resolved: no longer reported by heretix-api" |
+
+  **Safety stop:** if a scan would resolve the last kind for at least 10 alerts and at least 30% of the asset's open alerts at once, it resolves none of them. They stay open, the scan history shows how many were kept open, and Slack gets a warning (once, until a scan holds nothing again). Resolve them by hand from the Alerts list if the change is real. A package that is no longer in the inventory is never auto-resolved.
 - An alert accepted from the Remediation tab's *No fix available* group is **reopened** once heretix-api reports a fixed version for it ("Fix now available"). See [Remediation](#remediation).
-- Excluded packages (dev-only, kernel/build, OS-managed; see [importing-assets.md](importing-assets.md#reference-how-packages-are-classified)) are not sent, and their earlier alerts are resolved the same way.
+- Excluded packages (dev-only, kernel/build, OS-managed; see [importing-assets.md](importing-assets.md#reference-how-packages-are-classified)) are not sent, and their earlier alerts are resolved at once.
 
 **Refresh Metadata** on the Alerts page (and the daily refresh job) re-fetches CVSS, severity, EPSS, and KEV for every open and in-progress alert, without scanning:
 

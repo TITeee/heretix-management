@@ -16,7 +16,7 @@ The console's own routes under `/api`. All of them need a signed-in session, exc
 | GET | `/api/assets/[id]` | Asset detail |
 | PATCH | `/api/assets/[id]` | Update `name`, `hostname` (unique), and `assetType` (manually registered assets). OS fields come from imports and are not editable. Audited |
 | DELETE | `/api/assets/[id]` | Delete an asset |
-| POST | `/api/assets/[id]/scan` | Scan the asset. **Token**: `scan` scope |
+| POST | `/api/assets/[id]/scan` | Scan the asset. Returns `{ newAlerts, resolvedAlerts, heldAlerts }`; `heldAlerts` counts alerts the scan kept open because too many would have been resolved at once. **Token**: `scan` scope |
 | POST | `/api/assets/[id]/tags` | Add and remove the asset's tags: `{ "add": [tagIds], "remove": [tagIds] }` (either may be omitted). `add` takes asset tags only |
 | POST | `/api/assets/[id]/packages` | Add a manual package |
 | PATCH | `/api/assets/[id]/packages/[pkgId]` | Edit a manual package |
@@ -30,6 +30,7 @@ The console's own routes under `/api`. All of them need a signed-in session, exc
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/alerts` | List alerts |
+| GET | `/api/alerts/[id]` | The alert |
 | PATCH | `/api/alerts/[id]` | Update status, ignore reason, VEX justification, or memo |
 | POST | `/api/alerts/refresh` | Refresh metadata (CVSS, severity, EPSS, KEV) of every open and in-progress alert |
 | GET | `/api/alerts/events` | Events across all alerts (the Activity page) |
