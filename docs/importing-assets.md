@@ -60,7 +60,7 @@ Packages are matched by name and ecosystem. Packages added by hand are never com
 
 1. **Assets → Add Manually**: enter a name, hostname, and type.
 2. On the asset page, **Add Package**:
-   - **Advisory**: pick a vendor and product (Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Check Point, Oracle, Splunk, Apache HTTP Server, nginx, Apache Tomcat, Zabbix) and enter the version. Matched against vendor advisories.
+   - **Advisory**: pick a vendor and product (Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Check Point, Ivanti, Oracle, Splunk, Apache HTTP Server, nginx, Apache Tomcat, Zabbix) and enter the version. Matched against vendor advisories.
    - **General**: a package name, version, and ecosystem, for software installed outside a package manager.
    - **CPE**: a CPE 2.3 string.
 3. **Run Scan**. After a firmware update, **Edit** the package's version and scan again.

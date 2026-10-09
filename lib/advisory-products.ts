@@ -167,6 +167,34 @@ export const CHECKPOINT_PRODUCTS = [
   "SSL Network Extender",
 ]
 
+// Matched against AdvisoryAffectedProduct.product by exact string. Ivanti's
+// advisories are stored without the vendor prefix ("Connect Secure", not "Ivanti
+// Connect Secure"; see productName() in heretix-api's ivanti-fetcher.ts), so these
+// are the names as stored. heretix-api aliases the other spellings of each (the
+// Pulse names for Connect Secure and Policy Secure, "EPMM", NVD's connect_secure),
+// so only the canonical name appears here, same as for Check Point above.
+export const IVANTI_PRODUCTS = [
+  "Connect Secure",
+  "Policy Secure",
+  "Endpoint Manager Mobile",
+  "Endpoint Manager",
+  "Sentry",
+  "Neurons for ZTA gateways",
+  "Neurons for Secure Access",
+  "Neurons for ITSM",
+  "Secure Access Client",
+  "Virtual Traffic Manager",
+  "Avalanche",
+  "Cloud Services Appliance",
+  "Workspace Control",
+  "Application Control",
+  "Security Controls",
+  "Desktop and Server Management",
+  "Performance Manager",
+  "Xtraction",
+  "Velocity License Server",
+]
+
 export type AdvisoryVendor =
   | "fortinet"
   | "paloalto"
@@ -177,6 +205,7 @@ export type AdvisoryVendor =
   | "sonicwall"
   | "broadcom"
   | "checkpoint"
+  | "ivanti"
   | "apache"
   | "nginx"
   | "tomcat"
@@ -195,6 +224,7 @@ export const ADVISORY_VENDORS: { value: AdvisoryVendor; label: string }[] = [
   { value: "sonicwall", label: "SonicWall" },
   { value: "broadcom", label: "Broadcom/VMware" },
   { value: "checkpoint", label: "Check Point" },
+  { value: "ivanti", label: "Ivanti" },
   { value: "oracle", label: "Oracle" },
   { value: "splunk", label: "Splunk" },
   { value: "apache", label: "Apache HTTP Server" },
@@ -212,6 +242,7 @@ export function getProductsByVendor(vendor: AdvisoryVendor): string[] {
   if (vendor === "sonicwall") return SONICWALL_PRODUCTS
   if (vendor === "broadcom") return BROADCOM_PRODUCTS
   if (vendor === "checkpoint") return CHECKPOINT_PRODUCTS
+  if (vendor === "ivanti") return IVANTI_PRODUCTS
   if (vendor === "apache") return APACHE_PRODUCTS
   if (vendor === "nginx") return NGINX_PRODUCTS
   if (vendor === "tomcat") return TOMCAT_PRODUCTS
