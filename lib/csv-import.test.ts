@@ -58,6 +58,23 @@ describe("validateCsvRows", () => {
     expect(byLabel.ok && byLabel.row.vendor).toBe("paloalto")
   })
 
+  it("resolves an Ivanti row, and its product case-insensitively to the stored name", () => {
+    const [byKey] = validateCsvRows([row({ vendor: "ivanti", product: "connect secure", version: "22.7R2.4" })], new Set())
+    expect(byKey.ok && byKey.row.vendor).toBe("ivanti")
+    expect(byKey.ok && byKey.row.product).toBe("Connect Secure")
+    expect(byKey.ok && byKey.row.version).toBe("22.7R2.4")
+    const [byLabel] = validateCsvRows([row({ vendor: "Ivanti", product: "Endpoint Manager Mobile", version: "12.7.0.0" })], new Set())
+    expect(byLabel.ok && byLabel.row.vendor).toBe("ivanti")
+  })
+
+  it("rejects an Ivanti product under another vendor, and the vendor-prefixed spelling under Ivanti", () => {
+    const [other] = validateCsvRows([row({ vendor: "fortinet", product: "Connect Secure" })], new Set())
+    expect(other.ok).toBe(false)
+    // The catalog holds the names heretix-api stores, which carry no "Ivanti " prefix.
+    const [prefixed] = validateCsvRows([row({ vendor: "ivanti", product: "Ivanti Connect Secure" })], new Set())
+    expect(prefixed.ok).toBe(false)
+  })
+
   it("rejects an unknown vendor", () => {
     const [result] = validateCsvRows([row({ vendor: "acme-corp" })], new Set())
     expect(result.ok).toBe(false)
