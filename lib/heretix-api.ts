@@ -234,3 +234,35 @@ export async function getStats() {
   if (!res.ok) throw new Error(`heretix-api stats error: ${res.status}`)
   return res.json()
 }
+
+/** A product catalog entry as heretix-api lists it: what a picker shows and the exact pairs a search by its name asks. */
+export type CatalogListing = {
+  name: string
+  vendor: string
+  product: string
+  category: string
+  aliases: string[]
+  versionHint: string
+  /** Where a search by the name looks: nvd, cna. Vendor advisories and OSV are not asked. */
+  sources: string[]
+  nvd: { vendor: string; products?: string[]; productPrefixes?: string[]; excludePrefixes?: string[] }[]
+  cna: { vendors: string[]; products: string[] }[]
+}
+
+/** Throws when heretix-api has no catalog (an older version) or cannot be reached. */
+export async function listCatalog(params: { q?: string } = {}): Promise<CatalogListing[]> {
+  const [baseUrl, headers] = await Promise.all([getHeretixApiUrl(), apiHeaders()])
+  const query = new URLSearchParams()
+  if (params.q) query.set("q", params.q)
+
+  const res = await fetch(
+    `${baseUrl}/api/v1/catalog?${query}`,
+    { headers, signal: AbortSignal.timeout(10_000) }
+  )
+  if (!res.ok) {
+    throw new Error(`heretix-api catalog error: ${res.status}`)
+  }
+  const data = await res.json()
+  if (!Array.isArray(data.entries)) throw new Error("heretix-api catalog error: no entries")
+  return data.entries
+}

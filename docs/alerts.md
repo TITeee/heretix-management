@@ -128,3 +128,5 @@ The asset page also has a **Dependency Graph** tab *(Beta)*: vulnerable packages
 ## Vulnerability Search
 
 **Search** queries heretix-api directly, without an asset: by package name, version, and ecosystem; by CVE / OSV ID; by CPE 2.3 string; or by vendor and product in Advisory mode.
+
+In package mode, **pick the product from the catalog** to search by its exact vendor and product instead of a name: `Ivanti Automation` finds ivanti's `automation` and not nintex's, which a search by the plain name `automation` mixes. The picked entry shows the NVD and CVE-record rows it asks, and no ecosystem is used. Otherwise type a name: the suggestions beside the box show the vendors, ecosystems and data sets that know each name, so a name shared by several vendors is visible before searching.

@@ -4,7 +4,7 @@ vi.mock("@/lib/db", () => ({
   prisma: { setting: { findUnique: vi.fn().mockResolvedValue(null) } },
 }))
 
-import { suggestPackages } from "./heretix-api"
+import { listCatalog, suggestPackages } from "./heretix-api"
 
 function respondWith(body: unknown, ok = true) {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok, status: ok ? 200 : 500, json: async () => body }))
@@ -51,5 +51,35 @@ describe("suggestPackages", () => {
   it("throws when heretix-api answers with an error, for the route to swallow", async () => {
     respondWith({}, false)
     await expect(suggestPackages({ q: "x" })).rejects.toThrow("heretix-api suggest error: 500")
+  })
+})
+
+describe("listCatalog", () => {
+  const entry = {
+    name: "Ivanti Automation", vendor: "Ivanti", product: "Automation", category: "application",
+    aliases: [], versionHint: "2024.4", sources: ["nvd"],
+    nvd: [{ vendor: "ivanti", products: ["automation"] }], cna: [],
+  }
+
+  it("returns the entries heretix-api lists, passing the typed text on", async () => {
+    respondWith({ total: 1, entries: [entry] })
+    expect(await listCatalog({ q: "ivanti" })).toEqual([entry])
+    const url = String((fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0])
+    expect(url).toContain("/api/v1/catalog?")
+    expect(new URL(url).searchParams.get("q")).toBe("ivanti")
+  })
+
+  it("asks for the whole catalog when nothing was typed", async () => {
+    respondWith({ total: 0, entries: [] })
+    await listCatalog()
+    const url = String((fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0])
+    expect(new URL(url).searchParams.has("q")).toBe(false)
+  })
+
+  it("throws for a heretix-api without a catalog, which the route turns into 'not available'", async () => {
+    respondWith({}, false)
+    await expect(listCatalog()).rejects.toThrow("heretix-api catalog error: 500")
+    respondWith({ error: "not found" })
+    await expect(listCatalog()).rejects.toThrow("no entries")
   })
 })

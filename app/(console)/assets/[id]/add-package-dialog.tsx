@@ -18,6 +18,8 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { HelpCircle } from "lucide-react"
 import { ADVISORY_VENDORS, getProductsByVendor, type AdvisoryVendor } from "@/lib/advisory-products"
 import { PackageNameInput } from "@/components/package-name-input"
+import { CatalogPicker } from "@/components/catalog-picker"
+import type { CatalogListing } from "@/lib/heretix-api"
 
 const ECOSYSTEMS = [
   "Ubuntu:20.04:LTS",
@@ -53,6 +55,8 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
   const [genName, setGenName] = useState("")
   const [genVersion, setGenVersion] = useState("")
   const [genEcosystemSelect, setGenEcosystemSelect] = useState("")
+  // A product picked from the catalog: its name is stored as the package name, with no ecosystem.
+  const [catalogEntry, setCatalogEntry] = useState<CatalogListing | null>(null)
 
   // Advisory tab state
   const [vendor, setVendor] = useState<AdvisoryVendor>("fortinet")
@@ -71,8 +75,15 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
 
   const genEcosystem = genEcosystemSelect === "Other" ? "" : genEcosystemSelect
 
+  function pickCatalogEntry(entry: CatalogListing | null) {
+    setCatalogEntry(entry)
+    // A catalog name is searched in NVD and the CVE records only, so there is no ecosystem to choose.
+    setGenName(entry ? entry.name : "")
+    setGenEcosystemSelect(entry ? "Other" : "")
+  }
+
   function handleOpen() {
-    setGenName(""); setGenVersion(""); setGenEcosystemSelect("")
+    setGenName(""); setGenVersion(""); setGenEcosystemSelect(""); setCatalogEntry(null)
     setVendor("fortinet"); setProduct(getProductsByVendor("fortinet")[0]); setAdvVersion("")
     setVulnCount(null)
     setCpeProduct(""); setCpeVersion(""); setCpeString("")
@@ -186,6 +197,8 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
           </TabsList>
 
           <TabsContent value="general" className="space-y-4 pt-4">
+            <CatalogPicker value={catalogEntry} onChange={pickCatalogEntry} />
+            {!catalogEntry && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Package Name <span className="text-destructive">*</span></label>
               {/* Suggestions come from the vulnerability data itself, so the name
@@ -200,10 +213,12 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
                 placeholder="e.g. nginx"
               />
             </div>
+            )}
             <div className="space-y-2">
               <label className="text-sm font-medium">Version <span className="text-destructive">*</span></label>
-              <Input placeholder="e.g. 1.24.0" value={genVersion} onChange={(e) => setGenVersion(e.target.value)} />
+              <Input placeholder={`e.g. ${catalogEntry?.versionHint ?? "1.24.0"}`} value={genVersion} onChange={(e) => setGenVersion(e.target.value)} />
             </div>
+            {!catalogEntry && (
             <div className="space-y-2">
               <div className="flex items-center gap-1">
                 <label className="text-sm font-medium">Ecosystem <span className="text-destructive">*</span></label>
@@ -248,6 +263,7 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
                 </p>
               )}
             </div>
+            )}
             {error && <p className="text-sm text-destructive">{error}</p>}
             <DialogFooter>
               <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>

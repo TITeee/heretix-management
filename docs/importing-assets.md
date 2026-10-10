@@ -61,7 +61,7 @@ Packages are matched by name and ecosystem. Packages added by hand are never com
 1. **Assets → Add Manually**: enter a name, hostname, and type.
 2. On the asset page, **Add Package**:
    - **Advisory**: pick a vendor and product (Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Check Point, Ivanti, NetScaler, Oracle, Splunk, Apache HTTP Server, nginx, Apache Tomcat, Zabbix) and enter the version. Matched against vendor advisories.
-   - **General**: a package name, version, and ecosystem, for software installed outside a package manager.
+   - **General**: a package name, version, and ecosystem, for software installed outside a package manager. At the top, **pick the product from heretix-api's catalog** (network devices, middleware, tools such as BIG-IP, Junos OS, GitLab, Jenkins) instead of typing a name. The package is then stored under the catalog's name with no ecosystem, and a search by that name asks only NVD and the CVE records, for exactly the vendor and product pairs shown under the entry: `Ivanti Automation` finds ivanti's `automation` and not nintex's. Products with a vendor-advisory list are picked under **Advisory**, which searches those advisories only. Without a catalog (an older heretix-api), or for a product not in it, type the name as before; the suggestions beside the box show the vendors, ecosystems and data sets that know each name.
    - **CPE**: a CPE 2.3 string.
 3. **Run Scan**. After a firmware update, **Edit** the package's version and scan again.
 

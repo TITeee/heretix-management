@@ -24,6 +24,8 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { SEVERITY_COLORS, getAlertSeverityTier, type SeverityTier } from "@/lib/severity"
 import { VulnDetail, NvdTab, OsvTab, AdvisoryTab, CnaTab } from "@/components/alerts/vuln-detail-tabs"
 import { PackageNameInput } from "@/components/package-name-input"
+import { CatalogPairs, CatalogPicker } from "@/components/catalog-picker"
+import type { CatalogListing } from "@/lib/heretix-api"
 import { ADVISORY_VENDORS, FORTINET_PRODUCTS, getProductsByVendor, type AdvisoryVendor } from "@/lib/advisory-products"
 
 type Vuln = {
@@ -86,6 +88,8 @@ export default function SearchPage() {
   const [pkg, setPkg] = useState("")
   const [version, setVersion] = useState("")
   const [ecosystem, setEcosystem] = useState("All")
+  // A product picked from the catalog: searched by its name alone, in NVD and the CVE records, with no ecosystem.
+  const [catalogEntry, setCatalogEntry] = useState<CatalogListing | null>(null)
   const [vulnId, setVulnId] = useState("")
   const [cpe, setCpe] = useState("")
   const [results, setResults] = useState<Vuln[] | null>(null)
@@ -98,6 +102,13 @@ export default function SearchPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detailData, setDetailData] = useState<VulnDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+
+  function pickCatalogEntry(entry: CatalogListing | null) {
+    setCatalogEntry(entry)
+    setPkg(entry ? entry.name : "")
+    setEcosystem("All")
+    setResults(null)
+  }
 
   async function handleCardClick(externalId: string) {
     setSelectedId(externalId)
@@ -204,6 +215,10 @@ export default function SearchPage() {
                 &ldquo;Apache HTTP Server&rdquo;) — some entries have none and won&apos;t
                 appear here.
               </p>
+              <p className="opacity-80">
+                Pick a product from the catalog to search by its exact vendor and
+                product, so one vendor&apos;s results are not mixed with another&apos;s.
+              </p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -284,20 +299,24 @@ export default function SearchPage() {
       <form onSubmit={handleSearch} className="flex gap-2 flex-wrap">
         {mode === "package" ? (
           <>
-            <PackageNameInput
-              value={pkg}
-              onChange={setPkg}
-              ecosystem={ecosystem !== "All" ? ecosystem : undefined}
-              placeholder="Package name (e.g. curl)"
-              className="w-48"
-              required
-            />
+            <CatalogPicker compact className="w-64" value={catalogEntry} onChange={pickCatalogEntry} />
+            {!catalogEntry && (
+              <PackageNameInput
+                value={pkg}
+                onChange={setPkg}
+                ecosystem={ecosystem !== "All" ? ecosystem : undefined}
+                placeholder="Package name (e.g. curl)"
+                className="w-48"
+                required
+              />
+            )}
             <Input
-              placeholder="Version (optional)"
+              placeholder={catalogEntry ? `Version (optional, e.g. ${catalogEntry.versionHint})` : "Version (optional)"}
               value={version}
               onChange={(e) => setVersion(e.target.value)}
-              className="w-36"
+              className={catalogEntry ? "w-48" : "w-36"}
             />
+            {!catalogEntry && (
             <Select value={ecosystem} onValueChange={(v) => setEcosystem(v ?? "All")}>
               <SelectTrigger className="w-40">
                 <SelectValue />
@@ -309,6 +328,7 @@ export default function SearchPage() {
                 ))}
               </SelectContent>
             </Select>
+            )}
           </>
         ) : mode === "cpe" ? (
           <Input
@@ -372,6 +392,8 @@ export default function SearchPage() {
           {loading ? "Searching..." : "Search"}
         </Button>
       </form>
+
+      {mode === "package" && catalogEntry && <CatalogPairs entry={catalogEntry} className="space-y-0.5" />}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 

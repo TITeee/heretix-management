@@ -65,7 +65,8 @@ The console's own routes under `/api`. All of them need a signed-in session, exc
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/search` | Vulnerability search, proxied to heretix-api |
-| GET | `/api/search/suggest` | Package and product name suggestions for Search |
+| GET | `/api/search/suggest` | Package and product name suggestions for Search, with the vendors, ecosystems and data sets each name is found under |
+| GET | `/api/catalog` | heretix-api's product catalog for the Add Package picker (`?q=`). `available: false` when heretix-api has none |
 | GET | `/api/packages` | Package names in the inventory (`?search=`, `?limit=`) |
 
 ## Settings
