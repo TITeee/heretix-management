@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { suggestPackageNames } from "@/lib/heretix-api"
+import { suggestPackages } from "@/lib/heretix-api"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -8,17 +8,17 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const q = searchParams.get("q")?.trim()
-  if (!q) return NextResponse.json({ suggestions: [] })
+  if (!q) return NextResponse.json({ suggestions: [], details: [] })
 
   try {
-    const suggestions = await suggestPackageNames({
+    const details = await suggestPackages({
       q,
       ecosystem: searchParams.get("ecosystem") ?? undefined,
     })
-    return NextResponse.json({ suggestions })
+    return NextResponse.json({ suggestions: details.map((d) => d.name), details })
   } catch {
     // Suggestions are a convenience, not the search itself — fail quietly
     // rather than surfacing an error banner for an autocomplete dropdown.
-    return NextResponse.json({ suggestions: [] })
+    return NextResponse.json({ suggestions: [], details: [] })
   }
 }

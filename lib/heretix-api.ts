@@ -114,10 +114,22 @@ export async function searchVulnerabilities(params: {
   return res.json()
 }
 
-export async function suggestPackageNames(params: {
+/** A suggested name and where heretix-api found it, so a name is never an unexplained guess. */
+export type PackageSuggestion = {
+  name: string
+  /** nvd, osv or cna. */
+  sources: string[]
+  /** CPE / CNA vendors the name is found under; one the typed text matched comes first. */
+  vendors: string[]
+  /** Ecosystem families of the OSV packages with this name ("Debian", "npm"). */
+  ecosystems: string[]
+  matchedBy: "name" | "vendor"
+}
+
+export async function suggestPackages(params: {
   q: string
   ecosystem?: string
-}): Promise<string[]> {
+}): Promise<PackageSuggestion[]> {
   const [baseUrl, headers] = await Promise.all([getHeretixApiUrl(), apiHeaders()])
   const query = new URLSearchParams({ q: params.q })
   if (params.ecosystem) query.set("ecosystem", params.ecosystem)
@@ -130,7 +142,21 @@ export async function suggestPackageNames(params: {
     throw new Error(`heretix-api suggest error: ${res.status}`)
   }
   const data = await res.json()
-  return data.suggestions ?? []
+  // A heretix-api that has `details` but not every field of it (it gained
+  // `ecosystems` after `vendors`) gets the missing ones as empty lists.
+  if (Array.isArray(data.details)) {
+    return data.details.map((d: Partial<PackageSuggestion> & { name: string }) => ({
+      name: d.name,
+      sources: d.sources ?? [],
+      vendors: d.vendors ?? [],
+      ecosystems: d.ecosystems ?? [],
+      matchedBy: d.matchedBy ?? "name",
+    }))
+  }
+  // A heretix-api from before `details` existed returns the names alone.
+  return (data.suggestions ?? []).map((name: string) => ({
+    name, sources: [], vendors: [], ecosystems: [], matchedBy: "name" as const,
+  }))
 }
 
 export type CveCpeMatch = {
