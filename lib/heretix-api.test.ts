@@ -4,7 +4,7 @@ vi.mock("@/lib/db", () => ({
   prisma: { setting: { findUnique: vi.fn().mockResolvedValue(null) } },
 }))
 
-import { listCatalog, suggestPackages } from "./heretix-api"
+import { batchSearch, listCatalog, suggestPackages } from "./heretix-api"
 
 function respondWith(body: unknown, ok = true) {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok, status: ok ? 200 : 500, json: async () => body }))
@@ -81,5 +81,61 @@ describe("listCatalog", () => {
     await expect(listCatalog()).rejects.toThrow("heretix-api catalog error: 500")
     respondWith({ error: "not found" })
     await expect(listCatalog()).rejects.toThrow("no entries")
+  })
+})
+
+describe("batchSearch", () => {
+  const pkgs = [{ package: "lodash", version: "4.17.20" }]
+  const ok = { ok: true, status: 200, headers: { get: () => null }, json: async () => ({ results: [{ package: "lodash", version: "4.17.20", vulnerabilities: [] }] }) }
+  const busy = (retryAfter: string | null) => ({ ok: false, status: 429, headers: { get: () => retryAfter }, text: async () => "busy" })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("waits the Retry-After heretix-api gives and asks again", async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn().mockResolvedValueOnce(busy("5")).mockResolvedValueOnce(ok)
+    vi.stubGlobal("fetch", fetchMock)
+
+    const result = batchSearch(pkgs)
+    await vi.advanceTimersByTimeAsync(4_999)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(await result).toHaveLength(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it("waits 5 s when there is no usable Retry-After, and never more than 30 s", async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn().mockResolvedValueOnce(busy(null)).mockResolvedValueOnce(busy("600")).mockResolvedValueOnce(ok)
+    vi.stubGlobal("fetch", fetchMock)
+
+    const result = batchSearch(pkgs)
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(29_999)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(await result).toHaveLength(1)
+  })
+
+  it("gives up with the 429 after five retries", async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn().mockResolvedValue(busy("1"))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const result = batchSearch(pkgs)
+    const failed = expect(result).rejects.toThrow("heretix-api batch error: 429")
+    await vi.advanceTimersByTimeAsync(10_000)
+    await failed
+    expect(fetchMock).toHaveBeenCalledTimes(6)
+  })
+
+  it("does not retry another error", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, headers: { get: () => null }, text: async () => "boom" })
+    vi.stubGlobal("fetch", fetchMock)
+    await expect(batchSearch(pkgs)).rejects.toThrow("heretix-api batch error: 500 boom")
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

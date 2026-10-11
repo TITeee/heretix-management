@@ -72,21 +72,41 @@ export type BatchResultItem = {
   vulnerabilities: VulnSearchResult[]
 }
 
+// heretix-api runs only a few batch searches at once and answers another with 429 and
+// a Retry-After. Scans send one after another, so this is met only when several run
+// together; waiting for a free slot is better than failing the scan.
+const BATCH_MAX_RETRIES = 5
+const BATCH_RETRY_DEFAULT_SECONDS = 5
+const BATCH_RETRY_MAX_SECONDS = 30
+
+function retryAfterSeconds(header: string | null): number {
+  const n = Number(header)
+  if (!header || !Number.isFinite(n) || n < 0) return BATCH_RETRY_DEFAULT_SECONDS
+  return Math.min(Math.max(n, 1), BATCH_RETRY_MAX_SECONDS)
+}
+
 export async function batchSearch(
   packages: BatchPackage[]
 ): Promise<BatchResultItem[]> {
   const [baseUrl, headers] = await Promise.all([getHeretixApiUrl(), apiHeaders()])
-  const res = await fetch(`${baseUrl}/api/v1/vulnerabilities/search/batch`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ packages }),
-    signal: AbortSignal.timeout(60_000),
-  })
-  if (!res.ok) {
-    throw new Error(`heretix-api batch error: ${res.status} ${await res.text()}`)
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`${baseUrl}/api/v1/vulnerabilities/search/batch`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ packages }),
+      signal: AbortSignal.timeout(60_000),
+    })
+    if (res.status === 429 && attempt < BATCH_MAX_RETRIES) {
+      await res.text().catch(() => "")
+      await new Promise((resolve) => setTimeout(resolve, retryAfterSeconds(res.headers.get("retry-after")) * 1000))
+      continue
+    }
+    if (!res.ok) {
+      throw new Error(`heretix-api batch error: ${res.status} ${await res.text()}`)
+    }
+    const data = await res.json()
+    return data.results ?? []
   }
-  const data = await res.json()
-  return data.results ?? []
 }
 
 export async function searchVulnerabilities(params: {
