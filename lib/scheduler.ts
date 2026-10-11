@@ -1,8 +1,9 @@
 import { schedule } from "node-cron"
 import { refreshMetadata } from "@/lib/refresh"
+import { recordRefreshStatus, refreshFailed } from "@/lib/refresh-status"
 import { scanAllAssets, failInterruptedScanJobs } from "@/lib/scan"
 import { logger } from "@/lib/logger"
-import { notifySlackScanFailures, notifySlackScanNotRun } from "@/lib/slack"
+import { notifySlackRefreshFailed, notifySlackScanFailures, notifySlackScanNotRun } from "@/lib/slack"
 
 export function startScheduler() {
   // Nothing survived the restart that brought us here, so any job still marked
@@ -17,9 +18,16 @@ export function startScheduler() {
   const scanSchedule = process.env.CRON_SCAN ?? "0 13 * * *"
 
   schedule(refreshSchedule, () => {
-    refreshMetadata().catch((err) => {
-      logger.error("scheduler: refreshMetadata failed", { error: err instanceof Error ? err.message : String(err) })
-    })
+    refreshMetadata()
+      // A Slack message that cannot be sent is not a failed refresh.
+      .then((result) => (refreshFailed({ ...result, error: null }) ? notifySlackRefreshFailed(result).catch(() => {}) : undefined))
+      .catch((err) => {
+        const error = err instanceof Error ? err.message : String(err)
+        logger.error("scheduler: refreshMetadata failed", { error })
+        recordRefreshStatus({ total: 0, failed: 0, error })
+          .then(() => notifySlackRefreshFailed({ total: 0, failed: 0, error }))
+          .catch(() => {})
+      })
   })
 
   schedule(scanSchedule, () => {

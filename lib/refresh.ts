@@ -4,13 +4,14 @@ import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
 import { logger } from "@/lib/logger"
 import { DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
 import { diffAlertMetadata } from "@/lib/alert-metadata"
+import { recordRefreshStatus } from "@/lib/refresh-status"
 
 // heretix-api has no lookup-by-id batch endpoint, so each vulnerability costs one
 // request. They run a few at a time rather than one after another; the cap keeps the
 // refresh from opening a connection per vulnerability against a shared service.
 const LOOKUP_CONCURRENCY = 10
 
-export async function refreshMetadata(): Promise<{ updated: number; failed: number }> {
+export async function refreshMetadata(): Promise<{ updated: number; failed: number; total: number }> {
   // Load SLA configuration
   const slaSetting = await prisma.setting.findUnique({
     where: { key: "sla_config" },
@@ -155,5 +156,6 @@ export async function refreshMetadata(): Promise<{ updated: number; failed: numb
     }).catch(() => {})
   }
 
-  return { updated, failed }
+  await recordRefreshStatus({ total: uniqueIds.length, failed })
+  return { updated, failed, total: uniqueIds.length }
 }

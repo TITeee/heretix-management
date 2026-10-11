@@ -111,13 +111,13 @@ On start, the server registers two daily jobs:
 
 The scheduler assumes a single server process. A scan interrupted by a restart is marked failed on the next start.
 
-### When scans fail
+### When scans or the refresh fail
 
-A failed scan leaves the asset's alerts as they were, so the failure goes unseen unless it is shown:
+A failed scan leaves the asset's alerts as they were, and a failed refresh leaves their CVSS, severity, EPSS, and KEV as they were (so SLA due dates may be out of date), so the failure goes unseen unless it is shown:
 
-- **Dashboard**: a notice appears at the top while any asset's latest scan failed (with the error and the assets), or when no scan has succeeded for `SCAN_STALE_HOURS`. The second case catches a server that is down or a scheduler that never started, which leave no failed scan to show. It stays quiet on an installation that has never scanned.
+- **Dashboard**: a notice appears at the top while any asset's latest scan failed (with the error and the assets), or when no scan has succeeded for `SCAN_STALE_HOURS`. The second case catches a server that is down or a scheduler that never started, which leave no failed scan to show. It stays quiet on an installation that has never scanned. The same notice reports the metadata refresh when its latest run failed (it stopped with an error, or half or more of its lookups to heretix-api failed; a lookup or two failing is only logged) or when it has not run for `SCAN_STALE_HOURS`, with the time of the last good refresh.
 - **Asset page and Assets list**: *Last Scan* / *Last Scanned* is the time of the last scan that completed (taken from the scan jobs, not from the inventory's own timestamp), with a note when the latest attempt failed.
-- **Slack**: when Slack is on, a scheduled scan that failed for any asset sends one message per run, with the errors grouped, and another if the run could not start at all. These ignore the tag and severity filters. Scans started by hand or from CI are not announced; they show their error to whoever ran them.
+- **Slack**: when Slack is on, a scheduled scan that failed for any asset sends one message per run, with the errors grouped, and another if the run could not start at all. These ignore the tag and severity filters. A scheduled metadata refresh that failed in that sense sends one message too. Scans and refreshes started by hand or from CI are not announced; they show their error to whoever ran them.
 
 ## Settings
 

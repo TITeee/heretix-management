@@ -201,3 +201,21 @@ export async function notifySlackScanNotRun(error: string): Promise<void> {
   const reason = error.split("\n")[0].slice(0, 300)
   await postToSlack(url, `⛔ *Scheduled scan could not run*\n\n${reason}\n\n${new Date().toISOString()}`)
 }
+
+/** The scheduled metadata refresh failed: heretix-api could not be reached for most lookups, or the refresh stopped with an error. */
+export async function notifySlackRefreshFailed(params: { total: number; failed: number; error?: string | null }): Promise<void> {
+  const url = await slackWebhookUrl()
+  if (!url) return
+  const what = params.error
+    ? params.error.split(/\r?\n/)[0].slice(0, 300)
+    : `${params.failed} of ${params.total} vulnerability lookups failed`
+  const text = [
+    "⛔ *Scheduled metadata refresh failed*",
+    "",
+    what,
+    "",
+    "CVSS, severity, EPSS and KEV on the alerts are as the last successful refresh left them, so SLA due dates may be out of date. Check that heretix-api is reachable.",
+    new Date().toISOString(),
+  ].join("\n")
+  await postToSlack(url, text)
+}
