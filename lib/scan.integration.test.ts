@@ -186,12 +186,18 @@ describe("scanAsset — reopening a no-fix acceptance once a fix exists", () => 
   it("keeps it ignored while there is still no fix, and reopens it when a scan reports a fixed version", async () => {
     const { asset, alert } = await acceptedAlert(true)
 
+    mockedSlack.mockClear()
     mockedBatchSearch.mockResolvedValue(finding(null))
     await scanAsset(asset.id)
     expect((await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })).status).toBe("ignored")
+    expect(mockedSlack).not.toHaveBeenCalled()
 
     mockedBatchSearch.mockResolvedValue(finding("2.9.13-6.el9"))
     await scanAsset(asset.id)
+    expect(mockedSlack).toHaveBeenCalledWith(expect.objectContaining({
+      triggerType: "reopened",
+      alerts: [expect.objectContaining({ externalId: "CVE-2026-0004", note: "fix now available: 2.9.13-6.el9" })],
+    }))
     const reopened = await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })
     expect(reopened).toMatchObject({ status: "open", ignoreReason: null, reopenOnFix: false, fixedVersion: "2.9.13-6.el9" })
     const events = await prisma.alertEvent.findMany({ where: { alertId: alert.id, type: "status_changed" } })
@@ -203,6 +209,38 @@ describe("scanAsset — reopening a no-fix acceptance once a fix exists", () => 
     mockedBatchSearch.mockResolvedValue(finding("2.9.13-6.el9"))
     await scanAsset(asset.id)
     expect((await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })).status).toBe("ignored")
+  })
+
+  async function resolvedAlert(resolveReason: string) {
+    const { asset, alert } = await acceptedAlert(false)
+    await prisma.alert.update({
+      where: { id: alert.id },
+      data: { status: "resolved", ignoreReason: null, resolvedAt: new Date(), resolveReason },
+    })
+    return { asset, alert }
+  }
+
+  it("says in Slack that an alert the scan had auto-resolved is back", async () => {
+    const { asset, alert } = await resolvedAlert("Auto-resolved: no longer reported by heretix-api")
+    mockedSlack.mockClear()
+    mockedBatchSearch.mockResolvedValue(finding(null))
+    await scanAsset(asset.id)
+
+    expect((await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })).status).toBe("open")
+    expect(mockedSlack).toHaveBeenCalledWith(expect.objectContaining({
+      triggerType: "reopened",
+      alerts: [expect.objectContaining({ externalId: "CVE-2026-0004", note: "detected again after an auto-resolve" })],
+    }))
+  })
+
+  it("does not reopen, or announce, an alert a person resolved", async () => {
+    const { asset, alert } = await resolvedAlert("Patched by hand")
+    mockedSlack.mockClear()
+    mockedBatchSearch.mockResolvedValue(finding(null))
+    await scanAsset(asset.id)
+
+    expect((await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })).status).toBe("resolved")
+    expect(mockedSlack).not.toHaveBeenCalledWith(expect.objectContaining({ triggerType: "reopened" }))
   })
 })
 

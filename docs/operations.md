@@ -124,7 +124,7 @@ A failed scan leaves the asset's alerts as they were, so the failure goes unseen
 | Tab | Contents |
 |---|---|
 | Vulnerability API | heretix-api URL and key, connection test |
-| Notifications | Slack webhook, triggers (new detections, severity changes, new KEV), minimum severity, asset-tag filter, test message |
+| Notifications | Slack webhook, triggers (new detections, severity changes, new KEV, reopened alerts), minimum severity, asset-tag filter, test message |
 | AI | Anthropic API key and model for AI Insight, connection test |
 | SLA | On/off, hours or days per severity tier and for KEV, Recalculate |
 | Access Tokens | Tokens for CI uploads (admin only; see [importing-assets.md](importing-assets.md#uploading-from-ci)) |

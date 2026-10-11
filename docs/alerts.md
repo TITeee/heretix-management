@@ -122,7 +122,7 @@ The asset page also has a **Dependency Graph** tab *(Beta)*: vulnerable packages
 
 ## Notifications and AI Insight
 
-- **Slack** (Settings → Notifications): a webhook message on new detections, severity changes, or new KEV alerts, filtered by a minimum severity tier and by asset tags (KEV additions ignore the severity filter). Use the test button to check the webhook.
+- **Slack** (Settings → Notifications): a webhook message on new detections, severity changes, new KEV alerts, or alerts a scan reopened (one it had auto-resolved that is detected again, or an accepted no-fix alert whose fix is now available), filtered by a minimum severity tier and by asset tags (KEV additions ignore the severity filter). Use the test button to check the webhook.
 - **AI Insight** (Settings → AI): an optional chat per alert, powered by Anthropic's API. It is given the alert's CVSS, EPSS, and KEV data and how the same vulnerability was handled on other assets. Off by default; set the API key and model, and test the connection, in Settings.
 
 ## Vulnerability Search

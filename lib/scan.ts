@@ -173,6 +173,15 @@ export async function scanAsset(
     const newAlertsList: AlertSummary[] = []
     const severityChangedList: AlertSummary[] = []
     const kevAddedList: AlertSummary[] = []
+    const reopenedList: AlertSummary[] = []
+    const summarize = (a: (typeof existingAlerts)[number], note: string): AlertSummary => ({
+      packageName: a.packageName,
+      packageVersion: a.packageVersion,
+      externalId: a.externalId,
+      severity: a.severity,
+      cvssScore: a.cvssScore,
+      note,
+    })
     // A first scan of a new asset can report thousands of brand-new findings;
     // writing each with its own create() + create() pair is the dominant cost
     // of a scan. Collected here and flushed with two createMany calls once
@@ -248,6 +257,7 @@ export async function scanAsset(
       })
       alert.status = "open"
       reopenedCount++
+      reopenedList.push(summarize(alert, "detected again after an auto-resolve"))
     }
 
     // An alert accepted because no fix existed (the Remediation view's "no fix
@@ -269,6 +279,7 @@ export async function scanAsset(
       alert.status = "open"
       alert.reopenOnFix = false
       reopenedCount++
+      reopenedList.push(summarize(alert, `fix now available: ${alert.fixedVersion}`))
     }
 
     /**
@@ -586,6 +597,15 @@ export async function scanAsset(
         assetTagIds,
         triggerType: "kev_added",
         alerts: kevAddedList,
+      }).catch(() => {})
+    }
+
+    if (reopenedList.length > 0) {
+      await notifySlackIfNeeded({
+        assetName: asset.name || asset.hostname,
+        assetTagIds,
+        triggerType: "reopened",
+        alerts: reopenedList,
       }).catch(() => {})
     }
 

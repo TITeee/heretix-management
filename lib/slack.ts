@@ -7,9 +7,11 @@ export type AlertSummary = {
   externalId: string
   severity: string | null
   cvssScore: number | null
+  /** Why it is listed, where the trigger needs saying (a reopened alert: what reopened it). */
+  note?: string
 }
 
-type TriggerType = "detected" | "severity_changed" | "kev_added" | "scan_held"
+type TriggerType = "detected" | "severity_changed" | "kev_added" | "scan_held" | "reopened"
 
 const SEVERITY_ORDER = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
@@ -81,6 +83,15 @@ function buildMessage(assetName: string, triggerType: TriggerType, alerts: Alert
     const more = alerts.length > shown.length ? `\n…and ${alerts.length - shown.length} more` : ""
     const intro = "heretix-api stopped reporting an unusually large share of this asset's open alerts although their packages did not change, so none of them were auto-resolved. Check heretix-api's data."
     return `⛔ *Scan kept ${alerts.length} alert(s) open* on *${assetName}*\n\n${intro}\n\n${shown.join("\n")}${more}\n\n${ts}`
+  }
+
+  if (triggerType === "reopened") {
+    const shown = alerts.slice(0, 10).map((a) => {
+      const pkg = a.packageVersion ? `${a.packageName} ${a.packageVersion}` : a.packageName
+      return `${a.externalId}  ${pkg}  ${severityKey(a)}${a.note ? `  (${a.note})` : ""}`
+    })
+    const more = alerts.length > shown.length ? `\n…and ${alerts.length - shown.length} more` : ""
+    return `🔁 *${alerts.length} alert(s) reopened* on *${assetName}*\n\n${shown.join("\n")}${more}\n\n${ts}`
   }
 
   if (triggerType === "kev_added") {
