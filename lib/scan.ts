@@ -610,8 +610,11 @@ export async function scanAsset(
   }
 }
 
-export async function scanAllAssets(): Promise<void> {
-  const assets = await prisma.asset.findMany({ select: { id: true } })
+export type ScanAllResult = { total: number; failures: { assetId: string; assetName: string; error: string }[] }
+
+export async function scanAllAssets(): Promise<ScanAllResult> {
+  const assets = await prisma.asset.findMany({ select: { id: true, name: true, hostname: true } })
+  const failures: ScanAllResult["failures"] = []
   const total = assets.length
   const startedAt = Date.now()
 
@@ -622,10 +625,12 @@ export async function scanAllAssets(): Promise<void> {
     try {
       await scanAsset(asset.id)
       logger.info("scan all assets progress", { assetId: asset.id, index: i + 1, total })
-    } catch {
-      // Continue scanning remaining assets even if one fails
+    } catch (err) {
+      // Continue scanning remaining assets even if one fails; the caller reports them together.
+      failures.push({ assetId: asset.id, assetName: asset.name || asset.hostname, error: err instanceof Error ? err.message : String(err) })
     }
   }
 
-  logger.info("scan all assets completed", { total, durationMs: Date.now() - startedAt })
+  logger.info("scan all assets completed", { total, failed: failures.length, durationMs: Date.now() - startedAt })
+  return { total, failures }
 }

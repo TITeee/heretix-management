@@ -10,6 +10,7 @@ import { TagBadge } from "@/components/tags/tag-badge"
 import { EditTagsPopover } from "./edit-tags-popover"
 import Link from "next/link"
 import { ScanButton } from "./scan-button"
+import { getScanStatuses } from "@/lib/scan-status"
 import { ImportVexButton } from "./import-vex-button"
 import { EditAssetDialog } from "./edit-asset-dialog"
 import { DeleteAssetButton } from "./delete-asset-button"
@@ -67,6 +68,7 @@ export default async function AssetDetailPage({
     },
   })
   if (!asset) notFound()
+  const scanStatus = (await getScanStatuses(asset.id)).get(asset.id)
 
   const openAlerts = await prisma.alert.count({
     where: { assetId: id, status: { in: ["open", "in_progress"] } },
@@ -241,7 +243,14 @@ export default async function AssetDetailPage({
             </div>
           </CardHeader>
           <CardContent className="text-sm">
-            {asset.scannedAt ? new Date(asset.scannedAt).toLocaleString() : "Not scanned yet"}
+            {scanStatus?.lastSuccessAt ? new Date(scanStatus.lastSuccessAt).toLocaleString() : "Not scanned yet"}
+            {scanStatus?.lastAttempt?.failed && (
+              <p className="mt-1 text-xs text-destructive">
+                The latest scan failed ({new Date(scanStatus.lastAttempt.at).toLocaleString()})
+                {scanStatus.lastAttempt.error ? `: ${scanStatus.lastAttempt.error.slice(0, 160)}` : ""}.
+                Alerts are as the last successful scan left them.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

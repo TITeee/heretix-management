@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db"
 import { countSeverityByKey, emptySeverityCounts } from "@/lib/severity"
+import { getScanStatuses } from "@/lib/scan-status"
 import { AssetsTable } from "./assets-table"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -39,8 +40,13 @@ async function getAssets() {
     else licenseMap.set(assetId, [license])
   }
 
+  // The last scan that completed, from the scan jobs: Asset.scannedAt is also set by an inventory import.
+  const scanStatuses = await getScanStatuses()
+
   return assets.map((a) => ({
     ...a,
+    scannedAt: scanStatuses.get(a.id)?.lastSuccessAt ?? null,
+    scanFailed: scanStatuses.get(a.id)?.lastAttempt?.failed ?? false,
     openAlerts: openMap.get(a.id) ?? emptySeverityCounts(),
     tags: a.assetTags.map(at => at.tag),
     licenses: licenseMap.get(a.id) ?? [],

@@ -95,6 +95,9 @@ model ScanJob {
   // share of the asset's open alerts vanished at once (see lib/scan-resolve.ts).
   heldAlerts  Int       @default(0)
   createdAt   DateTime  @default(now())
+
+  // The dashboard and the asset pages read an asset's latest and last successful scan.
+  @@index([assetId, createdAt])
 }
 
 model Alert {

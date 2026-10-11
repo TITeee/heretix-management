@@ -2,6 +2,7 @@ import { schedule } from "node-cron"
 import { refreshMetadata } from "@/lib/refresh"
 import { scanAllAssets, failInterruptedScanJobs } from "@/lib/scan"
 import { logger } from "@/lib/logger"
+import { notifySlackScanFailures, notifySlackScanNotRun } from "@/lib/slack"
 
 export function startScheduler() {
   // Nothing survived the restart that brought us here, so any job still marked
@@ -22,9 +23,14 @@ export function startScheduler() {
   })
 
   schedule(scanSchedule, () => {
-    scanAllAssets().catch((err) => {
-      logger.error("scheduler: scanAllAssets failed", { error: err instanceof Error ? err.message : String(err) })
-    })
+    scanAllAssets()
+      // One Slack message for the whole run; a notification that itself fails must not become another failure.
+      .then((result) => notifySlackScanFailures(result))
+      .catch((err) => {
+        const error = err instanceof Error ? err.message : String(err)
+        logger.error("scheduler: scanAllAssets failed", { error })
+        notifySlackScanNotRun(error).catch(() => {})
+      })
   })
 
   logger.info("scheduler started", { refreshSchedule, scanSchedule })

@@ -61,6 +61,7 @@ Needs Node.js 22 (as in the Docker image), pnpm, PostgreSQL 15+ with a `heretix_
 | `ANTHROPIC_API_KEY` | | | Key for AI Insight. **Settings → AI** overrides it |
 | `CRON_REFRESH` | | `0 12 * * *` | When the metadata refresh runs (cron, UTC) |
 | `CRON_SCAN` | | `0 13 * * *` | When every asset is scanned (cron, UTC) |
+| `SCAN_STALE_HOURS` | | `36` | Without a successful scan for this long, the dashboard says the scheduler may not be running |
 | `SEED_EMAIL` / `SEED_PASSWORD` / `SEED_NAME` | | `admin@example.com` / `changeme` / `Administrator` | The admin user `seed` creates |
 
 heretix-api's URL and key are read from Settings first, so they can be changed without a restart. Slack, SLA, and the AI model are configured in Settings only.
@@ -109,6 +110,14 @@ On start, the server registers two daily jobs:
 | Scan | 13:00 | Scans every asset ([alerts.md](alerts.md#scanning)) |
 
 The scheduler assumes a single server process. A scan interrupted by a restart is marked failed on the next start.
+
+### When scans fail
+
+A failed scan leaves the asset's alerts as they were, so the failure goes unseen unless it is shown:
+
+- **Dashboard**: a notice appears at the top while any asset's latest scan failed (with the error and the assets), or when no scan has succeeded for `SCAN_STALE_HOURS`. The second case catches a server that is down or a scheduler that never started, which leave no failed scan to show. It stays quiet on an installation that has never scanned.
+- **Asset page and Assets list**: *Last Scan* / *Last Scanned* is the time of the last scan that completed (taken from the scan jobs, not from the inventory's own timestamp), with a note when the latest attempt failed.
+- **Slack**: when Slack is on, a scheduled scan that failed for any asset sends one message per run, with the errors grouped, and another if the run could not start at all. These ignore the tag and severity filters. Scans started by hand or from CI are not announced; they show their error to whoever ran them.
 
 ## Settings
 

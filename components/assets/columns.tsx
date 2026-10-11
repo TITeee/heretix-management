@@ -6,6 +6,7 @@ import { FaDocker, FaServer, FaWindows, FaLinux, FaUserPen } from "react-icons/f
 import { Button } from "@/components/ui/button"
 import { SeverityCountBadges } from "@/components/alerts/severity-count-badges"
 import { TagBadge } from "@/components/tags/tag-badge"
+import { Badge } from "@/components/ui/badge"
 import { DeleteAssetDialog } from "@/components/assets/delete-asset-dialog"
 import { useRouter } from "next/navigation"
 
@@ -47,6 +48,8 @@ export type AssetRow = {
   osId: string
   osName: string
   scannedAt: Date | null
+  /** The latest scan attempt failed (scannedAt is then the last one that worked). */
+  scanFailed: boolean
   _count: { packages: number; alerts: number }
   openAlerts: { critical: number; high: number; medium: number; low: number; na: number }
   tags: { id: string; name: string; color: string | null }[]
@@ -157,10 +160,12 @@ export const assetColumns: ColumnDef<AssetRow>[] = [
       const bv = b.original.scannedAt ? new Date(b.original.scannedAt).getTime() : -Infinity
       return av - bv
     },
-    cell: ({ row }) =>
-      row.original.scannedAt
-        ? new Date(row.original.scannedAt).toLocaleString("en-US")
-        : "n/a",
+    cell: ({ row }) => (
+      <span className="flex items-center gap-1.5">
+        {row.original.scannedAt ? new Date(row.original.scannedAt).toLocaleString("en-US") : "n/a"}
+        {row.original.scanFailed && <Badge variant="destructive" className="font-normal">Latest scan failed</Badge>}
+      </span>
+    ),
   },
   {
     id: "actions",

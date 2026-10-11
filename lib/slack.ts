@@ -126,3 +126,67 @@ export async function testSlackWebhook(url: string): Promise<void> {
   })
   if (!res.ok) throw new Error(`Slack returned ${res.status}`)
 }
+
+export type ScanFailure = { assetName: string; error: string }
+
+/**
+ * One message for a whole scheduled scan run, not one per asset: when heretix-api is
+ * down every asset fails the same way, and seventeen identical messages say less than
+ * one. Failures are grouped by their error.
+ */
+export function buildScanFailureMessage(total: number, failures: ScanFailure[], now = new Date()): string {
+  const groups = new Map<string, string[]>()
+  for (const f of failures) {
+    const error = f.error.split("\n")[0].trim().slice(0, 160) || "unknown error"
+    groups.set(error, [...(groups.get(error) ?? []), f.assetName])
+  }
+  const lines = [...groups.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, 5)
+    .map(([error, names]) => {
+      const shown = names.slice(0, 4).join(", ")
+      const more = names.length > 4 ? `, and ${names.length - 4} more` : ""
+      return `• ${names.length} × ${error}  (${shown}${more})`
+    })
+  const hidden = groups.size - lines.length
+  return [
+    `⛔ *Scheduled scan failed for ${failures.length} of ${total} asset(s)*`,
+    "",
+    ...lines,
+    ...(hidden > 0 ? [`• and ${hidden} other error(s)`] : []),
+    "",
+    "These assets were not scanned; their alerts stay as they were. Each asset page has the details under Scan History.",
+    now.toISOString(),
+  ].join("\n")
+}
+
+/** The webhook, when Slack is on. Scan failures are about the system, so the tag and severity filters do not apply. */
+async function slackWebhookUrl(): Promise<string | null> {
+  const settings = await prisma.setting.findMany({ where: { key: { in: ["SLACK_ENABLED", "SLACK_WEBHOOK_URL"] } } })
+  const cfg = Object.fromEntries(settings.map((s) => [s.key, s.value]))
+  return cfg.SLACK_ENABLED === "true" && cfg.SLACK_WEBHOOK_URL ? cfg.SLACK_WEBHOOK_URL : null
+}
+
+async function postToSlack(url: string, text: string): Promise<void> {
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+    signal: AbortSignal.timeout(5_000),
+  })
+}
+
+export async function notifySlackScanFailures(params: { total: number; failures: ScanFailure[] }): Promise<void> {
+  if (params.failures.length === 0) return
+  const url = await slackWebhookUrl()
+  if (!url) return
+  await postToSlack(url, buildScanFailureMessage(params.total, params.failures))
+}
+
+/** The scheduled scan could not run at all (the asset list could not be read, say). */
+export async function notifySlackScanNotRun(error: string): Promise<void> {
+  const url = await slackWebhookUrl()
+  if (!url) return
+  const reason = error.split("\n")[0].slice(0, 300)
+  await postToSlack(url, `⛔ *Scheduled scan could not run*\n\n${reason}\n\n${new Date().toISOString()}`)
+}

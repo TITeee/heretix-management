@@ -19,6 +19,7 @@ import { DashboardTabs } from "@/components/dashboard/dashboard-tabs"
 import { SlaSeverityChart, type SlaSeverityBarData } from "@/components/dashboard/sla-severity-chart"
 import { getSlaStatus } from "@/lib/sla"
 import { countSeverity, getAlertSeverityTier } from "@/lib/severity"
+import { ScanHealthNotice } from "@/components/dashboard/scan-health-notice"
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -443,6 +444,8 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Dashboard</h1>
+
+      <ScanHealthNotice />
 
       <DashboardTabs
         tagsContent={
