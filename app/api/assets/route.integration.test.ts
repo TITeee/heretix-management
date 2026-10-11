@@ -182,15 +182,21 @@ describe("POST /api/assets — re-import diff", () => {
     await prisma.$disconnect()
   })
 
+  type Component = { name: string; version: string; license?: string }
+  function bom(hostname: string, components: Component[]) {
+    return {
+      bomFormat: "CycloneDX",
+      metadata: { component: { "bom-ref": "root", type: "operating-system", name: hostname } },
+      components: components.map((c) => ({
+        "bom-ref": c.name, type: "library", name: c.name, version: c.version, purl: `pkg:npm/${c.name}@${c.version}`,
+        ...(c.license && { licenses: [{ license: { id: c.license } }] }),
+      })),
+    }
+  }
+
   it("diffs a re-import against the existing asset: upgrades carry their open alerts forward, plain removals do not, and package history records both", async () => {
     const first = await POST(postRequest({
-      inventory: {
-        hostname: "host-2",
-        packages: [
-          { name: "lodash", version: "4.17.21", rawVersion: "4.17.21", ecosystem: "npm", source: "sbom" },
-          { name: "curl", version: "8.0.0", rawVersion: "8.0.0", ecosystem: "Alpine:v3.18", source: "sbom" },
-        ],
-      },
+      inventory: bom("host-2", [{ name: "lodash", version: "4.17.21" }, { name: "express", version: "4.18.0" }]),
     }))
     expect(first.status).toBe(201)
     const asset = await first.json()
@@ -203,12 +209,7 @@ describe("POST /api/assets — re-import diff", () => {
     })
 
     const second = await POST(postRequest({
-      inventory: {
-        hostname: "host-2",
-        packages: [
-          { name: "lodash", version: "4.17.22", rawVersion: "4.17.22", ecosystem: "npm", source: "sbom" },
-        ],
-      },
+      inventory: bom("host-2", [{ name: "lodash", version: "4.17.22" }]),
     }))
     expect(second.status).toBe(200)
     const body = await second.json()
@@ -226,15 +227,12 @@ describe("POST /api/assets — re-import diff", () => {
 
     const history = await prisma.packageHistory.findMany({ where: { assetId: asset.id } })
     expect(history).toHaveLength(3)
-    expect(history.filter((h) => h.action === "removed").map((h) => h.packageName).sort()).toEqual(["curl", "lodash"])
+    expect(history.filter((h) => h.action === "removed").map((h) => h.packageName).sort()).toEqual(["express", "lodash"])
     expect(history.filter((h) => h.action === "added").map((h) => h.packageName)).toEqual(["lodash"])
   })
 
   it("keeps the display name on a re-import without one, and renames only when given a name", async () => {
-    const inventory = {
-      hostname: "host-4",
-      packages: [{ name: "lodash", version: "4.17.21", rawVersion: "4.17.21", ecosystem: "npm", source: "sbom" }],
-    }
+    const inventory = bom("host-4", [{ name: "lodash", version: "4.17.21" }])
     const asset = await (await POST(postRequest({ name: "Billing API", inventory }))).json()
 
     await POST(postRequest({ inventory }))
@@ -245,23 +243,25 @@ describe("POST /api/assets — re-import diff", () => {
     expect((await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } })).name).toBe("Billing API v2")
   })
 
-  it("stores heretix-cli's license string, and a re-import fills it in on an unchanged package", async () => {
-    const first = await POST(postRequest({
-      inventory: {
-        hostname: "host-3",
-        packages: [{ name: "lodash", version: "4.17.21", rawVersion: "4.17.21", ecosystem: "npm", source: "sbom" }],
-      },
-    }))
+  it("stores a component's license, and a re-import fills it in on an unchanged package", async () => {
+    const first = await POST(postRequest({ inventory: bom("host-3", [{ name: "lodash", version: "4.17.21" }]) }))
     const asset = await first.json()
     expect((await prisma.package.findFirstOrThrow({ where: { assetId: asset.id } })).licenses).toEqual([])
 
-    await POST(postRequest({
+    await POST(postRequest({ inventory: bom("host-3", [{ name: "lodash", version: "4.17.21", license: "MIT" }]) }))
+    expect((await prisma.package.findFirstOrThrow({ where: { assetId: asset.id } })).licenses).toEqual(["MIT"])
+  })
+
+  it("rejects the inventory.json of older heretix-cli versions, and creates nothing", async () => {
+    const res = await POST(postRequest({
       inventory: {
-        hostname: "host-3",
+        hostname: "host-5",
         packages: [{ name: "lodash", version: "4.17.21", rawVersion: "4.17.21", ecosystem: "npm", source: "sbom", license: "MIT" }],
       },
     }))
-    expect((await prisma.package.findFirstOrThrow({ where: { assetId: asset.id } })).licenses).toEqual(["MIT"])
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/CycloneDX/)
+    expect(await prisma.asset.count()).toBe(0)
   })
 })
 

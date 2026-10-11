@@ -45,12 +45,18 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
 
   const body = await req.json()
 
-  // Convert CycloneDX BOM to inventory format.
-  // Handles both direct body (future API use) and body.inventory (UI file upload).
+  // Convert the CycloneDX BOM to the shape the import below reads. It comes as the
+  // whole body (CI) or as body.inventory (the console's file upload). Anything else
+  // sent as an inventory is heretix-cli's old inventory.json, which ended in 0.4.0.
   if (body.bomFormat === "CycloneDX") {
     body.inventory = convertCycloneDXToInventory(body)
   } else if (body.inventory?.bomFormat === "CycloneDX") {
     body.inventory = convertCycloneDXToInventory(body.inventory)
+  } else if (body.inventory) {
+    return NextResponse.json(
+      { error: "Only CycloneDX SBOMs can be imported. The inventory.json format of older heretix-cli versions is no longer supported; collect a CycloneDX SBOM with a current heretix-cli." },
+      { status: 400 }
+    )
   }
 
   const { name, inventory, hostname: simpleHostname, assetType: simpleAssetType, dryRun } = body
@@ -120,7 +126,6 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
     category?: string | null
     sourcePackage?: string | null
     licenses?: unknown
-    license?: unknown
   }) => ({
     name: p.name,
     version: p.version,
@@ -133,11 +138,9 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
     scope: p.scope ?? null,
     category: p.category ?? null,
     sourcePackage: p.sourcePackage ?? null,
-    // licenses[] from a converted CycloneDX SBOM; heretix-cli's inventory.json
-    // carries a single license string instead.
     licenses: Array.isArray(p.licenses)
       ? p.licenses.filter((l): l is string => typeof l === "string" && l.trim() !== "")
-      : typeof p.license === "string" && p.license.trim() !== "" ? [p.license.trim()] : [],
+      : [],
   }))
 
   const existing = await prisma.asset.findFirst({ where: { hostname } })

@@ -13,7 +13,7 @@ An asset is one host, container image, project, or appliance, and its inventory 
 
 Open **Assets → Import SBOM** and upload a CycloneDX JSON SBOM. Re-importing updates the asset incrementally: only added, changed, and removed packages are processed.
 
-> **Deprecated:** the legacy heretix-cli `inventory.json` (heretix-cli no longer writes it) is still accepted, from the console and from the API, but support ends in heretix-management 0.4.0. Update heretix-cli and collect a CycloneDX SBOM instead.
+> **Not supported:** the `inventory.json` of older heretix-cli versions, which ended in heretix-management 0.4.0. An import of one is rejected (400). Update heretix-cli and collect a CycloneDX SBOM instead.
 
 ```bash
 heretix-cli collect --image myapp:1.0 --name myapp --output sbom.json   # container image
@@ -31,7 +31,7 @@ Some imported packages are kept in the inventory but never scanned, such as deve
 
 ### Which asset an import updates
 
-An import is matched to an existing asset by **hostname**, not by its display name. The hostname comes from `metadata.component.name` (CycloneDX) or `hostname` (`inventory.json`):
+An import is matched to an existing asset by **hostname**, not by its display name. The hostname comes from the SBOM's `metadata.component.name`:
 
 - The **Hostname** field on the import page is pre-filled from the file and can be changed. Use it to keep updating one asset when a scanner puts a changing value there. Entering a hostname no asset has asks for confirmation, to catch typos.
 - An existing asset keeps its display name unless you enter a new one.
@@ -138,4 +138,4 @@ How OS-managed is decided:
 - For other scanners, it is inferred on RHEL-family, Fedora, Debian, and Ubuntu images from the paths where the distro installs language packages, such as `/usr/lib*/python3*/site-packages`, `/usr/lib/python3/dist-packages`, `/usr/lib/node_modules`, `/usr/share/gems`, and `/usr/share/java`. Packages installed with pip, npm, or gem go under `/usr/local` and are not affected.
 - It is not inferred on Alpine or for Go binaries, where the path doesn't show who installed the package.
 
-**License.** Read from each CycloneDX component's `licenses` (the SPDX id, SPDX expression, or free-text name, whichever is given) or from `license` in `inventory.json`, and stored exactly as written, without normalizing to SPDX. Package managers that use SPDX (npm, PyPI, Composer) give identifiers such as `MIT` or `Apache-2.0 OR BSD-3-Clause`. rpm and dpkg often give their own wording, such as `GPLv2+ and MIT`, so one license can appear under several spellings across assets. The asset page's Packages tab shows a License column, and both it and the Assets list have a **License** filter. Licenses are shown for inventory purposes only; no license policy is checked. An asset imported before this field existed gets its licenses on the next re-import.
+**License.** Read from each CycloneDX component's `licenses` (the SPDX id, SPDX expression, or free-text name, whichever is given), and stored exactly as written, without normalizing to SPDX. Package managers that use SPDX (npm, PyPI, Composer) give identifiers such as `MIT` or `Apache-2.0 OR BSD-3-Clause`. rpm and dpkg often give their own wording, such as `GPLv2+ and MIT`, so one license can appear under several spellings across assets. The asset page's Packages tab shows a License column, and both it and the Assets list have a **License** filter. Licenses are shown for inventory purposes only; no license policy is checked. An asset imported before this field existed gets its licenses on the next re-import.

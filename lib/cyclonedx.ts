@@ -245,7 +245,8 @@ function extractSbomTool(bom: CycloneDXBom): string | null {
 
 /**
  * Converts a CycloneDX SBOM (heretix-cli, Syft, Trivy, cdxgen) into the
- * inventory.json shape the asset import path consumes.
+ * inventory shape the asset import path consumes (the same shape heretix-cli's
+ * old inventory.json had, which is no longer accepted as an upload).
  */
 export function convertCycloneDXToInventory(bom: CycloneDXBom) {
   const components = bom.components ?? []

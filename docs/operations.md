@@ -90,6 +90,8 @@ pnpm build && pnpm start
 
 ### Notes for specific upgrades
 
+- **inventory.json ends** (0.4.0): importing the `inventory.json` of older heretix-cli versions is rejected (400), from the console and from the API. Assets and alerts already imported are not affected. Update heretix-cli and collect a CycloneDX SBOM; re-importing it under the same hostname updates the asset.
+
 - **Unique asset hostnames** (`add_asset_hostname_unique`): the upgrade adds a unique constraint on `Asset.hostname`, and fails rather than corrupting data if two assets share one. Check before upgrading, and rename or delete the duplicates:
 
   ```sql
