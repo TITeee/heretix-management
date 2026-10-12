@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { SEVERITY_COLORS, getAlertSeverityTier, type SeverityTier } from "@/lib/severity"
 import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
 import { osvDistroRatings } from "@/lib/distro-priority"
+import { cnaModules } from "@/lib/cna-modules"
 import { fixStatusLabel } from "@/lib/fix-status"
 
 export type NvdPackage = {
@@ -152,6 +153,8 @@ export type VulnDetail = {
     datePublished: string | null
     dateUpdated: string | null
     affectedProducts: CnaAffectedProduct[]
+    /** The CNA's own declaration, with the modules it scopes the CVE to; older heretix-api omits it. */
+    rawAffected?: unknown
   } | null
 }
 
@@ -776,6 +779,43 @@ export function AdvisoryTab({ detail, loading }: { detail: VulnDetail | null; lo
           )}
         </div>
       ))}
+    </div>
+  )
+}
+
+const MAX_MODULES_SHOWN = 8
+
+/**
+ * The modules the vendor's CVE record scopes this CVE to (F5: ASM, APM, "All Modules"), as a
+ * row for the Overview's Vulnerability section. The version cannot tell whether a device has the
+ * module, so this is what to check it against. Nothing is rendered when the record names none,
+ * which is most CVEs and every product that has no modules.
+ */
+export function AffectedModules({ detail }: { detail: VulnDetail | null }) {
+  const products = cnaModules(detail?.cnaVulnerability?.rawAffected)
+  if (products.length === 0) return null
+
+  return (
+    <div className="flex gap-2">
+      <span className="w-28 text-muted-foreground shrink-0 pt-0.5">Modules</span>
+      <div className="space-y-1.5">
+        {products.map((p) => {
+          const shown = p.modules.slice(0, MAX_MODULES_SHOWN)
+          return (
+            <div key={p.product} className="flex flex-wrap items-center gap-1">
+              {products.length > 1 && <span className="text-xs text-muted-foreground mr-1">{p.product}</span>}
+              {p.all && <Badge variant="secondary">All modules</Badge>}
+              {shown.map((m) => <Badge key={m} variant="outline">{m}</Badge>)}
+              {p.modules.length > shown.length && (
+                <span className="text-xs text-muted-foreground">+{p.modules.length - shown.length} more</span>
+              )}
+            </div>
+          )
+        })}
+        <p className="text-xs text-muted-foreground">
+          Named by the vendor. A device that does not run these modules may not be affected; check what it has enabled.
+        </p>
+      </div>
     </div>
   )
 }

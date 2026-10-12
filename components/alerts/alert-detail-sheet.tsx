@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from "react"
-import { VulnDetail, DetailSkeleton, NvdTab, OsvTab, AdvisoryTab, CnaTab, SeverityBadge } from "@/components/alerts/vuln-detail-tabs"
+import { VulnDetail, DetailSkeleton, NvdTab, OsvTab, AdvisoryTab, CnaTab, AffectedModules, SeverityBadge } from "@/components/alerts/vuln-detail-tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -948,6 +948,7 @@ export function AlertDetailSheet({
                     ))}
                   </div>
                 </div>
+                <AffectedModules detail={vulnDetail} />
                 {alert.summary && (
                   <div className="flex gap-2">
                     <span className="w-28 text-muted-foreground shrink-0">Summary</span>
