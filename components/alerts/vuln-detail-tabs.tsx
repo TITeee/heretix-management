@@ -792,7 +792,7 @@ const MAX_MODULES_SHOWN = 8
  * which is most CVEs and every product that has no modules.
  */
 export function AffectedModules({ detail }: { detail: VulnDetail | null }) {
-  const products = cnaModules(detail?.cnaVulnerability?.rawAffected)
+  const products = cnaModules(detail?.cnaVulnerability?.rawAffected, detail?.cnaVulnerability?.cnaShortName)
   if (products.length === 0) return null
 
   return (
