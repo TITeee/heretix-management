@@ -299,7 +299,7 @@ export default function SearchPage() {
       <form onSubmit={handleSearch} className="flex gap-2 flex-wrap">
         {mode === "package" ? (
           <>
-            <CatalogPicker compact className="w-64" value={catalogEntry} onChange={pickCatalogEntry} />
+            <CatalogPicker compact value={catalogEntry} onChange={pickCatalogEntry} />
             {!catalogEntry && (
               <PackageNameInput
                 value={pkg}

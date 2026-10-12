@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Search, X } from "lucide-react"
+import { Library, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -155,21 +155,21 @@ export function CatalogPicker({
         render={
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             className={cn(
-              "justify-start gap-2 font-normal",
-              compact ? "h-8 px-2.5" : "w-full",
+              "gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-700",
+              "dark:bg-blue-500/20 dark:text-blue-300 dark:hover:bg-blue-500/30 dark:hover:text-blue-200",
               className,
             )}
           />
         }
       >
-        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <Library className="h-4 w-4" />
         <span className="truncate">Choose from catalog ({initial.length})</span>
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className={cn("p-0", compact ? "w-lg max-w-[90vw]" : "w-(--anchor-width)")}
+        className="w-lg max-w-[90vw] p-0"
       >
         <div className="border-b p-2">
           <Input
