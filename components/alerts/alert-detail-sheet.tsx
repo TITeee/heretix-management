@@ -44,6 +44,8 @@ export type SheetAlert = {
   packageName: string
   packageVersion: string
   ecosystem: string
+  /** The source package a binary package is built from (perl-base: perl); not every caller has it. */
+  sourcePackage?: string | null
   externalId: string
   sources: string[]
   cvssScore: number | null
@@ -1243,7 +1245,12 @@ export function AlertDetailSheet({
           </TabsContent>
 
           <TabsContent value="osv" className="flex-1 overflow-y-auto px-6 py-4">
-            <OsvTab detail={vulnDetail} loading={loadingDetail} error={fetchError} />
+            <OsvTab
+              detail={vulnDetail}
+              loading={loadingDetail}
+              error={fetchError}
+              alert={alert ? { ecosystem: alert.ecosystem, packageName: alert.packageName, sourcePackage: alert.sourcePackage ?? group?.sourcePackage } : null}
+            />
           </TabsContent>
 
           <TabsContent value="advisory" className="flex-1 overflow-y-auto px-6 py-4">

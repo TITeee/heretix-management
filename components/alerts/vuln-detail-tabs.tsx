@@ -422,7 +422,22 @@ function OsvRefBadge({ type }: { type: string }) {
   return <Badge variant="outline" className="text-xs shrink-0">{type}</Badge>
 }
 
-export function OsvTab({ detail, loading, error }: { detail: VulnDetail | null; loading: boolean; error?: boolean }) {
+/** What the OSV tab needs to know about the alert it is opened from, to say which of the record's entries are its own. */
+export type OsvTabAlert = { ecosystem: string; packageName: string; sourcePackage?: string | null }
+
+/**
+ * One OSV record can cover several releases of a distribution (DEBIAN-CVE-2026-8376 lists Debian
+ * 11, 12, 13 and 14), and the record's own "ecosystem" is just the first of them. So the tab lists
+ * every ecosystem the record covers, marks the alert's own, and puts the alert's entry first in the
+ * table: a Debian:12 alert reads "Debian:11" at the top otherwise, and the Debian:12 row is one of
+ * four that look alike.
+ */
+function isOwnEntry(pkg: OsvPackage, alert: OsvTabAlert | null | undefined): boolean {
+  if (!alert || pkg.ecosystem !== alert.ecosystem) return false
+  return pkg.packageName === alert.packageName || (!!alert.sourcePackage && pkg.packageName === alert.sourcePackage)
+}
+
+export function OsvTab({ detail, loading, error, alert }: { detail: VulnDetail | null; loading: boolean; error?: boolean; alert?: OsvTabAlert | null }) {
   if (loading) return <DetailSkeleton />
 
   const osvList = detail?.osvVulnerabilities ?? []
@@ -451,12 +466,27 @@ export function OsvTab({ detail, loading, error }: { detail: VulnDetail | null; 
                   </div>
                 </div>
               )}
-              {osv.ecosystem && (
-                <div className="flex items-center gap-2">
-                  <span className="w-28 text-muted-foreground shrink-0">Ecosystem</span>
-                  <span>{osv.ecosystem}</span>
-                </div>
-              )}
+              {(() => {
+                const ecosystems = [...new Set(osv.affectedPackages.map((p) => p.ecosystem))]
+                if (ecosystems.length === 0 && osv.ecosystem) ecosystems.push(osv.ecosystem)
+                if (ecosystems.length === 0) return null
+                const lacksOwn = !!alert && !ecosystems.includes(alert.ecosystem)
+                return (
+                  <div className="flex items-start gap-2">
+                    <span className="w-28 text-muted-foreground shrink-0 pt-0.5">{ecosystems.length > 1 ? "Ecosystems" : "Ecosystem"}</span>
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap gap-1">
+                        {ecosystems.map((e) => (
+                          <Badge key={e} variant={alert?.ecosystem === e ? "default" : "outline"}>{e}</Badge>
+                        ))}
+                      </div>
+                      {lacksOwn && (
+                        <p className="text-xs text-amber-700 dark:text-amber-400">This record has no entry for {alert!.ecosystem}.</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
               {osv.publishedAt && (
                 <div className="flex items-center gap-2">
                   <span className="w-28 text-muted-foreground shrink-0">Published</span>
@@ -519,7 +549,7 @@ export function OsvTab({ detail, loading, error }: { detail: VulnDetail | null; 
                     </tr>
                   </thead>
                   <tbody>
-                    {osv.affectedPackages.map((pkg, i) => {
+                    {[...osv.affectedPackages].sort((a, b) => Number(isOwnEntry(b, alert)) - Number(isOwnEntry(a, alert))).map((pkg, i) => {
                       // OSV's "fixed" event is an exclusive upper bound (affected < fixed);
                       // "last_affected" is inclusive (affected ≤ lastAffected, and no fix is
                       // known yet). Keeping lastAffectedVersion out of the Fixed column matters
@@ -532,15 +562,22 @@ export function OsvTab({ detail, loading, error }: { detail: VulnDetail | null; 
                         ? `≤ ${pkg.lastAffectedVersion}`
                         : null
                       const range = [lower, upper].filter(Boolean).join(", ") || "n/a"
+                      const own = isOwnEntry(pkg, alert)
                       return (
-                        <tr key={i} className="border-b last:border-0">
+                        <tr key={i} className={`border-b last:border-0 ${own ? "bg-primary/5" : ""}`}>
                           <td className="px-3 py-2">
-                            <div className="font-medium">{pkg.packageName}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{pkg.packageName}</span>
+                              {own && <Badge variant="default" className="text-[10px]">This alert</Badge>}
+                            </div>
                             <div className="text-muted-foreground">{pkg.ecosystem}</div>
+                            {own && alert && pkg.packageName !== alert.packageName && (
+                              <div className="text-muted-foreground">source package of {alert.packageName}</div>
+                            )}
                           </td>
                           <td className="px-3 py-2 font-mono text-muted-foreground">{range}</td>
                           <td className="px-3 py-2 font-mono text-muted-foreground">
-                            {pkg.fixedVersion ?? "n/a"}
+                            {pkg.fixedVersion ?? "No fix"}
                           </td>
                         </tr>
                       )
