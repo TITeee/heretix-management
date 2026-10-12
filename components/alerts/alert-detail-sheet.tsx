@@ -872,7 +872,9 @@ export function AlertDetailSheet({
           <TabsList className="mx-6 mt-3 mb-0 w-fit">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="nvd">NVD</TabsTrigger>
-            <TabsTrigger value="osv">OSV</TabsTrigger>
+            {(vulnDetail?.osvVulnerabilities?.length ?? 0) > 0 && (
+              <TabsTrigger value="osv">OSV</TabsTrigger>
+            )}
             {(vulnDetail?.advisoryVulnerabilities?.length ?? 0) > 0 && (
               <TabsTrigger value="advisory">Advisory</TabsTrigger>
             )}
