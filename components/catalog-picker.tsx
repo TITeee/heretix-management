@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { X } from "lucide-react"
+import { Search, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 import type { CatalogListing } from "@/lib/heretix-api"
 import { CATALOG_SOURCE_LABELS, CATEGORY_LABELS, describeCatalogPairs } from "@/lib/catalog-display"
 
@@ -31,7 +33,11 @@ export function CatalogPairs({ entry, className }: { entry: CatalogListing; clas
 }
 
 /**
- * compact is for a single row of controls (the Search page): the input takes
+ * Until something is picked it is a button ("Choose from catalog (78)"), so it does
+ * not read as one more text box next to the package name; pressing it opens the
+ * search and the list.
+ *
+ * compact is for a single row of controls (the Search page): the button takes
  * its width from className, a picked entry is a small chip, and the rows it
  * searches are left to the caller to show with CatalogPairs.
  */
@@ -39,18 +45,21 @@ export function CatalogPicker({
   value,
   onChange,
   compact = false,
+  hint,
   className,
 }: {
   value: CatalogListing | null
   onChange: (entry: CatalogListing | null) => void
   compact?: boolean
+  /** A line under the button, e.g. where to type the name instead. */
+  hint?: string
   className?: string
 }) {
   const [available, setAvailable] = useState<boolean | null>(null)
   const [initial, setInitial] = useState<CatalogListing[]>([])
   const [entries, setEntries] = useState<CatalogListing[]>([])
   const [query, setQuery] = useState("")
-  const [show, setShow] = useState(false)
+  const [open, setOpen] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // As in PackageNameInput: only the latest request may set the list.
   const latestRequest = useRef(0)
@@ -73,7 +82,6 @@ export function CatalogPicker({
 
   function handleChange(next: string) {
     setQuery(next)
-    setShow(true)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     const requestId = ++latestRequest.current
     inFlight.current?.abort()
@@ -97,12 +105,17 @@ export function CatalogPicker({
     }, 200)
   }
 
-  function select(entry: CatalogListing) {
+  function reset() {
     latestRequest.current++
     inFlight.current?.abort()
+    if (debounceRef.current) clearTimeout(debounceRef.current)
     setQuery("")
-    setShow(false)
     setEntries(initial)
+  }
+
+  function select(entry: CatalogListing) {
+    setOpen(false)
+    reset()
     onChange(entry)
   }
 
@@ -136,28 +149,46 @@ export function CatalogPicker({
     )
   }
 
-  return (
-    <div className={`relative ${className ?? ""}`}>
-      <Input
-        placeholder={compact ? "Catalog (e.g. ivanti, big-ip)" : "Search by vendor or product (e.g. ivanti, big-ip)"}
-        value={query}
-        onChange={(e) => handleChange(e.target.value)}
-        onFocus={() => setShow(true)}
-        // Delayed so a click on an entry lands before the list unmounts.
-        onBlur={() => { setTimeout(() => setShow(false), 150) }}
-        autoComplete="off"
-      />
-      {show && (
-        <ul className={`absolute z-10 mt-1 max-h-72 overflow-y-auto overflow-x-hidden rounded-md border bg-popover text-sm shadow-md ${compact ? "w-lg min-w-full max-w-[90vw]" : "w-full"}`}>
+  const picker = (
+    <Popover open={open} onOpenChange={(next) => { setOpen(next); if (!next) reset() }}>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(
+              "justify-start gap-2 font-normal",
+              compact ? "h-8 px-2.5" : "w-full",
+              className,
+            )}
+          />
+        }
+      >
+        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="truncate">Choose from catalog ({initial.length})</span>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className={cn("p-0", compact ? "w-lg max-w-[90vw]" : "w-(--anchor-width)")}
+      >
+        <div className="border-b p-2">
+          <Input
+            placeholder="Search by vendor or product (e.g. ivanti, big-ip)"
+            value={query}
+            onChange={(e) => handleChange(e.target.value)}
+            autoComplete="off"
+          />
+        </div>
+        <ul className="max-h-72 overflow-y-auto overflow-x-hidden text-sm">
           {entries.length === 0 && (
-            <li className="px-3 py-2 text-xs text-muted-foreground">Nothing in the catalog matches. Type the name below instead.</li>
+            <li className="px-3 py-2 text-xs text-muted-foreground">Nothing in the catalog matches. Close this and type the name instead.</li>
           )}
           {entries.map((e) => (
             <li key={e.name}>
               <button
                 type="button"
                 className="flex w-full flex-col gap-0.5 px-3 py-1.5 text-left hover:bg-accent"
-                onMouseDown={(ev) => { ev.preventDefault(); select(e) }}
+                onClick={() => select(e)}
               >
                 <span className="flex items-center justify-between gap-2">
                   <span className="font-medium">{e.name}</span>
@@ -173,7 +204,14 @@ export function CatalogPicker({
             </li>
           ))}
         </ul>
-      )}
+      </PopoverContent>
+    </Popover>
+  )
+  if (!hint) return picker
+  return (
+    <div className="space-y-1.5">
+      {picker}
+      <p className="text-xs text-muted-foreground">{hint}</p>
     </div>
   )
 }

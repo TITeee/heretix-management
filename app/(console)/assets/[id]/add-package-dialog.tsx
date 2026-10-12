@@ -197,7 +197,7 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
           </TabsList>
 
           <TabsContent value="general" className="space-y-4 pt-4">
-            <CatalogPicker value={catalogEntry} onChange={pickCatalogEntry} />
+            <CatalogPicker value={catalogEntry} onChange={pickCatalogEntry} hint="Or type the package name below." />
             {!catalogEntry && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Package Name <span className="text-destructive">*</span></label>
