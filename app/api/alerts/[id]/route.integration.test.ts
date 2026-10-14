@@ -160,4 +160,24 @@ describe("PATCH /api/alerts/[id]", () => {
     const events = await prisma.alertEvent.findMany({ where: { alertId: alert.id } })
     expect(events.map((e) => e.type)).toEqual(["notes_saved"])
   })
+
+  it("logs notes_saved only when the notes changed", async () => {
+    const alert = await createAlert()
+    const count = () => prisma.alertEvent.count({ where: { alertId: alert.id, type: "notes_saved" } })
+
+    await patch(alert.id, { notes: "investigating" })
+    expect(await count()).toBe(1)
+
+    // Saved again unchanged, or differing only in surrounding whitespace: nothing new.
+    await patch(alert.id, { notes: "investigating" })
+    await patch(alert.id, { notes: "  investigating " })
+    expect(await count()).toBe(1)
+
+    // Sent along with a status change, still unchanged: nothing new.
+    await patch(alert.id, { status: "in_progress", notes: "investigating" })
+    expect(await count()).toBe(1)
+
+    await patch(alert.id, { notes: "investigating, patched in 4.17.21" })
+    expect(await count()).toBe(2)
+  })
 })

@@ -30,7 +30,7 @@ export const PATCH = withApiErrorHandling("alerts.update", async (
 
   const current = await prisma.alert.findUnique({
     where: { id },
-    select: { status: true, ignoreReason: true, vexJustification: true },
+    select: { status: true, ignoreReason: true, vexJustification: true, notes: true },
   })
 
   const update: {
@@ -140,8 +140,13 @@ export const PATCH = withApiErrorHandling("alerts.update", async (
     })
   }
 
-  // Record a notes_saved event
-  if (notes !== undefined && notes.trim().length > 0) {
+  // Record a notes_saved event, only when the text actually changed: saving again without an
+  // edit (or a status change that sends the unchanged notes along) is not a timeline entry.
+  if (
+    notes !== undefined &&
+    notes.trim().length > 0 &&
+    notes.trim() !== (current?.notes ?? "").trim()
+  ) {
     await prisma.alertEvent.create({
       data: {
         alertId: id,
