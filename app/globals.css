@@ -48,6 +48,11 @@
 }
 
 :root {
+  /* Tag badges: how much of the tag's color fills the badge, and the lightness (OKLCH) its text is
+     set to. The text keeps the color's hue and chroma, so it stays vivid, and only its lightness
+     follows the theme: dark enough on the light fill here, light enough on the dark fill below. */
+  --tag-fill: 24%;
+  --tag-text-l: 0.48;
   --background: oklch(0.985 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -83,6 +88,8 @@
 }
 
 .dark {
+  --tag-fill: 30%;
+  --tag-text-l: 0.86;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

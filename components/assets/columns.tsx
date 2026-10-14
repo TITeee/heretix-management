@@ -2,7 +2,8 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import { ArrowUpDown, Trash2 } from "lucide-react"
-import { FaDocker, FaServer, FaWindows, FaLinux, FaUserPen } from "react-icons/fa6"
+import { OSIcon } from "@/components/assets/os-icon"
+import { AssetTypeBadge } from "@/components/assets/asset-type-badge"
 import { Button } from "@/components/ui/button"
 import { SeverityCountBadges } from "@/components/alerts/severity-count-badges"
 import { TagBadge } from "@/components/tags/tag-badge"
@@ -23,23 +24,6 @@ function DeleteButton({ assetId, assetName }: { assetId: string; assetName: stri
   )
 }
 
-const LINUX_OS_IDS = new Set(["ubuntu", "debian", "alpine", "rocky", "almalinux", "rhel", "centos", "oraclelinux"])
-
-function OSIcon({ osId, osName }: { osId: string; osName: string }) {
-  const id = osId.toLowerCase()
-  const name = osName.toLowerCase()
-  if (id === "manual") {
-    return <FaUserPen className="h-5 w-5 shrink-0" />
-  }
-  if (id.includes("windows") || name.includes("windows")) {
-    return <FaWindows className="h-5 w-5 shrink-0" />
-  }
-  if (LINUX_OS_IDS.has(id) || name.includes("linux")) {
-    return <FaLinux className="h-5 w-5 shrink-0" />
-  }
-  return null
-}
-
 export type AssetRow = {
   id: string
   name: string
@@ -52,7 +36,7 @@ export type AssetRow = {
   scanFailed: boolean
   _count: { packages: number; alerts: number }
   openAlerts: { critical: number; high: number; medium: number; low: number; na: number }
-  tags: { id: string; name: string; color: string | null }[]
+  tags: { id: string; name: string; color: string | null; isDefault?: boolean }[]
   // Distinct license strings across the asset's packages; filter-only, no column.
   licenses: string[]
 }
@@ -76,15 +60,7 @@ export const assetColumns: ColumnDef<AssetRow>[] = [
         Type <ArrowUpDown className="ml-1 h-3 w-3" />
       </Button>
     ),
-    cell: ({ row }) => (
-      <span className="flex items-center gap-2">
-        {row.original.assetType === "docker_image"
-          ? <FaDocker className="h-5 w-5 shrink-0" />
-          : <FaServer className="h-5 w-5 shrink-0" />
-        }
-        {row.original.assetType === "docker_image" ? "Docker Image" : "Host"}
-      </span>
-    ),
+    cell: ({ row }) => <AssetTypeBadge assetType={row.original.assetType} className="text-foreground" />,
   },
   {
     accessorKey: "hostname",
@@ -93,6 +69,7 @@ export const assetColumns: ColumnDef<AssetRow>[] = [
         Hostname <ArrowUpDown className="ml-1 h-3 w-3" />
       </Button>
     ),
+    cell: ({ row }) => <span className="text-xs">{row.original.hostname}</span>,
   },
   {
     accessorKey: "osName",
@@ -102,7 +79,7 @@ export const assetColumns: ColumnDef<AssetRow>[] = [
       </Button>
     ),
     cell: ({ row }) => (
-      <span className="flex items-center gap-2 min-w-0">
+      <span className="flex items-center gap-2 min-w-0 text-xs text-muted-foreground">
         <OSIcon osId={row.original.osId} osName={row.original.osName} />
         <span className="truncate max-w-40" title={row.original.osName}>
           {row.original.osName}
@@ -118,7 +95,7 @@ export const assetColumns: ColumnDef<AssetRow>[] = [
         Packages <ArrowUpDown className="ml-1 h-3 w-3" />
       </Button>
     ),
-    cell: ({ row }) => row.original._count.packages,
+    cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original._count.packages}</span>,
   },
   {
     id: "tags",

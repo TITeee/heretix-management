@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { withApiErrorHandling } from "@/lib/api-handler"
 
-const TAG_FIELDS = { id: true, name: true, color: true, description: true } as const
+const TAG_FIELDS = { id: true, name: true, color: true, description: true, isDefault: true } as const
 
 /**
  * The tags an alert falls under: the asset tags on its asset, and the package

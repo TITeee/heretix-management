@@ -17,7 +17,7 @@ async function getAssets() {
     orderBy: { createdAt: "desc" },
     include: {
       _count: { select: { packages: true, alerts: true } },
-      assetTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
+      assetTags: { include: { tag: { select: { id: true, name: true, color: true, isDefault: true } } } },
     },
   })
 

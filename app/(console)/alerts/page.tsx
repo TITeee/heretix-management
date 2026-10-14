@@ -32,7 +32,7 @@ export default async function AlertsPage({
           id: true,
           name: true,
           hostname: true,
-          assetTags: { include: { tag: { select: { id: true, name: true, color: true } } } }
+          assetTags: { include: { tag: { select: { id: true, name: true, color: true, isDefault: true } } } }
         }
       }
     },
@@ -51,7 +51,7 @@ export default async function AlertsPage({
   const packageNames = [...new Set(alerts.map(a => a.packageName))]
   const packageTags = await prisma.packageTag.findMany({
     where: { packageName: { in: packageNames } },
-    include: { tag: { select: { id: true, name: true, color: true } } }
+    include: { tag: { select: { id: true, name: true, color: true, isDefault: true } } }
   })
 
   const packageTagMap = new Map<string, { id: string; name: string; color: string | null }[]>()

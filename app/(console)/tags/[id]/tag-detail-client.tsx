@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
+import { TagKindIcon } from "@/components/tags/tag-badge"
 import { AlertSummaryBadges, type AlertSummary } from "@/components/alerts/alert-summary-badges"
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
@@ -35,6 +36,7 @@ type TagDetail = {
   name: string
   type: string
   color: string | null
+  isDefault?: boolean
   description: string | null
   assetTags: AssetTagItem[]
   packageTags: PackageTagItem[]
@@ -139,7 +141,12 @@ export function TagDetailClient({ id }: { id: string }) {
           </BreadcrumbList>
         </Breadcrumb>
         <div className="flex items-center gap-2">
-          {tag.color && <span className="h-4 w-4 rounded-full flex-shrink-0" style={{ backgroundColor: tag.color }} />}
+          <span
+            className="flex-shrink-0 [&>svg]:size-6"
+            style={tag.color ? { color: tag.color } : undefined}
+          >
+            <TagKindIcon name={tag.name} isDefault={tag.isDefault} />
+          </span>
           <h1 className="text-2xl font-bold">{tag.name}</h1>
           <Badge variant="outline" className="capitalize">{tag.type}</Badge>
         </div>

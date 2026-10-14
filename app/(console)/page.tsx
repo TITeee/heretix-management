@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Server, Bell, ShieldAlert, CheckCircle2, Package, Info, Tag as TagIcon } from "lucide-react"
+import { Server, Bell, ShieldAlert, CheckCircle2, Package, Info } from "lucide-react"
+import { TagKindIcon } from "@/components/tags/tag-badge"
 import { FaTriangleExclamation } from "react-icons/fa6"
 import Link from "next/link"
 import { AlertsTrend, type AlertsTrendData } from "@/components/dashboard/alerts-trend"
@@ -217,7 +218,7 @@ async function getDashboardData() {
     // All tags for Tags tab (default tags first, then alphabetical)
     prisma.tag.findMany({
       orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-      select: { id: true, name: true, type: true, color: true },
+      select: { id: true, name: true, type: true, color: true, isDefault: true },
     }),
     // SLA status for open/in_progress alerts
     prisma.alert.findMany({
@@ -391,6 +392,7 @@ async function getDashboardData() {
     name: tag.name,
     type: tag.type,
     color: tag.color,
+    isDefault: tag.isDefault,
     assets: tag.type === "asset" ? buildAssetItems(assetsByTagId.get(tag.id) ?? []) : undefined,
     packages: tag.type === "package" ? buildPackageItems([...new Set(pkgNamesByTagId.get(tag.id) ?? [])]) : undefined,
   }))
@@ -454,13 +456,13 @@ export default async function DashboardPage() {
             <Info className="h-3.5 w-3.5 shrink-0" />
             Each vulnerability count shows open and in-progress alerts only.
           </p>
-          {tagData.map(({ id, name, type, color, assets, packages }) => (
+          {tagData.map(({ id, name, type, color, isDefault, assets, packages }) => (
             <Card key={id}>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-lg font-medium">
-                  {color && (
-                    <TagIcon className="h-5 w-5 shrink-0" style={{ color }} />
-                  )}
+                  <span className="shrink-0 [&>svg]:size-5" style={color ? { color } : undefined}>
+                    <TagKindIcon name={name} isDefault={isDefault} />
+                  </span>
                   {name}
                 </CardTitle>
               </CardHeader>
@@ -612,7 +614,9 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
-              <TagIcon className="h-4 w-4 shrink-0" style={{ color: "#dc2626" }} />
+              <span className="shrink-0 [&>svg]:size-4" style={{ color: "#dc2626" }}>
+                <TagKindIcon name="Internet Facing" isDefault />
+              </span>
               Internet Facing Severity
             </CardTitle>
           </CardHeader>
@@ -623,7 +627,9 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
-              <TagIcon className="h-4 w-4 shrink-0" style={{ color: "#ea580c" }} />
+              <span className="shrink-0 [&>svg]:size-4" style={{ color: "#ea580c" }}>
+                <TagKindIcon name="Public Endpoint" isDefault />
+              </span>
               Public Endpoint Severity
             </CardTitle>
           </CardHeader>

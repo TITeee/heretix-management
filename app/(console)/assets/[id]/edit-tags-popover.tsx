@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { TagBadge } from "@/components/tags/tag-badge"
 
-type AssetTagOption = { id: string; name: string; color: string | null }
+type AssetTagOption = { id: string; name: string; color: string | null; isDefault?: boolean }
 
 /**
  * Edits which asset tags this asset carries. Unlike the tag page's add-only

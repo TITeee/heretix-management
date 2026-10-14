@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -118,20 +117,19 @@ export function UsersClient({ currentUserId }: { currentUserId: string }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Users</h1>
+        <h1 className="text-2xl font-bold">
+          Users
+          <span className="ml-3 text-sm font-normal text-muted-foreground">
+            {users.length} user{users.length !== 1 && "s"}
+          </span>
+        </h1>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4 mr-1" />
           Add User
         </Button>
       </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            {users.length} user{users.length !== 1 && "s"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="rounded-lg border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
@@ -146,7 +144,7 @@ export function UsersClient({ currentUserId }: { currentUserId: string }) {
               {users.map((user) => {
                 const isSelf = user.id === currentUserId
                 return (
-                  <tr key={user.id} className="border-b last:border-0 hover:bg-muted/30">
+                  <tr key={user.id} className="border-b last:border-0 hover:bg-muted/50">
                     <td className="px-4 py-3">
                       {user.name || "—"}
                       {isSelf && <Badge variant="outline" className="ml-2 text-xs">you</Badge>}
@@ -180,8 +178,7 @@ export function UsersClient({ currentUserId }: { currentUserId: string }) {
               })}
             </tbody>
           </table>
-        </CardContent>
-      </Card>
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>

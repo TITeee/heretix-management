@@ -11,7 +11,8 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import { Pencil, Trash2, Plus, Tag as TagIcon } from "lucide-react"
+import { Pencil, Trash2, Plus } from "lucide-react"
+import { TagKindIcon } from "@/components/tags/tag-badge"
 import { SEVERITY_COLORS } from "@/lib/severity"
 
 type Tag = {
@@ -193,12 +194,17 @@ export function TagsClient({ tags: initialTags }: { tags: Tag[] }) {
             {tags.map(tag => (
               <tr
                 key={tag.id}
-                className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
+                className="border-b last:border-0 hover:bg-muted/50 cursor-pointer"
                 onClick={() => router.push(`/tags/${tag.id}`)}
               >
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    {tag.color && <TagIcon className="h-4 w-4 flex-shrink-0" style={{ color: tag.color }} />}
+                    <span
+                      className="flex-shrink-0 [&>svg]:size-4"
+                      style={tag.color ? { color: tag.color } : undefined}
+                    >
+                      <TagKindIcon name={tag.name} isDefault={tag.isDefault} />
+                    </span>
                     <span className="font-medium">{tag.name}</span>
                   </div>
                 </td>

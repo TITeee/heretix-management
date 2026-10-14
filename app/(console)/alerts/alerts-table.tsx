@@ -62,7 +62,7 @@ export type Alert = {
   updatedAt: Date
   resolvedAt: Date | null
   asset: { id: string; name: string; hostname: string }
-  tags: { id: string; name: string; color: string | null }[]
+  tags: { id: string; name: string; color: string | null; isDefault?: boolean }[]
   // Display-only: set on the representative row of a source-package group
   // (e.g. binutils's eight binary packages sharing one CVE) so the table can
   // show one row instead of one per sibling. Never persisted — computed in

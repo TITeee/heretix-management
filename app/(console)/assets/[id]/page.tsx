@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db"
 import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { OSIcon } from "@/components/assets/os-icon"
+import { AssetTypeBadge } from "@/components/assets/asset-type-badge"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { cn } from "@/lib/utils"
 import { Bell, FileDown, FileJson } from "lucide-react"
@@ -63,7 +65,7 @@ export default async function AssetDetailPage({
       scanJobs: { orderBy: { createdAt: "desc" }, take: 5 },
       packageHistories: { orderBy: { changedAt: "desc" }, take: 50 },
       assetTags: {
-        include: { tag: { select: { id: true, name: true, color: true, description: true } } },
+        include: { tag: { select: { id: true, name: true, color: true, description: true, isDefault: true } } },
       },
     },
   })
@@ -124,7 +126,10 @@ export default async function AssetDetailPage({
 
   const ecosystemCounts = new Map<string, number>()
   for (const p of asset.packages) {
-    ecosystemCounts.set(p.ecosystem, (ecosystemCounts.get(p.ecosystem) ?? 0) + 1)
+    // A package added by hand without an ecosystem (a CPE entry) has "", which would be a blank
+    // label; the packages table calls it "Other", so the card does too.
+    const eco = p.ecosystem || "Other"
+    ecosystemCounts.set(eco, (ecosystemCounts.get(eco) ?? 0) + 1)
   }
   const ecosystemBreakdown = [...ecosystemCounts.entries()].sort((a, b) => b[1] - a[1])
 
@@ -143,10 +148,12 @@ export default async function AssetDetailPage({
       </Breadcrumb>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{asset.name || asset.hostname}</h1>
-          {/* <p className="text-sm text-muted-foreground">
-            {asset.hostname} · {asset.osName}
-          </p> */}
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">{asset.name || asset.hostname}</h1>
+            <AssetTypeBadge assetType={asset.assetType} />
+          </div>
+          {/* The hostname is what an import matches on, so it is always shown, even when it is also the name. */}
+          <p className="mt-1 font-mono text-xs text-muted-foreground">{asset.hostname}</p>
         </div>
         <div className="flex items-center gap-2">
           <EditAssetDialog asset={{ id: asset.id, name: asset.name, hostname: asset.hostname, assetType: asset.assetType, isManual: asset.osId === "manual" }} />
@@ -188,7 +195,10 @@ export default async function AssetDetailPage({
             <CardTitle className="text-sm text-muted-foreground">OS</CardTitle>
           </CardHeader>
           {/* A manually registered asset has no OS of its own to show; its product and version are Advisory packages. */}
-          <CardContent className="text-sm">{asset.osId === "manual" ? "Manual" : asset.osName}</CardContent>
+          <CardContent className="flex items-center gap-2 text-sm">
+            <OSIcon osId={asset.osId} osName={asset.osName} className="h-5 w-5" />
+            {asset.osId === "manual" ? "Manual" : asset.osName}
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">

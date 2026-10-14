@@ -83,7 +83,7 @@ export const VEX_JUSTIFICATION_LABELS: Record<string, string> = {
   protected_by_mitigating_control:               "Mitigating control in place",
 }
 
-type AlertTag = { id: string; name: string; color: string | null; description: string | null }
+type AlertTag = { id: string; name: string; color: string | null; description: string | null; isDefault?: boolean }
 type AlertTags = { assetTags: AlertTag[]; packageTags: AlertTag[] }
 
 function TagList({ tags }: { tags: AlertTag[] | undefined }) {
