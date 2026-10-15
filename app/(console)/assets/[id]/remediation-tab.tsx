@@ -121,6 +121,26 @@ function AlertList({ ids, alerts, onSelect }: { ids: string[]; alerts: Map<strin
   )
 }
 
+/**
+ * "Upgrade to X" when every installed version goes to the same one; otherwise one line per
+ * package and installed version ("2.0.2 to 2.1.7, 5.0.9 to 5.0.12"), since there is no single answer.
+ */
+function UpgradeTo({ targets }: { targets: RemediationAction["upgradeTo"] }) {
+  const version = (v: string) => <span className="font-mono font-semibold text-green-700 dark:text-green-400">{v}</span>
+  if (new Set(targets.map((t) => t.version)).size === 1) return <>Upgrade to {version(targets[0].version)}</>
+  return (
+    <>
+      Upgrade{" "}
+      {targets.map((t, i) => (
+        <span key={`${t.package}@${t.from}`}>
+          {i > 0 && ", "}
+          {t.package} <span className="font-mono">{t.from}</span> to {version(t.version)}
+        </span>
+      ))}
+    </>
+  )
+}
+
 function ActionRow({ action, alerts, onSelect }: { action: RemediationAction; alerts: Map<string, ApiAlert>; onSelect: (a: ApiAlert) => void }) {
   const [expanded, setExpanded] = useState(false)
   return (
@@ -134,8 +154,9 @@ function ActionRow({ action, alerts, onSelect }: { action: RemediationAction; al
           </div>
           <div className="text-xs text-muted-foreground">
             {action.kind === "via_direct" && <>Vulnerable: {action.packages.join(", ")}. </>}
-            {/* Same treatment as "Fixed in" in the alert detail panel. */}
-            Fixed in <span className="font-mono font-semibold text-green-700 dark:text-green-400">{action.fixedVersions.join(", ")}</span>
+            {/* Same treatment as "Fixed in" in the alert detail panel. One version to go to: the
+                highest of the fixed versions, which the per-alert list below breaks down. */}
+            <UpgradeTo targets={action.upgradeTo} />
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-3">

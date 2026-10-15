@@ -1,4 +1,5 @@
 import { buildPURL } from "@/lib/purl"
+import { compareVersions, maxVersion, versionFlavor, type VersionFlavor } from "@/lib/version-compare"
 import { emptySeverityCounts, getAlertSeverityTier, type SeverityCounts, type SeverityTier } from "@/lib/severity"
 
 /**
@@ -59,8 +60,14 @@ export type RemediationAction = GroupStats & {
   target: string
   /** For via_direct: the direct dependencies pulling the findings in. */
   roots: string[]
-  /** Distinct fixed versions of the findings inside (one in the usual case). */
-  fixedVersions: string[]
+  /**
+   * The version to upgrade to, for each installed package version in the group: the highest fixed
+   * version among its findings, since that one also carries the fixes the lower ones stand for.
+   * It is taken per installed version because two copies of a package can sit on different
+   * release lines (2.0.2 and 5.0.9 each have their own target), and per package because the
+   * findings of a via_direct group are in different packages. Usually this is a single entry.
+   */
+  upgradeTo: { package: string; from: string; version: string }[]
   /** Distinct vulnerable packages inside. */
   packages: string[]
 }
@@ -152,6 +159,30 @@ function directRoots(
   return [...roots].sort()
 }
 
+type FixCandidate = { package: string; from: string; version: string; flavor: VersionFlavor }
+
+function upgradeTargets(kind: RemediationKind, candidates: FixCandidate[]): RemediationAction["upgradeTo"] {
+  // The binaries of one OS source package are updated together, and the findings of a via_direct
+  // group sit in different packages that each need their own target; elsewhere a group is one package.
+  const perPackage = kind === "via_direct"
+  const buckets = new Map<string, FixCandidate[]>()
+  for (const c of candidates) {
+    const key = perPackage ? `${c.package}\u0000${c.from}` : c.from
+    const list = buckets.get(key)
+    if (list) list.push(c)
+    else buckets.set(key, [c])
+  }
+  return [...buckets.values()]
+    .map((list) => ({
+      package: list[0].package,
+      from: list[0].from,
+      version: maxVersion(list.map((c) => c.version), list[0].flavor)!,
+      flavor: list[0].flavor,
+    }))
+    .sort((a, b) => a.package.localeCompare(b.package) || compareVersions(a.from, b.from, a.flavor))
+    .map(({ flavor, ...entry }) => entry)
+}
+
 export function buildRemediationPlan(
   alerts: RemediationAlertInput[],
   packages: RemediationPackageInput[],
@@ -170,14 +201,14 @@ export function buildRemediationPlan(
   // Package row's (see lib/scan.ts), so packages are found by name + version.
   const packageByNameVersion = new Map(packages.map((p) => [`${p.name}\u0000${p.version}`, p]))
 
-  const actions = new Map<string, RemediationAction & { fixedSet: Set<string>; packageSet: Set<string> }>()
+  const actions = new Map<string, Omit<RemediationAction, "upgradeTo"> & { candidates: FixCandidate[]; packageSet: Set<string> }>()
   const noFix = new Map<string, NoFixGroup>()
 
   const action = (kind: RemediationKind, target: string, roots: string[] = []) => {
     const key = `${kind}\u0000${target}`
     let group = actions.get(key)
     if (!group) {
-      group = { ...newStats(), key, kind, target, roots, fixedVersions: [], packages: [], fixedSet: new Set(), packageSet: new Set() }
+      group = { ...newStats(), key, kind, target, roots, packages: [], candidates: [], packageSet: new Set() }
       actions.set(key, group)
     }
     return group
@@ -218,15 +249,20 @@ export function buildRemediationPlan(
       }
     }
     addToStats(group, alert)
-    group.fixedSet.add(alert.fixedVersion)
+    group.candidates.push({
+      package: alert.packageName,
+      from: alert.packageVersion,
+      version: alert.fixedVersion,
+      flavor: group.kind === "os_update" ? versionFlavor(alert.ecosystem) : "generic",
+    })
     group.packageSet.add(alert.packageName)
   }
 
   return {
     actions: [...actions.values()]
-      .map(({ fixedSet, packageSet, ...group }) => ({
+      .map(({ candidates, packageSet, ...group }) => ({
         ...group,
-        fixedVersions: [...fixedSet].sort(),
+        upgradeTo: upgradeTargets(group.kind, candidates),
         packages: [...packageSet].sort(),
       }))
       .sort(byUrgency),
