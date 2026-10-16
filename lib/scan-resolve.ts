@@ -19,6 +19,25 @@
 export type AbsenceCause = "package_updated" | "package_excluded" | "not_reported"
 
 /**
+ * The batch search's former per-package cap. heretix-api releases that still
+ * apply it cut there silently, so an answer of this size may be missing
+ * findings.
+ */
+export const LEGACY_BATCH_RESULT_CAP = 500
+
+/**
+ * Whether a package's batch-search answer lists every finding, so that an
+ * alert absent from it can be treated as no longer reported. heretix-api says
+ * so with `truncated` (it returns the most severe ones when a package matches
+ * more than it sends, e.g. a Windows Server many months behind on updates).
+ * Without the field the answer is complete only below the old cap.
+ */
+export function isCompleteBatchResult(r: { vulnerabilities: unknown[]; truncated?: boolean }): boolean {
+  if (typeof r.truncated === "boolean") return !r.truncated
+  return r.vulnerabilities.length < LEGACY_BATCH_RESULT_CAP
+}
+
+/**
  * How long an alert must stay unreported before it is resolved: three days,
  * like heretix-api's own three-run grace before it drops data, which also
  * outlasts a weekend-long data problem. A few hours short of it, so a daily

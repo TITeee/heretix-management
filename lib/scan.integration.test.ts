@@ -310,6 +310,20 @@ describe("scanAsset — alerts heretix-api stops reporting", () => {
     expect(await prisma.alert.findUniqueOrThrow({ where: { id: alerts[0].id } })).toMatchObject({ status: "open", missingSince: null })
   })
 
+  it("leaves alone the alerts of a package heretix-api cut short, but reconciles a long complete answer", async () => {
+    // heretix-api returned only the most severe of more findings than it sends,
+    // so an alert missing from the answer may still apply.
+    const { asset, alerts } = await setup(["CVE-2026-3005"])
+    mockedBatchSearch.mockResolvedValue([{ package: "lodash", version: "4.17.20", ecosystem: "npm", vulnerabilities: [], total: 5128, truncated: true }])
+    await scanAsset(asset.id)
+    expect(await prisma.alert.findUniqueOrThrow({ where: { id: alerts[0].id } })).toMatchObject({ status: "open", missingSince: null })
+
+    // Marked complete, it is reconciled: the absence starts the grace period.
+    mockedBatchSearch.mockResolvedValue([{ package: "lodash", version: "4.17.20", ecosystem: "npm", vulnerabilities: [], total: 0, truncated: false }])
+    await scanAsset(asset.id)
+    expect((await prisma.alert.findUniqueOrThrow({ where: { id: alerts[0].id } })).missingSince).not.toBeNull()
+  })
+
   it("resolves at once an alert whose package was updated since the last scan", async () => {
     const { asset, alerts } = await setup(["CVE-2026-3003"])
     await prisma.alertEvent.create({

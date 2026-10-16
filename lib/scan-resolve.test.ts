@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { decideAbsentAlerts, graceEndsAt, MISSING_GRACE_MS, type AbsentAlert } from "./scan-resolve"
+import { decideAbsentAlerts, graceEndsAt, isCompleteBatchResult, MISSING_GRACE_MS, type AbsentAlert } from "./scan-resolve"
 
 const now = new Date("2026-10-10T12:00:00Z")
 const ago = (ms: number) => new Date(now.getTime() - ms)
@@ -48,5 +48,20 @@ describe("decideAbsentAlerts", () => {
 describe("graceEndsAt", () => {
   it("is the end of the grace period", () => {
     expect(graceEndsAt(ago(0)).getTime() - now.getTime()).toBe(MISSING_GRACE_MS)
+  })
+})
+
+describe("isCompleteBatchResult", () => {
+  const results = (n: number) => Array(n).fill({})
+
+  it("trusts heretix-api's truncated flag, whatever the count", () => {
+    // A Windows Server with 977 findings, all returned.
+    expect(isCompleteBatchResult({ vulnerabilities: results(977), truncated: false })).toBe(true)
+    expect(isCompleteBatchResult({ vulnerabilities: results(5000), truncated: true })).toBe(false)
+  })
+
+  it("without the flag, counts an answer at the old 500 cap as cut", () => {
+    expect(isCompleteBatchResult({ vulnerabilities: results(499) })).toBe(true)
+    expect(isCompleteBatchResult({ vulnerabilities: results(500) })).toBe(false)
   })
 })

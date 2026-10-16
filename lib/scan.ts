@@ -6,15 +6,15 @@ import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
 import { logger } from "@/lib/logger"
 import { calculateDueDate, DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
 import { diffAlertMetadata } from "@/lib/alert-metadata"
-import { decideAbsentAlerts, type AbsenceCause } from "@/lib/scan-resolve"
+import { decideAbsentAlerts, isCompleteBatchResult, type AbsenceCause } from "@/lib/scan-resolve"
 
 const BATCH_SIZE = 1000
 
-// Result caps applied by heretix-api (500 for the batch endpoint, 50 for the CPE
-// endpoint, which is its default limit). A package whose result set comes back at
-// the cap may have findings missing from the response, so its alerts cannot be
-// reconciled: an alert absent from a truncated result is not evidence it is fixed.
-const BATCH_RESULT_CAP = 500
+// A package whose result set may have findings missing from the response cannot
+// have its alerts reconciled: an alert absent from a truncated result is not
+// evidence it is fixed. The batch endpoint says when it cut a package (see
+// isCompleteBatchResult); the CPE endpoint does not, so a result at its default
+// limit of 50 counts as cut.
 const CPE_RESULT_CAP = 50
 
 /**
@@ -454,7 +454,7 @@ export async function scanAsset(
       )
 
       for (const r of results) {
-        if (r.vulnerabilities.length < BATCH_RESULT_CAP) {
+        if (isCompleteBatchResult(r)) {
           reconcilable.add(packageKey(r.package, r.version))
         }
         for (const v of r.vulnerabilities) {

@@ -70,6 +70,10 @@ export type BatchResultItem = {
   version: string
   ecosystem?: string
   vulnerabilities: VulnSearchResult[]
+  // How many matched, and whether `vulnerabilities` holds fewer (the most
+  // severe ones). Absent from heretix-api releases that cut silently at 500.
+  total?: number
+  truncated?: boolean
 }
 
 // heretix-api runs only a few batch searches at once and answers another with 429 and
