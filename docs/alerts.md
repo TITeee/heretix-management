@@ -64,7 +64,7 @@ Shown next to the tier, never mixed into it:
 |---|---|---|
 | **EPSS** | Probability of exploitation in the next 30 days, with its percentile | FIRST, via heretix-api |
 | **KEV** | Listed in CISA's Known Exploited Vulnerabilities | CISA, via heretix-api |
-| **Distro Rating** | The distro's own rating of the CVE for this package: Ubuntu priority (`negligible`..`critical`), Debian urgency (`unimportant`..`high`), Red Hat impact (`low`..`critical`). Each distro rates on its own scale | heretix-api, per package match |
+| **Distro Rating** | The distro's own rating of the CVE for this package: Ubuntu priority (`negligible`..`critical`), Debian urgency (`unimportant`..`high`), Red Hat impact (`low`..`critical`), and for a Windows Server finding Microsoft's rating (`Low`..`Critical`, shown as Microsoft). Each rates on its own scale | heretix-api, per package match |
 | **Fix Status** | Why there is no fix: *Affected*, *Fix deferred*, *Will not fix*, *Out of support*, *Under investigation*. Red Hat only today | heretix-api, per package match |
 
 Distro Rating and Fix Status are set by a scan, not by Refresh Metadata, since they belong to a package match rather than to the CVE. Both have a column (hidden by default) and a filter on the Alerts list. A Red Hat alert can show a Fixed in version and a fix status together when Red Hat's OVAL and VEX data disagree; both are shown as published.
@@ -88,7 +88,7 @@ Every asset page (container image, host, or appliance) opens on a **Remediation*
 | Upgrade a direct dependency | A vulnerable package that the project depends on directly |
 | Upgrade through direct dependencies | A vulnerable transitive package, under the direct dependencies that pull it in (from the SBOM's dependency graph). The version to raise them to is not worked out |
 | Rebuild Go binaries | Findings in Go's standard library (`stdlib`), fixed by building with a newer Go |
-| Update a product | A product registered by hand or by CSV import (appliance firmware, software outside a package manager) |
+| Update a product | A product registered by hand or by CSV import (appliance firmware, software outside a package manager), and a Windows Server release from a heretix-cli SBOM |
 | Update a package | A language package whose place in the dependency graph is unknown |
 
 Changes are ordered with KEV first, then by the worst severity, then by the number of findings. Each shows the fixed versions and lists its alerts; click one to open the detail panel.

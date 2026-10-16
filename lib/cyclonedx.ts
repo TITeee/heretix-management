@@ -1,4 +1,4 @@
-import { buildPURL, OS_PURL_TYPES, parsePURL } from "@/lib/purl"
+import { buildPURL, OS_PURL_TYPES, parsePURL, type ParsedPURL } from "@/lib/purl"
 
 export type CycloneDXComponent = {
   "bom-ref"?: string
@@ -90,6 +90,22 @@ function isPackageComponent(c: CycloneDXComponent): boolean {
 
 function property(c: CycloneDXComponent, name: string): string | undefined {
   return c.properties?.find(p => p.name === name)?.value
+}
+
+/**
+ * The name and ecosystem a component is stored and searched under. Normally
+ * both come from its purl. The exception is a vendor product heretix-cli
+ * reports for the advisory search (heretix:ecosystem "advisory"; today the
+ * Windows Server release, pkg:generic/microsoft/Windows%20Server%202022): its
+ * purl type is "generic", which no advisory matches, and heretix-api matches
+ * on the bare product name, which is the component name. Stored this way it is
+ * the same row a manually added advisory product makes.
+ */
+function componentIdentity(c: CycloneDXComponent, parsed: ParsedPURL | null): { name: string; ecosystem: string } {
+  if (property(c, "heretix:ecosystem") === "advisory" && c.name) {
+    return { name: c.name, ecosystem: "advisory" }
+  }
+  return { name: parsed?.name ?? c.name ?? "", ecosystem: parsed?.ecosystem ?? "unknown" }
 }
 
 /**
@@ -299,7 +315,8 @@ export function convertCycloneDXToInventory(bom: CycloneDXBom) {
     if (!ref || !c.purl) continue
     const parsed = parsePURL(c.purl, fallbackDistro)
     if (!parsed) continue
-    refToPurl.set(ref, buildPURL(parsed.name, c.version ?? "", parsed.ecosystem))
+    const { name, ecosystem } = componentIdentity(c, parsed)
+    refToPurl.set(ref, buildPURL(name, c.version ?? "", ecosystem))
   }
 
   // Fallback when the heretix:direct property is absent (SBOMs from Syft, Trivy, cdxgen, etc.)
@@ -308,8 +325,7 @@ export function convertCycloneDXToInventory(bom: CycloneDXBom) {
   const seenPackageKeys = new Set<string>()
   const packages = components.filter(isPackageComponent).map(c => {
     const parsed = c.purl ? parsePURL(c.purl, fallbackDistro) : null
-    const ecosystem = parsed?.ecosystem ?? "unknown"
-    const name = parsed?.name ?? c.name ?? ""
+    const { name, ecosystem } = componentIdentity(c, parsed)
     const ref = componentRef(c)
     const directProp = property(c, "heretix:direct")
     let direct: boolean | null

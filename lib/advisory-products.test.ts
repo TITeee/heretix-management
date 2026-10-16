@@ -12,6 +12,7 @@ import {
   CHECKPOINT_PRODUCTS,
   IVANTI_PRODUCTS,
   CITRIX_PRODUCTS,
+  MICROSOFT_PRODUCTS,
   APACHE_PRODUCTS,
   NGINX_PRODUCTS,
   TOMCAT_PRODUCTS,
@@ -32,6 +33,7 @@ describe("getProductsByVendor", () => {
     ["checkpoint", CHECKPOINT_PRODUCTS],
     ["ivanti", IVANTI_PRODUCTS],
     ["citrix", CITRIX_PRODUCTS],
+    ["microsoft", MICROSOFT_PRODUCTS],
     ["apache", APACHE_PRODUCTS],
     ["nginx", NGINX_PRODUCTS],
     ["tomcat", TOMCAT_PRODUCTS],
@@ -86,5 +88,22 @@ describe("NetScaler", () => {
   it("keeps the FIPS / NDcPP builds a product of their own, and the old Citrix names out", () => {
     expect(CITRIX_PRODUCTS).toContain("NetScaler ADC FIPS and NDcPP")
     expect(CITRIX_PRODUCTS.some((p) => /^Citrix/.test(p))).toBe(false)
+  })
+})
+
+describe("Microsoft", () => {
+  it("is offered as a vendor, labelled Microsoft (Windows Server)", () => {
+    expect(ADVISORY_VENDORS).toContainEqual({ value: "microsoft", label: "Microsoft (Windows Server)" })
+  })
+
+  it("lists each supported release and its Server Core installation by MSRC's exact names, newest first", () => {
+    // heretix-api matches the product by exact string; heretix-cli reports the same names.
+    expect(MICROSOFT_PRODUCTS[0]).toBe("Windows Server 2025")
+    for (const year of ["2016", "2019", "2022", "2025"]) {
+      expect(MICROSOFT_PRODUCTS).toContain(`Windows Server ${year}`)
+      expect(MICROSOFT_PRODUCTS).toContain(`Windows Server ${year} (Server Core installation)`)
+    }
+    expect(new Set(MICROSOFT_PRODUCTS).size).toBe(8)
+    expect(MICROSOFT_PRODUCTS.length).toBe(8)
   })
 })

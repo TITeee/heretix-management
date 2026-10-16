@@ -141,6 +141,20 @@ describe("buildRemediationPlan", () => {
     expect(plan.actions[0]).toMatchObject({ kind: "product_update", target: "FortiOS", upgradeTo: [{ package: "FortiOS", from: "7.2.4", version: "7.2.8" }] })
   })
 
+  it("puts the Windows Server release a scanner reported under product_update, upgrading to the highest fix build", () => {
+    // Imported from heretix-cli's SBOM: source "sbom", ecosystem "advisory".
+    const plan = buildRemediationPlan([
+      alert({ packageName: "Windows Server 2022", packageVersion: "10.0.20348.999", ecosystem: "advisory", fixedVersion: "10.0.20348.5761" }),
+      alert({ packageName: "Windows Server 2022", packageVersion: "10.0.20348.999", ecosystem: "advisory", fixedVersion: "10.0.20348.1006" }),
+    ], [pkg("Windows Server 2022", "10.0.20348.999", null, [], "advisory")])
+    expect(plan.actions).toHaveLength(1)
+    expect(plan.actions[0]).toMatchObject({
+      kind: "product_update",
+      target: "Windows Server 2022",
+      upgradeTo: [{ package: "Windows Server 2022", from: "10.0.20348.999", version: "10.0.20348.5761" }],
+    })
+  })
+
   it("bundles findings with no fixed version by fix status, counting the distro ratings, and never makes them an action", () => {
     const plan = buildRemediationPlan([
       alert({ ecosystem: "Debian:12", fixedVersion: null, fixStatus: null, distroPriority: "unimportant" }),

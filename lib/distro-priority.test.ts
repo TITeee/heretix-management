@@ -42,6 +42,12 @@ describe("distroPrioritySortKey", () => {
     expect(key("Ubuntu:22.04:LTS", "negligible")! < key("Ubuntu:22.04:LTS", "low")!).toBe(true)
   })
 
+  it("orders Microsoft's rating of a Windows Server finding on its own scale", () => {
+    const microsoft = ["Critical", "Low", "Important", "Moderate"]
+      .sort((a, b) => key("advisory", a)!.localeCompare(key("advisory", b)!))
+    expect(microsoft).toEqual(["Low", "Moderate", "Important", "Critical"])
+  })
+
   it("groups by distro rather than equating scales", () => {
     // Red Hat's most severe still sorts before any Ubuntu rating.
     expect(key("Red Hat:9", "critical")! < key("Ubuntu:24.04:LTS", "negligible")!).toBe(true)
@@ -60,6 +66,10 @@ describe("distroPriorityLabel", () => {
     expect(distroPriorityLabel("Red Hat:9", "low")).toBe("Red Hat: low")
     expect(distroPriorityLabel("Ubuntu:22.04:LTS", "negligible")).toBe("Ubuntu: negligible")
     expect(distroPriorityLabel("Debian:12", "not yet assigned")).toBe("Debian: not yet assigned")
+  })
+
+  it("names Microsoft for a vendor-advisory finding, the only kind rated", () => {
+    expect(distroPriorityLabel("advisory", "Important")).toBe("Microsoft: Important")
   })
 
   it("is null without a rating", () => {

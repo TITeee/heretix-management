@@ -212,6 +212,24 @@ export const CITRIX_PRODUCTS = [
   "NetScaler SDX (SVM)",
 ]
 
+// Matched against AdvisoryAffectedProduct.product by exact string: the product
+// names of Microsoft's Security Update Guide (MSRC), as heretix-api's
+// msrc-fetcher.ts stores them. A Server Core installation is a product of its
+// own there, with its own fixes, so each release is listed twice. The version to
+// enter is the full OS build, including the update build revision
+// ("10.0.20348.5761"), which each monthly cumulative update raises; heretix-cli
+// reads it from the registry and reports the same name.
+export const MICROSOFT_PRODUCTS = [
+  "Windows Server 2025",
+  "Windows Server 2025 (Server Core installation)",
+  "Windows Server 2022",
+  "Windows Server 2022 (Server Core installation)",
+  "Windows Server 2019",
+  "Windows Server 2019 (Server Core installation)",
+  "Windows Server 2016",
+  "Windows Server 2016 (Server Core installation)",
+]
+
 export type AdvisoryVendor =
   | "fortinet"
   | "paloalto"
@@ -224,6 +242,7 @@ export type AdvisoryVendor =
   | "checkpoint"
   | "ivanti"
   | "citrix"
+  | "microsoft"
   | "apache"
   | "nginx"
   | "tomcat"
@@ -244,6 +263,7 @@ export const ADVISORY_VENDORS: { value: AdvisoryVendor; label: string }[] = [
   { value: "checkpoint", label: "Check Point" },
   { value: "ivanti", label: "Ivanti" },
   { value: "citrix", label: "NetScaler" },
+  { value: "microsoft", label: "Microsoft (Windows Server)" },
   { value: "oracle", label: "Oracle" },
   { value: "splunk", label: "Splunk" },
   { value: "apache", label: "Apache HTTP Server" },
@@ -263,6 +283,7 @@ export function getProductsByVendor(vendor: AdvisoryVendor): string[] {
   if (vendor === "checkpoint") return CHECKPOINT_PRODUCTS
   if (vendor === "ivanti") return IVANTI_PRODUCTS
   if (vendor === "citrix") return CITRIX_PRODUCTS
+  if (vendor === "microsoft") return MICROSOFT_PRODUCTS
   if (vendor === "apache") return APACHE_PRODUCTS
   if (vendor === "nginx") return NGINX_PRODUCTS
   if (vendor === "tomcat") return TOMCAT_PRODUCTS

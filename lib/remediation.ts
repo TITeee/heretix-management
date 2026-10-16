@@ -231,8 +231,10 @@ export function buildRemediationPlan(
     let group: ReturnType<typeof action>
     const pkg = packageByNameVersion.get(`${alert.packageName}\u0000${alert.packageVersion}`)
     // Checked first: an appliance's findings come back with an empty or
-    // "advisory" ecosystem, which would otherwise read as an OS package.
-    if (pkg?.source === "manual") {
+    // "advisory" ecosystem, which would otherwise read as an OS package. A
+    // vendor product a scanner reported for the advisory search (heretix-cli's
+    // Windows Server release) is updated as a product too.
+    if (pkg?.source === "manual" || alert.ecosystem === "advisory") {
       group = action("product_update", alert.packageName)
     } else if (isOsEcosystem(alert.ecosystem)) {
       group = action("os_update", alert.sourcePackage ?? alert.packageName)

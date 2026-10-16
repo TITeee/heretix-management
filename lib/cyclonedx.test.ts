@@ -260,3 +260,43 @@ describe("convertCycloneDXToInventory — licenses", () => {
     expect(pkg(inv, "none").licenses).toEqual([])
   })
 })
+
+describe("convertCycloneDXToInventory — heretix-cli Windows Server", () => {
+  // Trimmed from heretix-cli's own output on a Windows Server 2022 host.
+  const bom: CycloneDXBom = {
+    metadata: {
+      component: {
+        "bom-ref": "heretix:target:win-host", type: "operating-system", name: "win-host", version: "Microsoft Windows 10.0.20348.5761",
+      },
+    },
+    components: [
+      {
+        "bom-ref": "pkg:generic/microsoft/Windows%20Server%202022%20%28Server%20Core%20installation%29@10.0.20348.5761",
+        type: "library",
+        name: "Windows Server 2022 (Server Core installation)",
+        version: "10.0.20348.5761",
+        purl: "pkg:generic/microsoft/Windows%20Server%202022%20%28Server%20Core%20installation%29@10.0.20348.5761",
+        properties: [{ name: "heretix:ecosystem", value: "advisory" }, { name: "heretix:source", value: "windows-registry" }],
+      },
+      { "bom-ref": "heretix:os:windows@10.0.20348.5761", type: "operating-system", name: "windows", version: "10.0.20348.5761" },
+      { type: "library", name: "lodash", version: "4.17.21", purl: "pkg:npm/lodash@4.17.21", properties: [{ name: "heretix:ecosystem", value: "npm" }] },
+    ],
+    dependencies: [{ ref: "pkg:generic/microsoft/Windows%20Server%202022%20%28Server%20Core%20installation%29@10.0.20348.5761", dependsOn: [] }],
+  }
+
+  it("stores the release under MSRC's product name and the advisory ecosystem, as a manually added product is", () => {
+    const inv = convertCycloneDXToInventory(bom)
+    expect(pkg(inv, "Windows Server 2022 (Server Core installation)")).toMatchObject({
+      version: "10.0.20348.5761",
+      ecosystem: "advisory",
+    })
+    // Not the purl's namespace-joined name, which no advisory matches.
+    expect(inv.packages.some(p => p.name.startsWith("microsoft/"))).toBe(false)
+  })
+
+  it("leaves other packages to their purl, and the operating-system descriptor out", () => {
+    const inv = convertCycloneDXToInventory(bom)
+    expect(pkg(inv, "lodash").ecosystem).toBe("npm")
+    expect(inv.packages.map(p => p.name).sort()).toEqual(["Windows Server 2022 (Server Core installation)", "lodash"])
+  })
+})

@@ -1,8 +1,13 @@
 /**
  * The distro part of an OS ecosystem string: "Red Hat:9" → "Red Hat",
  * "Ubuntu:22.04:LTS" → "Ubuntu", "Debian:12" → "Debian".
+ *
+ * A vendor-advisory finding (ecosystem "advisory") is rated by Microsoft: of
+ * the vendor advisories heretix-api imports, only Microsoft's (Windows Server)
+ * carry their own rating.
  */
 export function distroName(ecosystem: string): string {
+  if (ecosystem === "advisory") return "Microsoft"
   return ecosystem.split(":")[0].trim()
 }
 
@@ -14,6 +19,7 @@ const DISTRO_PRIORITY_SCALES: Record<string, string[]> = {
   "Ubuntu": ["negligible", "low", "medium", "high", "critical"],
   "Debian": ["unimportant", "low", "medium", "high"],
   "Red Hat": ["low", "moderate", "important", "critical"],
+  "Microsoft": ["low", "moderate", "important", "critical"],
 }
 
 /**

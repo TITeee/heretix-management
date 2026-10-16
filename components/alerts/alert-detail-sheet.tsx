@@ -913,7 +913,9 @@ export function AlertDetailSheet({
                     <span className="w-28 text-muted-foreground shrink-0">Distro Rating</span>
                     <span>
                       {distroPriorityLabel(alert.ecosystem, alert.distroPriority)}
-                      <span className="text-muted-foreground text-xs ml-2">(the distro&apos;s own rating for this package)</span>
+                      <span className="text-muted-foreground text-xs ml-2">
+                        {alert.ecosystem === "advisory" ? "(the vendor's own rating for this product)" : "(the distro's own rating for this package)"}
+                      </span>
                     </span>
                   </div>
                 )}

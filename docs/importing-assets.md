@@ -25,6 +25,8 @@ syft myapp:1.0 -o cyclonedx-json=sbom.json
 
 Syft on Windows cannot scan Linux container images correctly; run it on Linux or macOS, or in its Docker image.
 
+On a Windows Server host, heretix-cli's SBOM also carries the OS itself (beta): the release, such as `Windows Server 2022`, at its full OS build. It is imported as a Microsoft advisory product, the same as one added by hand under **Advisory**, and checked against Microsoft's security updates. Windows Server 2016 to 2025 are covered.
+
 To update one particular asset, open it and click **Update from SBOM**. The asset's hostname is then used whatever the file says. Detection never uses vulnerabilities embedded in an SBOM (Trivy's `--scanners vuln`); it always goes through heretix-api.
 
 Some imported packages are kept in the inventory but never scanned, such as development-only dependencies, kernel headers, and libraries the OS package manager installed. Each is labeled with the reason; see [how packages are classified](#reference-how-packages-are-classified).
@@ -60,7 +62,7 @@ Packages are matched by name and ecosystem. Packages added by hand are never com
 
 1. **Assets → Add Manually**: enter a name, hostname, and type.
 2. On the asset page, **Add Package**:
-   - **Advisory**: pick a vendor and product (Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Check Point, Ivanti, NetScaler, Oracle, Splunk, Apache HTTP Server, nginx, Apache Tomcat, Zabbix) and enter the version. Matched against vendor advisories.
+   - **Advisory**: pick a vendor and product (Fortinet, Palo Alto Networks, Cisco, Sophos, SonicWall, Broadcom/VMware, Check Point, Ivanti, NetScaler, Microsoft (Windows Server), Oracle, Splunk, Apache HTTP Server, nginx, Apache Tomcat, Zabbix) and enter the version. Matched against vendor advisories. For Windows Server (beta), pick the release, as a Server Core installation if it is one, and enter the full OS build including the last number, which each monthly update raises: `cmd /c ver` shows it (`10.0.20348.5761`).
    - **General**: a package name, version, and ecosystem, for software installed outside a package manager. At the top, **pick the product from heretix-api's catalog** (network devices, middleware, tools such as BIG-IP, Junos OS, GitLab, Jenkins) instead of typing a name. The package is then stored under the catalog's name with no ecosystem, and a search by that name asks only NVD and the CVE records, for exactly the vendor and product pairs shown under the entry: `Ivanti Automation` finds ivanti's `automation` and not nintex's. Products with a vendor-advisory list are picked under **Advisory**, which searches those advisories only. Without a catalog (an older heretix-api), or for a product not in it, type the name as before; the suggestions beside the box show the vendors, ecosystems and data sets that know each name.
    - **CPE**: a CPE 2.3 string.
 3. **Run Scan**. After a firmware update, **Edit** the package's version and scan again.
