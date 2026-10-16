@@ -25,7 +25,7 @@ syft myapp:1.0 -o cyclonedx-json=sbom.json
 
 Syft on Windows cannot scan Linux container images correctly; run it on Linux or macOS, or in its Docker image.
 
-On a Windows Server host, heretix-cli's SBOM also carries the OS itself (beta): the release, such as `Windows Server 2022`, at its full OS build. It is imported as a Microsoft advisory product, the same as one added by hand under **Advisory**, and checked against Microsoft's security updates. Windows Server 2016 to 2025 are covered.
+On a Windows Server host, heretix-cli's SBOM also carries the OS itself (beta): the release, such as `Windows Server 2022`, at its full OS build. It is imported as a Microsoft advisory product, the same as one added by hand under **Advisory**, and checked against Microsoft's security updates. Windows Server 2016 to 2025 are covered. Every CVE fixed for the release is reported, including those of roles the server does not run (DNS Server, DHCP Server, AD FS, ...), since installed roles are not collected yet. The fix is the same cumulative update either way, but such a CVE cannot be exploited on a server without the role; check the CVE's title for the component before prioritizing it.
 
 To update one particular asset, open it and click **Update from SBOM**. The asset's hostname is then used whatever the file says. Detection never uses vulnerabilities embedded in an SBOM (Trivy's `--scanners vuln`); it always goes through heretix-api.
 
