@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import {
   getProductsByVendor,
+  advisoryVersionHint,
   ADVISORY_VENDORS,
   FORTINET_PRODUCTS,
   PALOALTO_PRODUCTS,
@@ -105,5 +106,13 @@ describe("Microsoft", () => {
     }
     expect(new Set(MICROSOFT_PRODUCTS).size).toBe(8)
     expect(MICROSOFT_PRODUCTS.length).toBe(8)
+  })
+})
+
+describe("advisoryVersionHint", () => {
+  it("asks for the full OS build for Windows Server, nothing special elsewhere", () => {
+    expect(advisoryVersionHint("microsoft")).toMatchObject({ example: "10.0.20348.5761" })
+    expect(advisoryVersionHint("microsoft")!.help).toContain("cmd /c ver")
+    expect(advisoryVersionHint("fortinet")).toBeNull()
   })
 })

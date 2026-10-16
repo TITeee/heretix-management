@@ -290,3 +290,16 @@ export function getProductsByVendor(vendor: AdvisoryVendor): string[] {
   if (vendor === "zabbix") return ZABBIX_PRODUCTS
   return FORTINET_PRODUCTS
 }
+
+/**
+ * What a vendor's version looks like, for the version input, when it isn't
+ * the usual dotted release number: a Windows Server version is the full OS
+ * build, whose last number each monthly update raises and which only some
+ * tools show. null for the other vendors.
+ */
+export function advisoryVersionHint(vendor: AdvisoryVendor): { example: string; help: string } | null {
+  if (vendor === "microsoft") {
+    return { example: "10.0.20348.5761", help: "The full OS build, including the last number: run cmd /c ver on the server." }
+  }
+  return null
+}

@@ -26,7 +26,8 @@ import { VulnDetail, NvdTab, OsvTab, AdvisoryTab, CnaTab } from "@/components/al
 import { PackageNameInput } from "@/components/package-name-input"
 import { CatalogPairs, CatalogPicker } from "@/components/catalog-picker"
 import type { CatalogListing } from "@/lib/heretix-api"
-import { ADVISORY_VENDORS, FORTINET_PRODUCTS, getProductsByVendor, type AdvisoryVendor } from "@/lib/advisory-products"
+import { ADVISORY_VENDORS, FORTINET_PRODUCTS, advisoryVersionHint, getProductsByVendor, type AdvisoryVendor } from "@/lib/advisory-products"
+import { distroPriorityLabel } from "@/lib/distro-priority"
 
 type Vuln = {
   id: string
@@ -40,7 +41,13 @@ type Vuln = {
   isKev: boolean
   epssScore: number | null
   epssPercentile: number | null
+  fixedVersion?: string | null
+  distroPriority?: string | null
 }
+
+// Results rendered at first, and added by each "Show more": a Windows Server
+// release can return thousands.
+const RESULTS_PAGE = 100
 
 const ECOSYSTEMS = [
   "Ubuntu:20.04:LTS",
@@ -93,6 +100,11 @@ export default function SearchPage() {
   const [vulnId, setVulnId] = useState("")
   const [cpe, setCpe] = useState("")
   const [results, setResults] = useState<Vuln[] | null>(null)
+  // The search stopped at its maximum: more matched than results holds.
+  const [truncated, setTruncated] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(RESULTS_PAGE)
+  // The ecosystem the results were searched in, which names whose rating distroPriority is.
+  const [searchedEcosystem, setSearchedEcosystem] = useState<string | null>(null)
   const [cpeParsed, setCpeParsed] = useState<{ vendor: string; product: string; version: string | null } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -167,6 +179,9 @@ export default function SearchPage() {
         return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
       })
       setResults(deduped)
+      setTruncated(data.truncated === true)
+      setVisibleCount(RESULTS_PAGE)
+      setSearchedEcosystem(mode === "advisory" ? "advisory" : mode === "package" && ecosystem !== "All" ? ecosystem : null)
       if (data.parsed) setCpeParsed(data.parsed)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed")
@@ -349,7 +364,7 @@ export default function SearchPage() {
                 setResults(null)
               }}
             >
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="min-w-44">
                 <SelectValue>{ADVISORY_VENDORS.find((v) => v.value === advisoryVendor)?.label}</SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -362,7 +377,7 @@ export default function SearchPage() {
               value={advisoryProduct}
               onValueChange={(v) => { setAdvisoryProduct(v ?? advisoryProduct); setResults(null) }}
             >
-              <SelectTrigger className="w-52">
+              <SelectTrigger className="min-w-52">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -372,10 +387,11 @@ export default function SearchPage() {
               </SelectContent>
             </Select>
             <Input
-              placeholder="Version (optional)"
+              placeholder={advisoryVersionHint(advisoryVendor) ? `Version, e.g. ${advisoryVersionHint(advisoryVendor)!.example}` : "Version (optional)"}
+              title={advisoryVersionHint(advisoryVendor)?.help}
               value={advisoryVersion}
               onChange={(e) => setAdvisoryVersion(e.target.value)}
-              className="w-40"
+              className={advisoryVersionHint(advisoryVendor) ? "w-56" : "w-40"}
             />
           </>
         ) : (
@@ -405,11 +421,15 @@ export default function SearchPage() {
               {cpeParsed.version && <> / version: <span className="font-mono">{cpeParsed.version}</span></>}
             </p>
           )}
-          <p className="text-sm text-muted-foreground">{results.length} result(s)</p>
+          <p className="text-sm text-muted-foreground">
+            {truncated
+              ? `More than ${results.length.toLocaleString()} results; showing ${results.length.toLocaleString()}. Enter a version to narrow the search.`
+              : `${results.length.toLocaleString()} result(s)`}
+          </p>
           {results.length === 0 ? (
             <p className="text-sm">No vulnerabilities found.</p>
           ) : (
-            results.map((v) => (
+            results.slice(0, visibleCount).map((v) => (
               <Card key={v.id ?? v.externalId ?? vulnId} className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => handleCardClick(v.externalId ?? vulnId.trim())}>
                 <CardContent className="pt-4 space-y-2">
                   <div className="flex items-start justify-between gap-2">
@@ -436,10 +456,19 @@ export default function SearchPage() {
                     {v.epssScore != null && (
                       <span>EPSS: {v.epssScore.toFixed(3)} ({(v.epssPercentile! * 100).toFixed(0)}th pct)</span>
                     )}
+                    {v.fixedVersion && <span>Fixed in: <span className="font-mono">{v.fixedVersion}</span></span>}
+                    {v.distroPriority && (
+                      <span>{searchedEcosystem ? distroPriorityLabel(searchedEcosystem, v.distroPriority) : `Rating: ${v.distroPriority}`}</span>
+                    )}
                   </div>
                 </CardContent>
               </Card>
             ))
+          )}
+          {results.length > visibleCount && (
+            <Button variant="outline" className="w-full" onClick={() => setVisibleCount((n) => n + RESULTS_PAGE)}>
+              {`Show more (${(results.length - visibleCount).toLocaleString()} left)`}
+            </Button>
           )}
         </div>
       )}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { searchVulnerabilities, getVulnerabilityById, searchByCPE, HeretixApiError } from "@/lib/heretix-api"
+import { searchAllVulnerabilities, getVulnerabilityById, searchByCPE, HeretixApiError } from "@/lib/heretix-api"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
   if (!pkg) return NextResponse.json({ error: "package, id, or cpe is required" }, { status: 400 })
 
   try {
-    const data = await searchVulnerabilities({
+    const data = await searchAllVulnerabilities({
       package: pkg,
       version: searchParams.get("version") ?? undefined,
       ecosystem: searchParams.get("ecosystem") ?? undefined,

@@ -16,7 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { HelpCircle } from "lucide-react"
-import { ADVISORY_VENDORS, getProductsByVendor, type AdvisoryVendor } from "@/lib/advisory-products"
+import { ADVISORY_VENDORS, advisoryVersionHint, getProductsByVendor, type AdvisoryVendor } from "@/lib/advisory-products"
 import { PackageNameInput } from "@/components/package-name-input"
 import { CatalogPicker } from "@/components/catalog-picker"
 import type { CatalogListing } from "@/lib/heretix-api"
@@ -63,6 +63,8 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
   const [product, setProduct] = useState(getProductsByVendor("fortinet")[0])
   const [advVersion, setAdvVersion] = useState("")
   const [vulnCount, setVulnCount] = useState<number | "error" | null>(null)
+  // The search stopped at its maximum, so vulnCount is a lower bound.
+  const [vulnCountMore, setVulnCountMore] = useState(false)
   const [searching, setSearching] = useState(false)
 
   // CPE tab state
@@ -102,6 +104,7 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
       const data = await res.json()
       const results: unknown[] = data.results ?? []
       const seen = new Set<string>()
+      setVulnCountMore(data.truncated === true)
       setVulnCount(results.filter((v: unknown) => {
         const id = (v as { id: string }).id
         return !seen.has(id) && seen.add(id)
@@ -305,7 +308,10 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Version <span className="text-destructive">*</span></label>
-              <Input placeholder="e.g. 7.4.3" value={advVersion} onChange={(e) => { setAdvVersion(e.target.value); setVulnCount(null) }} />
+              <Input placeholder={`e.g. ${advisoryVersionHint(vendor)?.example ?? "7.4.3"}`} value={advVersion} onChange={(e) => { setAdvVersion(e.target.value); setVulnCount(null) }} />
+              {advisoryVersionHint(vendor) && (
+                <p className="text-xs text-muted-foreground">{advisoryVersionHint(vendor)!.help}</p>
+              )}
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <DialogFooter className="flex-col items-stretch gap-2 sm:flex-col">
@@ -328,7 +334,7 @@ export function AddPackageDialog({ assetId }: { assetId: string }) {
                   {vulnCount === "error"
                     ? "Could not connect to API. Check Settings."
                     : vulnCount > 0
-                      ? `${vulnCount} vulnerabilit${vulnCount === 1 ? "y" : "ies"} found`
+                      ? `${vulnCount}${vulnCountMore ? "+" : ""} vulnerabilit${vulnCount === 1 && !vulnCountMore ? "y" : "ies"} found`
                       : "No vulnerabilities found"}
                 </p>
               )}

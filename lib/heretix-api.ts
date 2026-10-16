@@ -138,6 +138,36 @@ export async function searchVulnerabilities(params: {
   return res.json()
 }
 
+// heretix-api's single search returns at most this many results per request,
+// without saying whether there were more.
+const SEARCH_PAGE_SIZE = 500
+/** The most results one search in the console collects. */
+export const SEARCH_MAX_RESULTS = 5_000
+
+/**
+ * Every result of a search, up to SEARCH_MAX_RESULTS, gathered page by page.
+ * A single request stops silently at 500, which a Windows Server release
+ * passes at once (thousands of CVEs, and the first 500 are the oldest).
+ * heretix-api keeps a search's full result set for a few seconds, so the
+ * later pages are cheap. truncated is true when there were more than the
+ * maximum.
+ */
+export async function searchAllVulnerabilities(params: {
+  package?: string
+  version?: string
+  ecosystem?: string
+}): Promise<{ results: unknown[]; truncated: boolean }> {
+  const results: unknown[] = []
+  for (let offset = 0; offset < SEARCH_MAX_RESULTS; offset += SEARCH_PAGE_SIZE) {
+    const page: unknown[] = (await searchVulnerabilities({ ...params, limit: SEARCH_PAGE_SIZE, offset })).results ?? []
+    results.push(...page)
+    if (page.length < SEARCH_PAGE_SIZE) return { results, truncated: false }
+  }
+  // Exactly at the maximum: one more result says whether anything was left out.
+  const beyond: unknown[] = (await searchVulnerabilities({ ...params, limit: 1, offset: SEARCH_MAX_RESULTS })).results ?? []
+  return { results, truncated: beyond.length > 0 }
+}
+
 /** A suggested name and where heretix-api found it, so a name is never an unexplained guess. */
 export type PackageSuggestion = {
   name: string

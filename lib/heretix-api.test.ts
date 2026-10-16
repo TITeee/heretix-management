@@ -4,7 +4,7 @@ vi.mock("@/lib/db", () => ({
   prisma: { setting: { findUnique: vi.fn().mockResolvedValue(null) } },
 }))
 
-import { batchSearch, listCatalog, suggestPackages } from "./heretix-api"
+import { batchSearch, listCatalog, searchAllVulnerabilities, suggestPackages, SEARCH_MAX_RESULTS } from "./heretix-api"
 
 function respondWith(body: unknown, ok = true) {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok, status: ok ? 200 : 500, json: async () => body }))
@@ -137,5 +137,49 @@ describe("batchSearch", () => {
     vi.stubGlobal("fetch", fetchMock)
     await expect(batchSearch(pkgs)).rejects.toThrow("heretix-api batch error: 500 boom")
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("searchAllVulnerabilities", () => {
+  // Serves `total` results the way heretix-api pages them (limit/offset).
+  function serve(total: number) {
+    const fetchMock = vi.fn(async (url: string) => {
+      const q = new URL(url).searchParams
+      const limit = Number(q.get("limit")), offset = Number(q.get("offset") ?? 0)
+      const n = Math.max(0, Math.min(limit, total - offset))
+      return { ok: true, status: 200, json: async () => ({ results: Array.from({ length: n }, (_, i) => ({ id: `v${offset + i}` })) }) }
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    return fetchMock
+  }
+
+  it("asks once when the first page is not full", async () => {
+    const fetchMock = serve(3)
+    expect(await searchAllVulnerabilities({ package: "lodash" })).toMatchObject({ truncated: false })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("collects every page past the 500 a single request returns", async () => {
+    // Windows Server 2022 one month behind: 977 findings.
+    const fetchMock = serve(977)
+    const { results, truncated } = await searchAllVulnerabilities({ package: "Windows Server 2022", version: "10.0.20348.5622", ecosystem: "advisory" })
+    expect(results).toHaveLength(977)
+    expect(new Set(results.map(r => (r as { id: string }).id)).size).toBe(977)
+    expect(truncated).toBe(false)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(String(fetchMock.mock.calls[1][0])).toContain("offset=500")
+  })
+
+  it("stops at the maximum and says whether more were left out", async () => {
+    // Windows Server 2022 never updated: 5,157 findings.
+    serve(5_157)
+    const over = await searchAllVulnerabilities({ package: "Windows Server 2022", ecosystem: "advisory" })
+    expect(over.results).toHaveLength(SEARCH_MAX_RESULTS)
+    expect(over.truncated).toBe(true)
+
+    serve(SEARCH_MAX_RESULTS)
+    const exact = await searchAllVulnerabilities({ package: "x" })
+    expect(exact.results).toHaveLength(SEARCH_MAX_RESULTS)
+    expect(exact.truncated).toBe(false)
   })
 })
