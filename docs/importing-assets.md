@@ -25,7 +25,15 @@ syft myapp:1.0 -o cyclonedx-json=sbom.json
 
 Syft on Windows cannot scan Linux container images correctly; run it on Linux or macOS, or in its Docker image.
 
-On a Windows Server host, heretix-cli's SBOM also carries the OS itself (beta): the release, such as `Windows Server 2022`, at its full OS build. It is imported as a Microsoft advisory product, the same as one added by hand under **Advisory**, and checked against Microsoft's security updates. Windows Server 2016 to 2025 are covered. The SBOM also lists the server's installed optional features, so a CVE in a server role the server does not run (DNS Server, DHCP Server, AD FS, NPS, Routing and Remote Access, ...) is raised already ignored as **Not affected** (code not present) and not announced; the scan reopens it if the role is installed later. CVEs in parts every server has (the kernel, SMB, Print Spooler, Remote Desktop, Hyper-V, ...) always apply. Without the feature list (an SBOM from an older heretix-cli, or one that could not read it) every CVE is an open alert.
+On a Windows Server host, heretix-cli's SBOM also carries the OS itself (beta): the release, such as `Windows Server 2022`, at its full OS build. It is imported as a Microsoft advisory product, the same as one added by hand under **Advisory**, and checked against Microsoft's security updates. Windows Server 2016 to 2025 are covered. The SBOM also lists the server's installed optional features, so a CVE in a server role the server does not run is raised already ignored as **Not affected** (code not present) and not announced; the scan reopens it if the role is installed later. Without the feature list (an SBOM from an older heretix-cli, or one that could not read it) every CVE is an open alert.
+
+Only a CVE in a role heretix-api can recognise is set aside this way:
+
+- **Judged by role:** DNS Server, DHCP Server, Routing and Remote Access (RRAS), AD FS, Network Policy Server (NPS), Message Queuing, Remote Desktop Gateway, WSUS, IIS, AD CS (certificate services) and Windows Deployment Services.
+- **Always open, not judged:** Hyper-V, AD DS (domain controllers) and Failover Cluster, whose parts member servers or guests also have; Print Spooler, SMB and Remote Desktop, which run on every server; WebDAV and iSCSI, whose CVE does not say whether the client or the server part is affected; the kernel, NTFS and the rest of the operating system.
+- **Not reviewed yet (open):** Fax Service, OCSP responder, Network File System, Remote Desktop Services, HTTP.sys.
+
+These roles cover about 9% of the CVEs heretix-api stores for Windows Server (for a Windows Server 2022 one monthly update behind in October 2026, 123 of its 977 findings); the rest always apply, since they sit in parts every server has. A CVE is set aside only when its role is recognised, so a CVE in a role that is not on this list stays open rather than being hidden by mistake. The full table, with the features each role needs, is in heretix-api's [data-sources.md](https://github.com/TITeee/heretix-api/blob/main/docs/data-sources.md#microsoft-windows-server).
 
 To update one particular asset, open it and click **Update from SBOM**. The asset's hostname is then used whatever the file says. Detection never uses vulnerabilities embedded in an SBOM (Trivy's `--scanners vuln`); it always goes through heretix-api.
 
