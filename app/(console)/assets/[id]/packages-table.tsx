@@ -22,7 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { SEVERITY_COLORS } from "@/lib/severity"
+import { isWindowsServerOs, rolesNotInstalled, WINDOWS_FEATURE_ROLES } from "@/lib/windows-roles"
 import { ArrowUpDown, ChevronDown, ChevronRight, ExternalLink, Pencil, Trash2, X } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -66,6 +68,7 @@ type PackageRow = {
   scope?: string | null
   category?: string | null
   licenses?: string[]
+  windowsFeatures?: string[]
   alertCount: number
   alertSeverities: { critical: number; high: number; medium: number; low: number; na: number }
 }
@@ -377,6 +380,126 @@ function LicenseCell({ licenses }: { licenses: string[] }) {
   )
 }
 
+// The optional features installed on a Windows Server, which the scan uses to
+// set aside the findings of server roles the server does not run (see
+// lib/windows-roles.ts). Shown on the OS package's row so it is visible why
+// an alert was set aside, and whether the list was collected at all.
+function WindowsFeaturesButton({ pkg }: { pkg: PackageRow }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
+  const [rolesOnly, setRolesOnly] = useState(false)
+  // Features that install a role the scan judges by come first, then the rest.
+  const features = [...(pkg.windowsFeatures ?? [])].sort((a, b) =>
+    Number(!!WINDOWS_FEATURE_ROLES[b]) - Number(!!WINDOWS_FEATURE_ROLES[a]) || a.localeCompare(b)
+  )
+  const roleFeatureCount = features.filter((f) => WINDOWS_FEATURE_ROLES[f]).length
+  const needle = query.trim().toLowerCase()
+  const shown = features.filter((f) =>
+    (!rolesOnly || WINDOWS_FEATURE_ROLES[f]) &&
+    (f.toLowerCase().includes(needle) || (WINDOWS_FEATURE_ROLES[f] ?? "").toLowerCase().includes(needle))
+  )
+  const notInstalled = rolesNotInstalled(features)
+  const byHand = pkg.source === "manual"
+  const known = features.length > 0
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen(true) }}
+        className="ml-2 align-middle"
+        title="Installed optional features"
+      >
+        <Badge
+          variant="outline"
+          className={
+            "cursor-pointer rounded-md text-xs font-medium " +
+            (known
+              ? "border-sky-300 bg-sky-100 text-sky-800 hover:bg-sky-200 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200 dark:hover:bg-sky-900"
+              : "border-amber-400 bg-amber-100 text-amber-900 hover:bg-amber-200 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900")
+          }
+        >
+          {known ? `${features.length} features` : "features unknown"}
+        </Badge>
+      </button>
+      <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) { setQuery(""); setRolesOnly(false) } }}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Installed features: {pkg.name}</DialogTitle>
+            <DialogDescription>
+              {known
+                ? "The optional features installed on the server. A CVE in a server role is set aside as Not affected when none of the features that role needs is installed, and reopened if one is installed later."
+                : byHand
+                  ? "This package was added by hand, so the server's installed features are not known and every role finding stays open."
+                  : "No feature list was collected: the SBOM came from an older heretix-cli, or the list could not be read. Every role finding stays open. Update from an SBOM made by heretix-cli 0.5.0 or later to enable it."}
+            </DialogDescription>
+          </DialogHeader>
+          {known && (
+            <div className="space-y-3">
+              <p className="text-xs">
+                <span className="font-medium">Roles not installed (their CVEs are set aside): </span>
+                {notInstalled.length === 0
+                  ? <span className="text-muted-foreground">none, every role this check knows is installed</span>
+                  : <span className="text-muted-foreground">{notInstalled.join(", ")}</span>}
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <Input
+                  placeholder="Filter features or roles..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="max-w-xs"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={rolesOnly ? "default" : "outline"}
+                  onClick={() => setRolesOnly((v) => !v)}
+                  title="Only the features that install a role this check can tell apart"
+                >
+                  Role features only ({roleFeatureCount})
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {shown.length === features.length ? `${features.length} features` : `${shown.length} of ${features.length}`}
+                </span>
+              </div>
+              <div className="max-h-96 overflow-y-auto rounded-md border">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background">
+                    <TableRow>
+                      <TableHead className="w-12 text-right">#</TableHead>
+                      <TableHead>Feature</TableHead>
+                      <TableHead>Role</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {shown.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-sm text-muted-foreground">No feature matches.</TableCell>
+                      </TableRow>
+                    ) : shown.map((f) => (
+                      <TableRow key={f}>
+                        <TableCell className="text-right text-xs text-muted-foreground">{features.indexOf(f) + 1}</TableCell>
+                        <TableCell className="font-mono text-xs">{f}</TableCell>
+                        <TableCell className="text-xs">
+                          {WINDOWS_FEATURE_ROLES[f]
+                            ? <Badge variant="outline" className="rounded-md border-sky-300 bg-sky-100 text-sky-800 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200">{WINDOWS_FEATURE_ROLES[f]}</Badge>
+                            : <span className="text-muted-foreground" title="Not the install of a server role this check tells apart: a feature every server has, or one it does not judge by.">Not a role</span>}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Close</DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
 function sortableHeader(label: string) {
   return function Header({ column }: { column: { toggleSorting: () => void } }) {
     return (
@@ -389,7 +512,16 @@ function sortableHeader(label: string) {
 
 function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
   return [
-    { accessorKey: "name", header: sortableHeader("Package") },
+    {
+      accessorKey: "name",
+      header: sortableHeader("Package"),
+      cell: ({ row }) => (
+        <>
+          {row.original.name}
+          {isWindowsServerOs(row.original) && <WindowsFeaturesButton pkg={row.original} />}
+        </>
+      ),
+    },
     { accessorKey: "version", header: sortableHeader("Version") },
     {
       accessorKey: "ecosystem",

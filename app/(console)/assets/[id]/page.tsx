@@ -59,6 +59,7 @@ export default async function AssetDetailPage({
           scope: true,
           category: true,
           licenses: true,
+          windowsFeatures: true,
         },
       },
       _count: { select: { alerts: true } },

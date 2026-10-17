@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { roleNotInstalled, roleNotInstalledNote } from "./windows-roles"
+import { isWindowsServerOs, roleNotInstalled, roleNotInstalledNote, rolesNotInstalled, WINDOWS_FEATURE_ROLES, WINDOWS_ROLES } from "./windows-roles"
 
 describe("roleNotInstalled", () => {
   const installed = ["NetFx4", "Server-Gui-Mgmt", "DHCPServer"]
@@ -25,5 +25,38 @@ describe("roleNotInstalledNote", () => {
     expect(roleNotInstalledNote(["RemoteAccessServer", "RasRoutingProtocols"])).toBe(
       "Role not installed on the server (needs RemoteAccessServer or RasRoutingProtocols)"
     )
+  })
+})
+
+describe("isWindowsServerOs", () => {
+  it("recognises the OS package by MSRC's product name in the advisory ecosystem", () => {
+    expect(isWindowsServerOs({ name: "Windows Server 2022", ecosystem: "advisory" })).toBe(true)
+    expect(isWindowsServerOs({ name: "Windows Server 2019 (Server Core installation)", ecosystem: "advisory" })).toBe(true)
+  })
+
+  it("is false for anything else", () => {
+    expect(isWindowsServerOs({ name: "Windows Server 2022", ecosystem: "" })).toBe(false)
+    expect(isWindowsServerOs({ name: "Windows Server 2012 R2", ecosystem: "advisory" })).toBe(false)
+    expect(isWindowsServerOs({ name: "FortiOS", ecosystem: "advisory" })).toBe(false)
+  })
+})
+
+describe("rolesNotInstalled", () => {
+  it("lists every role when no role feature is installed", () => {
+    expect(rolesNotInstalled(["NetFx4", "Server-Gui-Mgmt"])).toEqual([...WINDOWS_ROLES])
+    expect(WINDOWS_ROLES).toHaveLength(11)
+  })
+
+  it("leaves out a role when any one of its features is installed", () => {
+    const notInstalled = rolesNotInstalled(["NetFx4", "DHCPServer", "RasRoutingProtocols"])
+    expect(notInstalled).not.toContain("DHCP Server")
+    expect(notInstalled).not.toContain("Routing and Remote Access (RRAS)")
+    expect(notInstalled).toContain("DNS Server")
+    expect(notInstalled).toHaveLength(9)
+  })
+
+  it("labels the features by role, sharing one label for the two RRAS features", () => {
+    expect(WINDOWS_FEATURE_ROLES["RemoteAccessServer"]).toBe(WINDOWS_FEATURE_ROLES["RasRoutingProtocols"])
+    expect(WINDOWS_FEATURE_ROLES["NetFx4"]).toBeUndefined()
   })
 })

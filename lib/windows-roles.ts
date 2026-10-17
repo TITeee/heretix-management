@@ -28,3 +28,47 @@ export function roleNotInstalled(requiresFeatures: string[] | null | undefined, 
 export function roleNotInstalledNote(requiresFeatures: string[]): string {
   return `Role not installed on the server (needs ${requiresFeatures.join(" or ")})`
 }
+
+/**
+ * Whether a package is the Windows Server OS itself, as heretix-cli reports
+ * it (or as one is added by hand under Advisory): MSRC's product name in the
+ * advisory ecosystem. Only that package can carry the installed features.
+ */
+export function isWindowsServerOs(pkg: { name: string; ecosystem: string }): boolean {
+  return pkg.ecosystem === "advisory" && /^Windows Server (2016|2019|2022|2025)( \(Server Core installation\))?$/.test(pkg.name)
+}
+
+/**
+ * The server role each optional feature installs, for the features heretix-api
+ * judges findings by (its config/windows-role-features.ts is the authority,
+ * and decides what a finding needs through requiresFeatures). This table only
+ * labels the installed-features list; if it falls behind, a feature loses its
+ * role label and no finding is judged differently.
+ */
+export const WINDOWS_FEATURE_ROLES: Readonly<Record<string, string>> = {
+  "DNS-Server-Full-Role": "DNS Server",
+  "DHCPServer": "DHCP Server",
+  "RemoteAccessServer": "Routing and Remote Access (RRAS)",
+  "RasRoutingProtocols": "Routing and Remote Access (RRAS)",
+  "IdentityServer-SecurityTokenService": "AD FS",
+  "NPAS-Role": "Network Policy Server (NPS)",
+  "MSMQ-Server": "Message Queuing",
+  "Gateway": "Remote Desktop Gateway",
+  "UpdateServices-Services": "WSUS",
+  "IIS-WebServer": "IIS",
+  "ADCertificateServicesRole": "AD CS",
+  "Microsoft-Windows-Deployment-Services": "Windows Deployment Services",
+}
+
+/** The roles a finding can be judged by, in the order above, each once. */
+export const WINDOWS_ROLES: readonly string[] = [...new Set(Object.values(WINDOWS_FEATURE_ROLES))]
+
+/**
+ * The roles that none of the installed features installs: the roles whose
+ * findings the scan sets aside on this server. A role counts as installed
+ * when any one of its features is.
+ */
+export function rolesNotInstalled(installedFeatures: string[]): string[] {
+  const installed = new Set(installedFeatures.map((f) => WINDOWS_FEATURE_ROLES[f]).filter(Boolean))
+  return WINDOWS_ROLES.filter((r) => !installed.has(r))
+}

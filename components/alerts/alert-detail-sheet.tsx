@@ -60,6 +60,8 @@ export type SheetAlert = {
   resolveReason: string | null
   vexJustification?: string | null
   ignoreReason?: string | null
+  // Set aside by a scan because the server does not run the role this CVE is in.
+  notApplicableByScan?: boolean
   fixedVersion?: string | null
   approximateMatch?: boolean
   distroPriority?: string | null
@@ -1172,6 +1174,11 @@ export function AlertDetailSheet({
                       </div>
                     ))}
                   </div>
+                )}
+                {status === "ignored" && alert.notApplicableByScan && (
+                  <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                    The scan set this aside because the server does not run the role this CVE is in (none of the features the role needs is installed). It reopens by itself if the role is installed. Changing the reason by hand makes it your decision, which the scan leaves alone.
+                  </p>
                 )}
                 {status === "ignored" && (
                   <div className="space-y-2 rounded-md border p-3">
