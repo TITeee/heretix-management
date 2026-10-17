@@ -16,13 +16,13 @@ export async function POST(
 
   try {
     const asset = await prisma.asset.findUnique({ where: { id: assetId }, select: { name: true, hostname: true } })
-    const { newAlerts, resolvedAlerts, heldAlerts } = await scanAsset(assetId)
+    const { newAlerts, resolvedAlerts, heldAlerts, cutPackages } = await scanAsset(assetId)
     await createAuditLog({
       ...auditIdentity(authResult.actor),
       action: "asset_scanned", target: asset?.name || asset?.hostname,
-      detail: `new alerts: ${newAlerts}, resolved: ${resolvedAlerts}${heldAlerts ? `, held: ${heldAlerts}` : ""}`,
+      detail: `new alerts: ${newAlerts}, resolved: ${resolvedAlerts}${heldAlerts ? `, held: ${heldAlerts}` : ""}${cutPackages ? `, packages cut: ${cutPackages}` : ""}`,
     })
-    return NextResponse.json({ newAlerts, resolvedAlerts, heldAlerts })
+    return NextResponse.json({ newAlerts, resolvedAlerts, heldAlerts, cutPackages })
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error"
     if (msg.includes("Asset not found")) {

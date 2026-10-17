@@ -484,3 +484,76 @@ describe("scanAsset — Windows Server roles the server does not run", () => {
     expect(await alertOf("CVE-2026-9001")).toMatchObject({ status: "ignored", ignoreReason: "false_positive" })
   })
 })
+
+describe("scanAsset — packages heretix-api cut short", () => {
+  beforeEach(async () => {
+    await resetDb()
+    mockedBatchSearch.mockReset()
+    mockedSearchByCPE.mockReset().mockResolvedValue({ results: [] })
+    mockedSlack.mockClear()
+  })
+
+  afterAll(async () => {
+    await prisma.$disconnect()
+  })
+
+  const finding = (id: string) => ({
+    id, externalId: id, source: "red-hat-vex", sources: ["red-hat-vex"],
+    severity: "HIGH", cvssScore: 7.5, cvssVector: null, summary: null, publishedAt: null,
+    approximateMatch: false, isKev: false, epssScore: null, epssPercentile: null, fixedVersion: null,
+  })
+  const answer = (name: string, n: number, extra: Record<string, unknown> = {}) => [{
+    package: name, version: "1.0-1", ecosystem: "Red Hat:9",
+    vulnerabilities: Array.from({ length: n }, (_, i) => finding(`CVE-2026-${name}-${i}`)),
+    ...extra,
+  }]
+
+  async function setup(...names: string[]) {
+    const asset = await createAsset()
+    for (const name of names) {
+      await prisma.package.create({
+        data: { assetId: asset.id, name, version: "1.0-1", rawVersion: "1.0-1", ecosystem: "Red Hat:9", source: "sbom", deps: [] },
+      })
+    }
+    return asset
+  }
+  const pkgOf = (assetId: string, name: string) => prisma.package.findFirstOrThrow({ where: { assetId, name } })
+
+  it("records the packages heretix-api cut short, and how many matched", async () => {
+    const asset = await setup("kernel", "bash")
+    mockedBatchSearch.mockResolvedValue([
+      ...answer("kernel", 5, { total: 6122, truncated: true }),
+      ...answer("bash", 3, { total: 3, truncated: false }),
+    ])
+
+    const result = await scanAsset(asset.id)
+
+    expect(result.cutPackages).toBe(1)
+    expect(await pkgOf(asset.id, "kernel")).toMatchObject({ findingsCut: true, findingsMatched: 6122, findingsReturned: 5 })
+    expect(await pkgOf(asset.id, "bash")).toMatchObject({ findingsCut: false, findingsMatched: null, findingsReturned: null })
+    const job = await prisma.scanJob.findFirstOrThrow({ where: { assetId: asset.id }, orderBy: { createdAt: "desc" } })
+    expect(job.cutPackages).toBe(1)
+  })
+
+  it("clears the mark once a scan is no longer cut", async () => {
+    const asset = await setup("kernel")
+    mockedBatchSearch.mockResolvedValue(answer("kernel", 5, { total: 6122, truncated: true }))
+    await scanAsset(asset.id)
+    expect((await pkgOf(asset.id, "kernel")).findingsCut).toBe(true)
+
+    mockedBatchSearch.mockResolvedValue(answer("kernel", 4, { total: 4, truncated: false }))
+    const result = await scanAsset(asset.id)
+
+    expect(result.cutPackages).toBe(0)
+    expect(await pkgOf(asset.id, "kernel")).toMatchObject({ findingsCut: false, findingsMatched: null, findingsReturned: null })
+  })
+
+  it("treats an answer of 500 from a heretix-api that sends no flag as cut, without a total", async () => {
+    const asset = await setup("kernel")
+    mockedBatchSearch.mockResolvedValue(answer("kernel", 500))
+
+    await scanAsset(asset.id)
+
+    expect(await pkgOf(asset.id, "kernel")).toMatchObject({ findingsCut: true, findingsMatched: null, findingsReturned: 500 })
+  })
+})

@@ -80,6 +80,14 @@ model Package {
   // findings of a role none of whose features is installed (see lib/scan.ts).
   // Empty when unknown, which is every other package.
   windowsFeatures String[] @default([])
+  // Set by a scan when heretix-api matched more findings for this package than
+  // it sends (5,000 per package), so only the most severe became alerts:
+  // findingsMatched is how many matched (null if heretix-api did not say) and
+  // findingsReturned how many it sent. Cleared by a scan that is not cut.
+  // See lib/findings-cut.ts.
+  findingsCut      Boolean @default(false)
+  findingsMatched  Int?
+  findingsReturned Int?
 
   // A package is identified by its ecosystem, name and version, matching what a
   // vulnerability lookup is keyed on and what a PURL encodes. npm and pnpm resolve
@@ -100,6 +108,8 @@ model ScanJob {
   // Alerts the scan would have auto-resolved but kept open because too large a
   // share of the asset's open alerts vanished at once (see lib/scan-resolve.ts).
   heldAlerts  Int       @default(0)
+  // Packages heretix-api cut short in this scan (see Package.findingsCut).
+  cutPackages Int       @default(0)
   createdAt   DateTime  @default(now())
 
   // The dashboard and the asset pages read an asset's latest and last successful scan.

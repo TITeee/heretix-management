@@ -19,6 +19,7 @@ type ScanJob = {
   completedAt: Date | null
   newAlerts: number
   heldAlerts: number
+  cutPackages: number
   errorMsg: string | null
 }
 
@@ -54,6 +55,14 @@ export function ScanHistoryModal({ scanJobs }: { scanJobs: ScanJob[] }) {
                   <div className="flex items-center gap-2">
                     {job.newAlerts > 0 && (
                       <span className="text-xs text-destructive">+{job.newAlerts} alerts</span>
+                    )}
+                    {job.cutPackages > 0 && (
+                      <span
+                        className="text-xs text-amber-700 dark:text-amber-400"
+                        title="heretix-api matched more findings than it sends for these packages, so only their most severe findings became alerts."
+                      >
+                        {job.cutPackages} cut
+                      </span>
                     )}
                     {job.heldAlerts > 0 && (
                       <span

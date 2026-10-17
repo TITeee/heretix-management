@@ -25,6 +25,7 @@ import { RemediationTab } from "./remediation-tab"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { AlertSummaryBadges, buildAlertSummary, type AlertSummary } from "@/components/alerts/alert-summary-badges"
 import { countSeverityByKey, emptySeverityCounts } from "@/lib/severity"
+import { cutExplanation, cutLabel } from "@/lib/findings-cut"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -60,6 +61,9 @@ export default async function AssetDetailPage({
           category: true,
           licenses: true,
           windowsFeatures: true,
+          findingsCut: true,
+          findingsMatched: true,
+          findingsReturned: true,
         },
       },
       _count: { select: { alerts: true } },
@@ -120,6 +124,9 @@ export default async function AssetDetailPage({
       alertSeverities: s,
     }
   })
+
+  // Packages heretix-api cut short: only their most severe findings are alerts.
+  const cutPackages = asset.packages.filter((p) => p.findingsCut)
 
   const tags = asset.assetTags
     .map((at) => at.tag)
@@ -182,7 +189,7 @@ export default async function AssetDetailPage({
           <Link href={`/alerts?assetId=${id}`}>
             <Button variant="destructive" size="sm">
               <Bell className="h-4 w-4" />
-              {openAlerts} Open Alerts
+              {openAlerts.toLocaleString()}{cutPackages.length > 0 ? "+" : ""} Open Alerts
             </Button>
           </Link>
           <ScanButton assetId={id} />
@@ -267,6 +274,26 @@ export default async function AssetDetailPage({
       </div>
 
       {/* Alert Summary */}
+      {cutPackages.length > 0 && (
+        <div className="rounded-lg border border-amber-400 bg-amber-50 p-4 text-sm dark:border-amber-700 dark:bg-amber-950/40">
+          <p className="font-medium text-amber-900 dark:text-amber-200">
+            {cutPackages.length === 1 ? "1 package has" : `${cutPackages.length} packages have`} more findings than heretix-api sends
+          </p>
+          <p className="mt-1 text-xs text-amber-900/80 dark:text-amber-200/80">
+            Only the most severe findings of each (known exploited first, then by CVSS) became alerts, so the alert counts on this page are at least these numbers.
+          </p>
+          <ul className="mt-2 space-y-0.5 text-xs">
+            {cutPackages.slice(0, 8).map((p) => (
+              <li key={`${p.name}@${p.version}`} title={cutExplanation(p)}>
+                <span className="font-mono">{p.name} {p.version}</span>
+                <span className="ml-2 text-muted-foreground">{cutLabel(p)} findings</span>
+              </li>
+            ))}
+            {cutPackages.length > 8 && <li className="text-muted-foreground">and {cutPackages.length - 8} more (see the Packages tab)</li>}
+          </ul>
+        </div>
+      )}
+
       <div className="rounded-lg border p-4 space-y-2 w-fit min-w-64">
         <h2 className="text-sm font-semibold">Open Alert Summary</h2>
         <AlertSummaryBadges summary={alertSummary} kevCount={kevCount} assetId={id} />

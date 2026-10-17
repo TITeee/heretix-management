@@ -25,6 +25,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { SEVERITY_COLORS } from "@/lib/severity"
 import { isWindowsServerOs, rolesNotInstalled, WINDOWS_FEATURE_ROLES } from "@/lib/windows-roles"
+import { cutExplanation, cutLabel } from "@/lib/findings-cut"
 import { ArrowUpDown, ChevronDown, ChevronRight, ExternalLink, Pencil, Trash2, X } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -69,6 +70,9 @@ type PackageRow = {
   category?: string | null
   licenses?: string[]
   windowsFeatures?: string[]
+  findingsCut?: boolean
+  findingsMatched?: number | null
+  findingsReturned?: number | null
   alertCount: number
   alertSeverities: { critical: number; high: number; medium: number; low: number; na: number }
 }
@@ -519,6 +523,15 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
         <>
           {row.original.name}
           {isWindowsServerOs(row.original) && <WindowsFeaturesButton pkg={row.original} />}
+          {row.original.findingsCut && (
+            <Badge
+              variant="outline"
+              className="ml-2 rounded-md border-amber-400 bg-amber-100 text-xs font-medium text-amber-900 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-200"
+              title={cutExplanation({ findingsMatched: row.original.findingsMatched ?? null, findingsReturned: row.original.findingsReturned ?? null })}
+            >
+              {cutLabel({ findingsMatched: row.original.findingsMatched ?? null, findingsReturned: row.original.findingsReturned ?? null })} findings
+            </Badge>
+          )}
         </>
       ),
     },

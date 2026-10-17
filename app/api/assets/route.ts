@@ -310,13 +310,13 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
   async function withScan<T extends { id: string; name: string; hostname: string }>(result: T, status: number) {
     if (!scanAfterImport) return NextResponse.json(result, { status })
     try {
-      const { newAlerts, resolvedAlerts, heldAlerts } = await scanAsset(result.id)
+      const { newAlerts, resolvedAlerts, heldAlerts, cutPackages } = await scanAsset(result.id)
       await createAuditLog({
         ...audit,
         action: "asset_scanned", target: result.name || result.hostname,
-        detail: `new alerts: ${newAlerts}, resolved: ${resolvedAlerts}${heldAlerts ? `, held: ${heldAlerts}` : ""}`,
+        detail: `new alerts: ${newAlerts}, resolved: ${resolvedAlerts}${heldAlerts ? `, held: ${heldAlerts}` : ""}${cutPackages ? `, packages cut: ${cutPackages}` : ""}`,
       })
-      return NextResponse.json({ ...result, scan: { newAlerts, resolvedAlerts, heldAlerts } }, { status })
+      return NextResponse.json({ ...result, scan: { newAlerts, resolvedAlerts, heldAlerts, cutPackages } }, { status })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error"
       return NextResponse.json({ ...result, error: `Imported, but the scan failed: ${message}` }, { status: 502 })

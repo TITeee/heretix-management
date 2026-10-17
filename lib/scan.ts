@@ -62,7 +62,7 @@ export async function failInterruptedScanJobs(): Promise<number> {
 
 export async function scanAsset(
   assetId: string
-): Promise<{ newAlerts: number; resolvedAlerts: number; heldAlerts: number }> {
+): Promise<{ newAlerts: number; resolvedAlerts: number; heldAlerts: number; cutPackages: number }> {
   const asset = await prisma.asset.findUnique({
     where: { id: assetId },
     include: { packages: true, assetTags: true },
@@ -162,6 +162,8 @@ export async function scanAsset(
     const seen = new Set<string>()
     /** Packages whose result set is known to be complete, so absences are meaningful. */
     const reconcilable = new Set<string>()
+    /** Packages heretix-api cut short: only their most severe findings became alerts (lib/findings-cut.ts). */
+    const cutFindings = new Map<string, { name: string; version: string; matched: number | null; returned: number }>()
 
     // Excluded packages are never queried, but they are still a complete (empty)
     // result: nothing runs from them, so any alert an earlier scan raised against
@@ -524,6 +526,13 @@ export async function scanAsset(
       for (const r of results) {
         if (isCompleteBatchResult(r)) {
           reconcilable.add(packageKey(r.package, r.version))
+        } else {
+          cutFindings.set(packageKey(r.package, r.version), {
+            name: r.package,
+            version: r.version,
+            matched: typeof r.total === "number" ? r.total : null,
+            returned: r.vulnerabilities.length,
+          })
         }
         for (const v of r.vulnerabilities) {
           await record(r.package, r.version, r.ecosystem ?? "", "osv", v, sourcePackageByKey.get(packageKey(r.package, r.version)) ?? null)
@@ -620,9 +629,24 @@ export async function scanAsset(
       return { packageName: a.packageName, packageVersion: a.packageVersion, externalId: a.externalId, severity: a.severity, cvssScore: a.cvssScore }
     })
 
+    // Keep which packages were cut, so the pages can say so: the alerts are only
+    // the most severe findings of those. A package that is no longer cut is cleared.
+    if (cutFindings.size > 0 || pkgs.some((p) => p.findingsCut)) {
+      await prisma.package.updateMany({
+        where: { assetId, findingsCut: true },
+        data: { findingsCut: false, findingsMatched: null, findingsReturned: null },
+      })
+      for (const c of cutFindings.values()) {
+        await prisma.package.updateMany({
+          where: { assetId, name: c.name, version: c.version },
+          data: { findingsCut: true, findingsMatched: c.matched, findingsReturned: c.returned },
+        })
+      }
+    }
+
     await prisma.scanJob.update({
       where: { id: job.id },
-      data: { status: "completed", completedAt: new Date(), newAlerts: newAlertCount, heldAlerts: heldCount },
+      data: { status: "completed", completedAt: new Date(), newAlerts: newAlertCount, heldAlerts: heldCount, cutPackages: cutFindings.size },
     })
     await prisma.asset.update({
       where: { id: assetId },
@@ -686,7 +710,7 @@ export async function scanAsset(
       }).catch(() => {})
     }
 
-    return { newAlerts: newAlertCount, resolvedAlerts: resolvedCount, heldAlerts: heldCount }
+    return { newAlerts: newAlertCount, resolvedAlerts: resolvedCount, heldAlerts: heldCount, cutPackages: cutFindings.size }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error"
     await prisma.scanJob.update({
