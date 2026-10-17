@@ -64,6 +64,12 @@ export type VulnSearchResult = {
    * Absent otherwise, and from older heretix-api.
    */
   requiresFeatures?: string[]
+  /**
+   * The part of the product the vendor says the finding is in, verbatim
+   * (Microsoft's tag for a Windows Server: "Role: DNS Server", "Windows
+   * Kernel"). Absent when the source gives none, and from older heretix-api.
+   */
+  component?: string
 }
 
 export type BatchPackage = {

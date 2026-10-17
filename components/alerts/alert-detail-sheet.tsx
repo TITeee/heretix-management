@@ -65,6 +65,8 @@ export type SheetAlert = {
   fixedVersion?: string | null
   approximateMatch?: boolean
   distroPriority?: string | null
+  // The part of the product the vendor says the CVE is in (Windows Server: "Role: DNS Server").
+  component?: string | null
   fixStatus?: string | null
   fixStatusDetail?: string | null
   detectedAt: Date
@@ -910,6 +912,15 @@ export function AlertDetailSheet({
                     {alert.cvssVector && <CvssVectorTooltip vector={alert.cvssVector} />}
                   </div>
                 </div>
+                {alert.component && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-28 text-muted-foreground shrink-0">Component</span>
+                    <span>
+                      {alert.component}
+                      <span className="text-muted-foreground text-xs ml-2">(the part of the product the vendor says this CVE is in)</span>
+                    </span>
+                  </div>
+                )}
                 {alert.distroPriority && (
                   <div className="flex items-center gap-2">
                     <span className="w-28 text-muted-foreground shrink-0">Distro Rating</span>

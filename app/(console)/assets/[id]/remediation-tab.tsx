@@ -96,6 +96,7 @@ function AlertList({ ids, alerts, onSelect }: { ids: string[]; alerts: Map<strin
       <thead className="text-muted-foreground">
         <tr className="border-b">
           <th className="py-1.5 text-left font-medium">Vulnerability</th>
+          <th className="py-1.5 text-left font-medium">Component</th>
           <th className="py-1.5 text-left font-medium">Package</th>
           <th className="py-1.5 text-left font-medium">Severity</th>
           <th className="py-1.5 text-left font-medium">Fixed in</th>
@@ -109,6 +110,7 @@ function AlertList({ ids, alerts, onSelect }: { ids: string[]; alerts: Map<strin
               <td className="py-1.5 font-mono"><span className="inline-flex items-center gap-1.5">{a.externalId}{a.isKev && (
                 <span title="CISA Known Exploited Vulnerability"><FaTriangleExclamation className="h-3.5 w-3.5 text-red-600" /></span>
               )}</span></td>
+              <td className="py-1.5">{a.component ?? <span className="text-muted-foreground" title="No component was reported for this CVE: the source gives none, or the asset has not been scanned since heretix-api started reporting it.">Not reported</span>}</td>
               <td className="py-1.5">{a.packageName} <span className="text-muted-foreground">{a.packageVersion}</span></td>
               <td className="py-1.5"><SeverityBadge severity={a.severity} score={a.cvssScore} /></td>
               <td className="py-1.5 font-mono">{a.fixedVersion ?? <span className="font-sans text-muted-foreground">None</span>}</td>

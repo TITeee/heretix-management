@@ -148,6 +148,7 @@ export async function scanAsset(
         distroPriority: true,
         fixStatus: true,
         fixStatusDetail: true,
+        component: true,
         reopenOnFix: true,
         notApplicableByScan: true,
         missingSince: true,
@@ -236,7 +237,7 @@ export async function scanAsset(
     // distroPriority / fixStatus from a package-level match that the daily
     // metadata refresh (a CVE-level lookup) never sees. Kept current without
     // a timeline event, since none is a change to the finding itself.
-    type ScanOnlyFields = Pick<(typeof existingAlerts)[number], "sourcePackage" | "distroPriority" | "fixStatus" | "fixStatusDetail">
+    type ScanOnlyFields = Pick<(typeof existingAlerts)[number], "sourcePackage" | "distroPriority" | "fixStatus" | "fixStatusDetail" | "component">
     const syncScanOnlyFields = async (alert: (typeof existingAlerts)[number], fields: ScanOnlyFields) => {
       const unchanged = (Object.keys(fields) as (keyof ScanOnlyFields)[]).every((k) => alert[k] === fields[k])
       if (unchanged) return
@@ -363,6 +364,7 @@ export async function scanAsset(
       const scanOnly: ScanOnlyFields = {
         sourcePackage,
         distroPriority: v.distroPriority ?? null,
+        component: v.component ?? null,
         fixStatus: v.fixStatus ?? null,
         fixStatusDetail: v.fixStatusDetail ?? null,
       }

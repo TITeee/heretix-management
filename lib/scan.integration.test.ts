@@ -127,6 +127,38 @@ describe("scanAsset — Alert.sourcePackage (display-only grouping label)", () =
     expect(alert.sourcePackage).toBe("binutils")
   })
 
+  it("copies the component heretix-api reports onto the alert, and keeps an existing alert's current", async () => {
+    // Microsoft's tag for the part of Windows Server a CVE is in.
+    const asset = await createAsset()
+    await prisma.package.create({
+      data: {
+        assetId: asset.id, name: "Windows Server 2022", version: "10.0.20348.5622", rawVersion: "10.0.20348.5622",
+        ecosystem: "advisory", source: "sbom", deps: [],
+      },
+    })
+    const finding = (id: string, component?: string) => ({
+      id, externalId: id, source: "advisory-microsoft", sources: ["advisory-microsoft"],
+      severity: "HIGH", cvssScore: 7.5, cvssVector: null, summary: null, publishedAt: null,
+      approximateMatch: false, isKev: false, epssScore: null, epssPercentile: null, fixedVersion: "10.0.20348.5761",
+      ...(component && { component }),
+    })
+    const answer = (components: [string?, string?]) => [{
+      package: "Windows Server 2022", version: "10.0.20348.5622", ecosystem: "advisory", total: 2, truncated: false,
+      vulnerabilities: [finding("CVE-2026-9101", components[0]), finding("CVE-2026-9102", components[1])],
+    }]
+
+    mockedBatchSearch.mockResolvedValue(answer(["Windows Kernel", undefined]))
+    await scanAsset(asset.id)
+    const component = async (externalId: string) => (await prisma.alert.findFirstOrThrow({ where: { externalId } })).component
+    expect(await component("CVE-2026-9101")).toBe("Windows Kernel")
+    expect(await component("CVE-2026-9102")).toBeNull()
+
+    // A later scan fills in what an earlier one (or an older heretix-api) did not have.
+    mockedBatchSearch.mockResolvedValue(answer(["Windows Kernel", "Windows NTFS"]))
+    await scanAsset(asset.id)
+    expect(await component("CVE-2026-9102")).toBe("Windows NTFS")
+  })
+
   it("leaves sourcePackage null when the package has no source-package split", async () => {
     const asset = await createAsset()
     await prisma.package.create({

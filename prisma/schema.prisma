@@ -164,6 +164,11 @@ model Alert {
   // lifecycle as distroPriority: per package match, so only a scan sets it.
   fixStatus         String?
   fixStatusDetail   String?
+  // The part of the product the vendor says the CVE is in, verbatim from
+  // heretix-api (Microsoft's tag for a Windows Server: "Role: DNS Server",
+  // "Windows Kernel"; null where the source gives none). Display only. Same
+  // lifecycle as distroPriority: per package match, so only a scan sets it.
+  component         String?
   detectedAt        DateTime       @default(now())
   dueDate           DateTime?
   resolvedAt     DateTime?

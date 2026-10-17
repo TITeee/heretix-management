@@ -24,7 +24,7 @@ export const GET = withApiErrorHandling("alerts.list", async (req: NextRequest) 
       cvssScore: true, cvssVector: true, summary: true,
       isKev: true, epssScore: true, epssPercentile: true,
       status: true, notes: true, resolveReason: true,
-      vexJustification: true, ignoreReason: true, notApplicableByScan: true, fixedVersion: true,
+      vexJustification: true, ignoreReason: true, notApplicableByScan: true, component: true, fixedVersion: true,
       detectedAt: true, resolvedAt: true,
       asset: { select: { id: true, name: true, hostname: true } },
     },

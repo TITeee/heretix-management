@@ -66,9 +66,10 @@ Shown next to the tier, never mixed into it:
 | **EPSS** | Probability of exploitation in the next 30 days, with its percentile | FIRST, via heretix-api |
 | **KEV** | Listed in CISA's Known Exploited Vulnerabilities | CISA, via heretix-api |
 | **Distro Rating** | The distro's own rating of the CVE for this package: Ubuntu priority (`negligible`..`critical`), Debian urgency (`unimportant`..`high`), Red Hat impact (`low`..`critical`), and for a Windows Server finding Microsoft's rating (`Low`..`Critical`, shown as Microsoft). Each rates on its own scale | heretix-api, per package match |
+| **Component** | The part of the product the vendor says the CVE is in, verbatim. Windows Server only today: Microsoft's tag (`Role: DNS Server`, `Windows Kernel`, `Windows NTFS`). Shown in the detail panel and in the Remediation list | heretix-api, per package match |
 | **Fix Status** | Why there is no fix: *Affected*, *Fix deferred*, *Will not fix*, *Out of support*, *Under investigation*. Red Hat only today | heretix-api, per package match |
 
-Distro Rating and Fix Status are set by a scan, not by Refresh Metadata, since they belong to a package match rather than to the CVE. Both have a column (hidden by default) and a filter on the Alerts list. A Red Hat alert can show a Fixed in version and a fix status together when Red Hat's OVAL and VEX data disagree; both are shown as published.
+Distro Rating, Component and Fix Status are set by a scan, not by Refresh Metadata, since they belong to a package match rather than to the CVE. Both have a column (hidden by default) and a filter on the Alerts list. A Red Hat alert can show a Fixed in version and a fix status together when Red Hat's OVAL and VEX data disagree; both are shown as published.
 
 ## The Alerts list
 
@@ -92,7 +93,7 @@ Every asset page (container image, host, or appliance) opens on a **Remediation*
 | Update a product | A product registered by hand or by CSV import (appliance firmware, software outside a package manager), and a Windows Server release from a heretix-cli SBOM |
 | Update a package | A language package whose place in the dependency graph is unknown |
 
-Changes are ordered with KEV first, then by the worst severity, then by the number of findings. Each shows the fixed versions and lists its alerts; click one to open the detail panel.
+Changes are ordered with KEV first, then by the worst severity, then by the number of findings. Each shows the fixed versions and lists its alerts, with the component each is in (for a Windows Server, Microsoft's tag); click one to open the detail panel.
 
 **No fix available** (findings with no fixed version) are grouped by the distro's fix status (Under investigation, Affected, Fix deferred, Will not fix, Out of support, or none given), with the distro ratings counted. No upgrade resolves these, so each group can be left open to wait for a fix, or **accepted** at once: its alerts become Ignored with the reason Accepted risk (not exported to VEX) and an optional memo on each timeline, and each one reopens automatically when a scan finds a fixed version for it. Changing such an alert's status or reason by hand afterward drops the automatic reopening.
 
