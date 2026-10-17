@@ -57,6 +57,13 @@ export type VulnSearchResult = {
    * Optional: an older heretix-api that predates this field simply omits it.
    */
   aliases?: string[]
+  /**
+   * Windows Server only: the optional features (DISM names) any one of which
+   * the finding needs, when Microsoft files it under a server role. A server
+   * with none of them installed is not affected (see lib/windows-roles.ts).
+   * Absent otherwise, and from older heretix-api.
+   */
+  requiresFeatures?: string[]
 }
 
 export type BatchPackage = {

@@ -127,8 +127,10 @@ export const POST = withApiErrorHandling("vex.import", async (req: NextRequest) 
               status: newStatus,
               vexJustification: newVexJustification,
               ignoreReason: newIgnoreReason,
-              // An imported judgment replaces a "reopen once fixed" acceptance.
+              // An imported judgment replaces a "reopen once fixed" acceptance,
+              // and the scan's own role-based not-affected call.
               reopenOnFix: false,
+              notApplicableByScan: false,
               ...(newStatus === "resolved" ? { resolvedAt: new Date() } : {}),
               ...(newStatus !== "resolved" && alert.status === "resolved" ? { resolvedAt: null } : {}),
             },

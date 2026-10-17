@@ -74,6 +74,12 @@ model Package {
   // CycloneDX licenses[] item; how several combine is left unstated by the
   // spec, so they are kept apart rather than joined. Display and filtering only.
   licenses      String[] @default([])
+  // The optional features installed on a Windows Server (DISM names,
+  // "DNS-Server-Full-Role"), on the package for the OS itself, from
+  // heretix-cli's heretix:windows-features property. A scan sets aside the
+  // findings of a role none of whose features is installed (see lib/scan.ts).
+  // Empty when unknown, which is every other package.
+  windowsFeatures String[] @default([])
 
   // A package is identified by its ecosystem, name and version, matching what a
   // vulnerability lookup is keyed on and what a PURL encodes. npm and pnpm resolve
@@ -128,6 +134,11 @@ model Alert {
   // that finds a fixedVersion reopens it. Cleared by any later manual change to
   // its status or ignore reason.
   reopenOnFix       Boolean   @default(false)
+  // Set when a scan made the alert ignored as not affected because the
+  // server does not run the role the finding is in (none of its
+  // requiresFeatures installed). The scan reopens it once the role appears.
+  // Cleared by any later manual change to its status or ignore reason.
+  notApplicableByScan Boolean @default(false)
   // When a scan first found this open alert no longer reported by heretix-api
   // although its package is unchanged. Cleared when it is reported again; it is
   // resolved once this is older than the grace period (lib/scan-resolve.ts).

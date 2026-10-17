@@ -276,7 +276,11 @@ describe("convertCycloneDXToInventory — heretix-cli Windows Server", () => {
         name: "Windows Server 2022 (Server Core installation)",
         version: "10.0.20348.5761",
         purl: "pkg:generic/microsoft/Windows%20Server%202022%20%28Server%20Core%20installation%29@10.0.20348.5761",
-        properties: [{ name: "heretix:ecosystem", value: "advisory" }, { name: "heretix:source", value: "windows-registry" }],
+        properties: [
+          { name: "heretix:ecosystem", value: "advisory" },
+          { name: "heretix:source", value: "windows-registry" },
+          { name: "heretix:windows-features", value: "DHCPServer,NetFx4" },
+        ],
       },
       { "bom-ref": "heretix:os:windows@10.0.20348.5761", type: "operating-system", name: "windows", version: "10.0.20348.5761" },
       { type: "library", name: "lodash", version: "4.17.21", purl: "pkg:npm/lodash@4.17.21", properties: [{ name: "heretix:ecosystem", value: "npm" }] },
@@ -292,6 +296,12 @@ describe("convertCycloneDXToInventory — heretix-cli Windows Server", () => {
     })
     // Not the purl's namespace-joined name, which no advisory matches.
     expect(inv.packages.some(p => p.name.startsWith("microsoft/"))).toBe(false)
+  })
+
+  it("keeps the server's installed optional features on its OS package, and none elsewhere", () => {
+    const inv = convertCycloneDXToInventory(bom)
+    expect(pkg(inv, "Windows Server 2022 (Server Core installation)").windowsFeatures).toEqual(["DHCPServer", "NetFx4"])
+    expect(pkg(inv, "lodash").windowsFeatures).toEqual([])
   })
 
   it("leaves other packages to their purl, and the operating-system descriptor out", () => {

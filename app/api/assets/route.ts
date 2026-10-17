@@ -126,6 +126,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
     category?: string | null
     sourcePackage?: string | null
     licenses?: unknown
+    windowsFeatures?: unknown
   }) => ({
     name: p.name,
     version: p.version,
@@ -140,6 +141,9 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
     sourcePackage: p.sourcePackage ?? null,
     licenses: Array.isArray(p.licenses)
       ? p.licenses.filter((l): l is string => typeof l === "string" && l.trim() !== "")
+      : [],
+    windowsFeatures: Array.isArray(p.windowsFeatures)
+      ? p.windowsFeatures.filter((f): f is string => typeof f === "string" && f.trim() !== "")
       : [],
   }))
 
@@ -179,7 +183,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
       where: { assetId: existing.id, source: { not: "manual" } },
     })
 
-    type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[]; scope: string | null; category: string | null; sourcePackage: string | null; licenses: string[] }
+    type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[]; scope: string | null; category: string | null; sourcePackage: string | null; licenses: string[]; windowsFeatures: string[] }
     const { toCreate, toUpdateMeta, toDelete, supersededVersions } = diffPackages(
       existingPkgs,
       incomingPackages as IncomingPkg[]
@@ -206,6 +210,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
       ex.category !== inc.category ||
       ex.sourcePackage !== inc.sourcePackage ||
       JSON.stringify(ex.licenses) !== JSON.stringify(inc.licenses) ||
+      JSON.stringify(ex.windowsFeatures) !== JSON.stringify(inc.windowsFeatures) ||
       JSON.stringify(ex.deps) !== JSON.stringify(inc.deps ?? [])
     )
 
@@ -222,7 +227,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
       ...metaChanged.map(({ existing: ex, incoming: inc }) =>
         prisma.package.update({
           where: { id: ex.id },
-          data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [], scope: inc.scope, category: inc.category, sourcePackage: inc.sourcePackage, licenses: inc.licenses },
+          data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [], scope: inc.scope, category: inc.category, sourcePackage: inc.sourcePackage, licenses: inc.licenses, windowsFeatures: inc.windowsFeatures },
         })
       ),
       ...(historyEntries.length > 0

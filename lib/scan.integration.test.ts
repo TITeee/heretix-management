@@ -363,3 +363,92 @@ describe("scanAsset — alerts heretix-api stops reporting", () => {
     expect(mockedSlack).not.toHaveBeenCalled()
   })
 })
+
+describe("scanAsset — Windows Server roles the server does not run", () => {
+  beforeEach(async () => {
+    await resetDb()
+    mockedBatchSearch.mockReset()
+    mockedSearchByCPE.mockReset().mockResolvedValue({ results: [] })
+    mockedSlack.mockClear()
+  })
+
+  afterAll(async () => {
+    await prisma.$disconnect()
+  })
+
+  const finding = (id: string, requiresFeatures?: string[]) => ({
+    id, externalId: id, source: "advisory-microsoft", sources: ["advisory-microsoft"],
+    severity: "HIGH", cvssScore: 8.8, cvssVector: null, summary: null, publishedAt: null,
+    approximateMatch: false, isKev: false, epssScore: null, epssPercentile: null, fixedVersion: "10.0.20348.5761",
+    distroPriority: "Important", ...(requiresFeatures && { requiresFeatures }),
+  })
+  const answer = [{
+    package: "Windows Server 2022", version: "10.0.20348.5622", ecosystem: "advisory", total: 3, truncated: false,
+    vulnerabilities: [
+      finding("CVE-2026-9001", ["DNS-Server-Full-Role"]), // a role this server does not run
+      finding("CVE-2026-9002", ["DHCPServer"]), // a role it runs
+      finding("CVE-2026-9003"), // the OS itself
+    ],
+  }]
+
+  async function setup(windowsFeatures: string[]) {
+    const asset = await createAsset()
+    const pkg = await prisma.package.create({
+      data: {
+        assetId: asset.id, name: "Windows Server 2022", version: "10.0.20348.5622", rawVersion: "10.0.20348.5622",
+        ecosystem: "advisory", source: "sbom", deps: [], windowsFeatures,
+      },
+    })
+    mockedBatchSearch.mockResolvedValue(answer)
+    return { asset, pkg }
+  }
+  const alertOf = (externalId: string) => prisma.alert.findFirstOrThrow({ where: { externalId } })
+
+  it("raises a finding in a role the server does not run as not affected, without announcing it", async () => {
+    const { asset } = await setup(["NetFx4", "DHCPServer"])
+    await scanAsset(asset.id)
+
+    expect(await alertOf("CVE-2026-9001")).toMatchObject({
+      status: "ignored", ignoreReason: "not_affected", vexJustification: "code_not_present", notApplicableByScan: true,
+    })
+    expect(await alertOf("CVE-2026-9002")).toMatchObject({ status: "open", notApplicableByScan: false })
+    expect(await alertOf("CVE-2026-9003")).toMatchObject({ status: "open", notApplicableByScan: false })
+
+    const announced = mockedSlack.mock.calls.flatMap(([arg]) => (arg.triggerType === "detected" ? arg.alerts : []))
+    expect(announced.map((a: { externalId: string }) => a.externalId).sort()).toEqual(["CVE-2026-9002", "CVE-2026-9003"])
+  })
+
+  it("treats every finding as applying when the installed features are unknown", async () => {
+    const { asset } = await setup([])
+    await scanAsset(asset.id)
+    expect((await prisma.alert.findMany({ where: { status: "open" } })).length).toBe(3)
+  })
+
+  it("sets aside an open alert once the features are known, and reopens it once the role is installed", async () => {
+    const { asset, pkg } = await setup([])
+    await scanAsset(asset.id)
+    expect((await alertOf("CVE-2026-9001")).status).toBe("open")
+
+    await prisma.package.update({ where: { id: pkg.id }, data: { windowsFeatures: ["NetFx4"] } })
+    await scanAsset(asset.id)
+    expect(await alertOf("CVE-2026-9001")).toMatchObject({ status: "ignored", notApplicableByScan: true })
+
+    await prisma.package.update({ where: { id: pkg.id }, data: { windowsFeatures: ["NetFx4", "DNS-Server-Full-Role"] } })
+    await scanAsset(asset.id)
+    expect(await alertOf("CVE-2026-9001")).toMatchObject({
+      status: "open", ignoreReason: null, vexJustification: null, notApplicableByScan: false,
+    })
+  })
+
+  it("leaves alone an alert a person decided on", async () => {
+    const { asset, pkg } = await setup(["NetFx4"])
+    await scanAsset(asset.id)
+    // A person reviews the set-aside alert and keeps it ignored by their own call.
+    const alert = await alertOf("CVE-2026-9001")
+    await prisma.alert.update({ where: { id: alert.id }, data: { ignoreReason: "false_positive", vexJustification: null, notApplicableByScan: false } })
+
+    await prisma.package.update({ where: { id: pkg.id }, data: { windowsFeatures: ["NetFx4", "DNS-Server-Full-Role"] } })
+    await scanAsset(asset.id)
+    expect(await alertOf("CVE-2026-9001")).toMatchObject({ status: "ignored", ignoreReason: "false_positive" })
+  })
+})

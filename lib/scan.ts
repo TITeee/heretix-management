@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger"
 import { calculateDueDate, DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
 import { diffAlertMetadata } from "@/lib/alert-metadata"
 import { decideAbsentAlerts, isCompleteBatchResult, type AbsenceCause } from "@/lib/scan-resolve"
+import { ROLE_NOT_INSTALLED_JUSTIFICATION, roleNotInstalled, roleNotInstalledNote } from "@/lib/windows-roles"
 
 const BATCH_SIZE = 1000
 
@@ -111,6 +112,9 @@ export async function scanAsset(
   // Package row itself, so sourcePackage (display-only, never part of alert
   // identity) has to be looked up rather than carried through the search call.
   const sourcePackageByKey = new Map(pkgs.map((p) => [packageKey(p.name, p.version), p.sourcePackage]))
+  // The optional features installed on a Windows Server, from its OS package;
+  // empty (unknown) for every other package. See lib/windows-roles.ts.
+  const windowsFeaturesByKey = new Map(pkgs.map((p) => [packageKey(p.name, p.version), p.windowsFeatures]))
 
   logger.info("scan started", {
     assetId,
@@ -145,6 +149,7 @@ export async function scanAsset(
         fixStatus: true,
         fixStatusDetail: true,
         reopenOnFix: true,
+        notApplicableByScan: true,
         missingSince: true,
       },
     })
@@ -282,6 +287,47 @@ export async function scanAsset(
       reopenedList.push(summarize(alert, `fix now available: ${alert.fixedVersion}`))
     }
 
+    // A finding in a Windows Server role the server does not run is not
+    // affected (lib/windows-roles.ts). An open alert is set aside as such; one
+    // the scan set aside earlier is reopened once the role is installed, or
+    // once the installed features are no longer known. Alerts a person has
+    // decided on (in progress, or ignored by hand) are left alone.
+    const applyRoleApplicability = async (alert: (typeof existingAlerts)[number], v: VulnSearchResult, notApplicable: boolean) => {
+      if (notApplicable && alert.status === "open") {
+        await prisma.alert.update({
+          where: { id: alert.id },
+          data: { status: "ignored", ignoreReason: "not_affected", vexJustification: ROLE_NOT_INSTALLED_JUSTIFICATION, notApplicableByScan: true },
+        })
+        await prisma.alertEvent.create({
+          data: {
+            alertId: alert.id,
+            type: "status_changed",
+            data: { from: "open", to: "ignored", ignoreReason: "not_affected", reason: roleNotInstalledNote(v.requiresFeatures ?? []) },
+          },
+        })
+        alert.status = "ignored"
+        alert.notApplicableByScan = true
+        return
+      }
+      if (!notApplicable && alert.status === "ignored" && alert.notApplicableByScan) {
+        await prisma.alert.update({
+          where: { id: alert.id },
+          data: { status: "open", ignoreReason: null, vexJustification: null, notApplicableByScan: false },
+        })
+        await prisma.alertEvent.create({
+          data: {
+            alertId: alert.id,
+            type: "status_changed",
+            data: { from: "ignored", to: "open", reason: "The role is installed on the server, or its features are no longer known" },
+          },
+        })
+        alert.status = "open"
+        alert.notApplicableByScan = false
+        reopenedCount++
+        reopenedList.push(summarize(alert, "role now installed"))
+      }
+    }
+
     /**
      * Finds an alert raised under an id this finding used to be reported by.
      *
@@ -321,6 +367,7 @@ export async function scanAsset(
         fixStatusDetail: v.fixStatusDetail ?? null,
       }
       seen.add(key)
+      const notApplicable = roleNotInstalled(v.requiresFeatures, windowsFeaturesByKey.get(packageKey(packageName, packageVersion)) ?? [])
 
       const existing = alertsByFinding.get(key)
       if (existing) {
@@ -328,6 +375,7 @@ export async function scanAsset(
         await reopenIfAutoResolved(existing)
         await reopenIfFixAvailable(existing)
         await syncScanOnlyFields(existing, scanOnly)
+        await applyRoleApplicability(existing, v, notApplicable)
         return
       }
 
@@ -359,6 +407,7 @@ export async function scanAsset(
         alertsByFinding.set(key, prior)
         await reopenIfAutoResolved(prior)
         await reopenIfFixAvailable(prior)
+        await applyRoleApplicability(prior, v, notApplicable)
         renamedCount++
         return
       }
@@ -401,12 +450,26 @@ export async function scanAsset(
         approximateMatch: v.approximateMatch ?? false,
         detectedAt,
         dueDate,
+        // Raised already set aside when it is in a role the server does not run.
+        ...(notApplicable && {
+          status: "ignored",
+          ignoreReason: "not_affected",
+          vexJustification: ROLE_NOT_INSTALLED_JUSTIFICATION,
+          notApplicableByScan: true,
+        }),
       })
       pendingNewEvents.push({
         alertId: id,
         type: "detected",
         data: { cvssScore, severity },
       })
+      if (notApplicable) {
+        pendingNewEvents.push({
+          alertId: id,
+          type: "status_changed",
+          data: { from: "open", to: "ignored", ignoreReason: "not_affected", reason: roleNotInstalledNote(v.requiresFeatures ?? []) },
+        })
+      }
       // Mirrors the shape of existingAlerts' select — this entry can be found
       // again later in the same scan via findByAlias, so it needs to look
       // like a real one to updateMetadataIfChanged/reopenIfAutoResolved.
@@ -415,7 +478,7 @@ export async function scanAsset(
         packageName,
         packageVersion,
         externalId,
-        status: "open",
+        status: notApplicable ? "ignored" : "open",
         resolveReason: null,
         cvssScore,
         cvssVector,
@@ -426,9 +489,13 @@ export async function scanAsset(
         fixedVersion,
         detectedAt,
         reopenOnFix: false,
+        notApplicableByScan: notApplicable,
         missingSince: null,
         ...scanOnly,
       })
+      newAlertCount++
+      // Not announced: the server is not affected.
+      if (notApplicable) return
       newAlertsList.push({
         packageName,
         packageVersion,
@@ -436,7 +503,6 @@ export async function scanAsset(
         severity,
         cvssScore,
       })
-      newAlertCount++
     }
 
     const chunks: typeof normalPkgs[] = []

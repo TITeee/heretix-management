@@ -364,6 +364,9 @@ export function convertCycloneDXToInventory(bom: CycloneDXBom) {
       category,
       sourcePackage: sourcePackageOf(c, name, isOsPackage),
       licenses: licensesOf(c),
+      // heretix-cli's list of the optional features installed on a Windows
+      // Server, on the OS package; empty when absent (unknown).
+      windowsFeatures: (property(c, "heretix:windows-features") ?? "").split(",").filter(f => f !== ""),
     }
   }).filter(p => p.name !== "").filter(p => {
     // Some scanners (Syft on Bitnami images, for one) report the same package

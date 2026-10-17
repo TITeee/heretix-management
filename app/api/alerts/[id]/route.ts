@@ -40,6 +40,7 @@ export const PATCH = withApiErrorHandling("alerts.update", async (
     vexJustification?: string | null
     ignoreReason?: string | null
     reopenOnFix?: boolean
+    notApplicableByScan?: boolean
   } = {}
 
   // Ignoring an alert is a judgment that has to say what kind of judgment it is,
@@ -70,9 +71,12 @@ export const PATCH = withApiErrorHandling("alerts.update", async (
   if (notes !== undefined) update.notes = notes
 
   // "Reopen once a fix exists" belongs to the no-fix acceptance it was set
-  // with; a person changing the status or the reason has made a new decision.
+  // with, and "reopen once the role is installed" to the scan's own
+  // not-affected call; a person changing the status or the reason has made a
+  // new decision, which the scan leaves alone.
   if (leavingIgnored || (ignoreReason !== undefined && (ignoreReason || null) !== current?.ignoreReason)) {
     update.reopenOnFix = false
+    update.notApplicableByScan = false
   }
 
   if (leavingIgnored) {
