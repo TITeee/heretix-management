@@ -54,7 +54,7 @@ export async function refreshMetadata(): Promise<{ updated: number; failed: numb
 
   const refreshOne = async (externalId: string) => {
     try {
-      const vuln = await getVulnerabilityById(externalId)
+      const vuln = await getVulnerabilityById(externalId, { waitOnRateLimit: true })
       if (!vuln) return
 
       const targets = alertsByExternalId.get(externalId) ?? []

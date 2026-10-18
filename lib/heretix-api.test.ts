@@ -4,7 +4,7 @@ vi.mock("@/lib/db", () => ({
   prisma: { setting: { findUnique: vi.fn().mockResolvedValue(null) } },
 }))
 
-import { batchSearch, listCatalog, searchAllVulnerabilities, suggestPackages, SEARCH_MAX_RESULTS } from "./heretix-api"
+import { batchSearch, getVulnerabilityById, listCatalog, searchAllVulnerabilities, suggestPackages, SEARCH_MAX_RESULTS } from "./heretix-api"
 
 function respondWith(body: unknown, ok = true) {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok, status: ok ? 200 : 500, json: async () => body }))
@@ -181,5 +181,62 @@ describe("searchAllVulnerabilities", () => {
     const exact = await searchAllVulnerabilities({ package: "x" })
     expect(exact.results).toHaveLength(SEARCH_MAX_RESULTS)
     expect(exact.truncated).toBe(false)
+  })
+})
+
+describe("getVulnerabilityById", () => {
+  const rateLimited = (retryAfter: string | null) => ({
+    ok: false,
+    status: 429,
+    headers: { get: (name: string) => (name === "retry-after" ? retryAfter : null) },
+    text: async () => "",
+  })
+  const found = { ok: true, status: 200, json: async () => ({ cveId: "CVE-2024-0001" }) }
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("fails on a 429 for an interactive lookup, which must not wait", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(rateLimited("30")))
+    await expect(getVulnerabilityById("CVE-2024-0001")).rejects.toThrow("lookup error: 429")
+  })
+
+  it("waits out a 429 and asks again when told to", async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn().mockResolvedValueOnce(rateLimited("40")).mockResolvedValueOnce(found)
+    vi.stubGlobal("fetch", fetchMock)
+    const result = getVulnerabilityById("CVE-2024-0001", { waitOnRateLimit: true })
+    await vi.advanceTimersByTimeAsync(39_000)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(await result).toEqual({ cveId: "CVE-2024-0001" })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it("waits at most a minute, even for a longer Retry-After", async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn().mockResolvedValueOnce(rateLimited("600")).mockResolvedValueOnce(found)
+    vi.stubGlobal("fetch", fetchMock)
+    const result = getVulnerabilityById("CVE-2024-0001", { waitOnRateLimit: true })
+    await vi.advanceTimersByTimeAsync(60_000)
+    await result
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it("gives up after ten retries and reports the 429", async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn().mockResolvedValue(rateLimited("1"))
+    vi.stubGlobal("fetch", fetchMock)
+    const result = getVulnerabilityById("CVE-2024-0001", { waitOnRateLimit: true })
+    const settled = result.catch((e: Error) => e)
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(await settled).toEqual(expect.objectContaining({ message: "heretix-api lookup error: 429" }))
+    expect(fetchMock).toHaveBeenCalledTimes(11)
+  })
+
+  it("returns null for a vulnerability heretix-api does not know", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }))
+    expect(await getVulnerabilityById("CVE-2024-0001", { waitOnRateLimit: true })).toBeNull()
   })
 })

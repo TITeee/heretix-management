@@ -96,10 +96,10 @@ const BATCH_MAX_RETRIES = 5
 const BATCH_RETRY_DEFAULT_SECONDS = 5
 const BATCH_RETRY_MAX_SECONDS = 30
 
-function retryAfterSeconds(header: string | null): number {
+function retryAfterSeconds(header: string | null, maxSeconds = BATCH_RETRY_MAX_SECONDS): number {
   const n = Number(header)
   if (!header || !Number.isFinite(n) || n < 0) return BATCH_RETRY_DEFAULT_SECONDS
-  return Math.min(Math.max(n, 1), BATCH_RETRY_MAX_SECONDS)
+  return Math.min(Math.max(n, 1), maxSeconds)
 }
 
 export async function batchSearch(
@@ -281,15 +281,32 @@ export async function searchByCPE(cpe: string): Promise<CpeSearchResult> {
   return res.json()
 }
 
-export async function getVulnerabilityById(id: string) {
+// heretix-api limits each client to a number of requests per minute (1,200 by default) and
+// answers the rest with 429 and a Retry-After up to the end of that minute. The metadata
+// refresh looks up one vulnerability per request and can need thousands, so it waits out
+// the limit rather than fail the lookups it cannot send in time. An interactive search
+// does not wait: it would hold the page for up to a minute.
+const LOOKUP_MAX_RETRIES = 10
+const LOOKUP_RETRY_MAX_SECONDS = 60
+
+export async function getVulnerabilityById(id: string, options: { waitOnRateLimit?: boolean } = {}) {
   const [baseUrl, headers] = await Promise.all([getHeretixApiUrl(), apiHeaders()])
-  const res = await fetch(
-    `${baseUrl}/api/v1/vulnerabilities/${encodeURIComponent(id)}`,
-    { headers, signal: AbortSignal.timeout(15_000) }
-  )
-  if (res.status === 404) return null
-  if (!res.ok) throw new Error(`heretix-api lookup error: ${res.status}`)
-  return res.json()
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(
+      `${baseUrl}/api/v1/vulnerabilities/${encodeURIComponent(id)}`,
+      { headers, signal: AbortSignal.timeout(15_000) }
+    )
+    if (res.status === 429 && options.waitOnRateLimit && attempt < LOOKUP_MAX_RETRIES) {
+      await res.text().catch(() => "")
+      await new Promise((resolve) =>
+        setTimeout(resolve, retryAfterSeconds(res.headers.get("retry-after"), LOOKUP_RETRY_MAX_SECONDS) * 1000)
+      )
+      continue
+    }
+    if (res.status === 404) return null
+    if (!res.ok) throw new Error(`heretix-api lookup error: ${res.status}`)
+    return res.json()
+  }
 }
 
 export async function getStats() {
