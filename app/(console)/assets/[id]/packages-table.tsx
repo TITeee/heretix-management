@@ -26,6 +26,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { SEVERITY_COLORS } from "@/lib/severity"
 import { isWindowsServerOs, rolesNotInstalled, WINDOWS_FEATURE_ROLES } from "@/lib/windows-roles"
 import { cutExplanation, cutLabel } from "@/lib/findings-cut"
+import { isOsEcosystem } from "@/lib/remediation"
 import { ArrowUpDown, ChevronDown, ChevronRight, ExternalLink, Pencil, Trash2, X } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -68,6 +69,8 @@ type PackageRow = {
   direct?: boolean | null
   scope?: string | null
   category?: string | null
+  /** The source package a distro binary package was split from; null when it is its own source (see sourcePackageOf). */
+  sourcePackage?: string | null
   licenses?: string[]
   windowsFeatures?: string[]
   findingsCut?: boolean
@@ -75,6 +78,16 @@ type PackageRow = {
   findingsReturned?: number | null
   alertCount: number
   alertSeverities: { critical: number; high: number; medium: number; low: number; na: number }
+}
+
+/**
+ * The source package to show for a row. The inventory leaves it null when a distro package is its
+ * own source (bash, apt), so an OS package without one is its own source; a language package or a
+ * product registered by hand has no source package at all.
+ */
+function sourcePackageOf(p: Pick<PackageRow, "name" | "ecosystem" | "source" | "sourcePackage">): string | null {
+  if (p.sourcePackage) return p.sourcePackage
+  return p.source !== "manual" && p.ecosystem !== "" && isOsEcosystem(p.ecosystem) ? p.name : null
 }
 
 // scope=excluded covers three different reasons: an npm dev dependency (pruned
@@ -535,6 +548,17 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
         </>
       ),
     },
+    {
+      // Which source package this binary came from (libssl3 <- openssl), the same unit the
+      // Remediation tab groups OS updates by. Empty for packages with no such split.
+      id: "sourcePackage",
+      accessorFn: (row) => sourcePackageOf(row) ?? "",
+      header: sortableHeader("Source Package"),
+      cell: ({ row }) => {
+        const source = sourcePackageOf(row.original)
+        return source ? <span className="text-sm">{source}</span> : null
+      },
+    },
     { accessorKey: "version", header: sortableHeader("Version") },
     {
       accessorKey: "ecosystem",
@@ -657,6 +681,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
 
   const [ecosystemFilter, setEcosystemFilter] = useState<Set<string>>(new Set())
   const [sourceFilter, setSourceFilter] = useState<Set<string>>(new Set())
+  const [sourcePackageFilter, setSourcePackageFilter] = useState<Set<string>>(new Set())
   const [directFilter, setDirectFilter] = useState<Set<string>>(new Set())
   const [scopeFilter, setScopeFilter] = useState<Set<string>>(new Set())
   const [licenseFilter, setLicenseFilter] = useState<Set<string>>(new Set())
@@ -667,6 +692,10 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
   )
   const sourceOptions = useMemo(() =>
     [...new Set(data.map(p => p.source))].sort().map(v => ({ value: v, label: v })),
+    [data]
+  )
+  const sourcePackageOptions = useMemo(() =>
+    [...new Set(data.map(sourcePackageOf).filter((s): s is string => !!s))].sort().map(v => ({ value: v, label: v })),
     [data]
   )
   const licenseOptions = useMemo(() =>
@@ -688,13 +717,14 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
   const filteredData = useMemo(() => data.filter(p => {
     if (ecosystemFilter.size > 0 && !ecosystemFilter.has(p.ecosystem)) return false
     if (sourceFilter.size > 0 && !sourceFilter.has(p.source)) return false
+    if (sourcePackageFilter.size > 0 && !sourcePackageFilter.has(sourcePackageOf(p) ?? "")) return false
     if (directFilter.size > 0 && !directFilter.has(String(p.direct))) return false
     if (scopeFilter.size > 0 && !scopeFilter.has(nonRuntimeCategory(p) ?? "other")) return false
     if (licenseFilter.size > 0 && !(p.licenses ?? []).some(l => licenseFilter.has(l))) return false
     return true
-  }), [data, ecosystemFilter, sourceFilter, directFilter, scopeFilter, licenseFilter])
+  }), [data, ecosystemFilter, sourceFilter, sourcePackageFilter, directFilter, scopeFilter, licenseFilter])
 
-  const hasFilter = ecosystemFilter.size > 0 || sourceFilter.size > 0 || directFilter.size > 0 || scopeFilter.size > 0 || licenseFilter.size > 0
+  const hasFilter = ecosystemFilter.size > 0 || sourceFilter.size > 0 || sourcePackageFilter.size > 0 || directFilter.size > 0 || scopeFilter.size > 0 || licenseFilter.size > 0
 
   return (
     <div className="space-y-3">
@@ -711,6 +741,15 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
           selected={sourceFilter}
           onSelectedChange={setSourceFilter}
         />
+        {sourcePackageOptions.length > 0 && (
+          <DataTableFacetedFilter
+            title="Source Package"
+            options={sourcePackageOptions}
+            selected={sourcePackageFilter}
+            onSelectedChange={setSourcePackageFilter}
+            searchable
+          />
+        )}
         <DataTableFacetedFilter
           title="Dependency"
           options={directOptions}
@@ -732,7 +771,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
         />
         {hasFilter && (
           <Button variant="ghost" size="sm"
-            onClick={() => { setEcosystemFilter(new Set()); setSourceFilter(new Set()); setDirectFilter(new Set()); setScopeFilter(new Set()); setLicenseFilter(new Set()) }}>
+            onClick={() => { setEcosystemFilter(new Set()); setSourceFilter(new Set()); setSourcePackageFilter(new Set()); setDirectFilter(new Set()); setScopeFilter(new Set()); setLicenseFilter(new Set()) }}>
             Reset <X className="ml-1 size-4" />
           </Button>
         )}
@@ -744,6 +783,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
         filterPlaceholder="Search packages..."
         initialSorting={[{ id: "alerts", desc: true }]}
         initialColumnVisibility={{ location: false }}
+        initialPageSize={25}
       />
     </div>
   )

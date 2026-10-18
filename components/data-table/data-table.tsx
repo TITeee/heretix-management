@@ -105,7 +105,7 @@ export function DataTable<TData, TValue>({
   onRowSelectionChange,
   initialSorting = [],
   initialColumnVisibility = {},
-  initialPageSize = 25,
+  initialPageSize = 10,
   exportRef,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>(initialSorting)
@@ -169,9 +169,13 @@ export function DataTable<TData, TValue>({
     exportRef.current = () => table.getFilteredRowModel().rows.map((r) => r.original)
   }
 
+  // Back to the first page when the filters change. Most pages filter outside the table (facet
+  // buttons) and hand it the narrowed data, so columnFilters alone does not see that; a change in
+  // the number of rows does, and with the same number of rows the page count is the same too, so
+  // the current page can never end up past the last one.
   useEffect(() => {
     table.setPageIndex(0)
-  }, [columnFilters]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [columnFilters, data.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!onRowSelectionChange) return

@@ -44,9 +44,9 @@ export default async function AssetDetailPage({
   const asset = await prisma.asset.findUnique({
     where: { id },
     include: {
-      // rawVersion/deps/sourcePackage aren't used on this page (the
-      // dependency graph fetches its own data separately) — select only
-      // what packagesWithAlerts/PackagesTable actually read.
+      // rawVersion/deps aren't used on this page (the dependency graph
+      // fetches its own data separately) — select only what
+      // packagesWithAlerts/PackagesTable actually read.
       packages: {
         select: {
           id: true,
@@ -59,6 +59,7 @@ export default async function AssetDetailPage({
           direct: true,
           scope: true,
           category: true,
+          sourcePackage: true,
           licenses: true,
           windowsFeatures: true,
           findingsCut: true,
