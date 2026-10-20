@@ -29,48 +29,10 @@ import { FaTriangleExclamation, FaVirus } from "react-icons/fa6"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-export type Alert = {
-  id: string
-  assetId: string
-  packageName: string
-  packageVersion: string
-  ecosystem: string
-  externalId: string
-  sources: string[]
-  cvssScore: number | null
-  cvssVector: string | null
-  severity: string | null
-  summary: string | null
-  isKev: boolean
-  epssScore: number | null
-  epssPercentile: number | null
-  approximateMatch: boolean
-  status: string
-  notes: string | null
-  resolveReason: string | null
-  vexJustification?: string | null
-  ignoreReason?: string | null
-  fixedVersion?: string | null
-  packageDirect?: boolean | null
-  packageExists?: boolean
-  sourcePackage?: string | null
-  distroPriority?: string | null
-  fixStatus?: string | null
-  fixStatusDetail?: string | null
-  detectedAt: Date
-  dueDate: Date | null
-  updatedAt: Date
-  resolvedAt: Date | null
-  asset: { id: string; name: string; hostname: string }
-  tags: { id: string; name: string; color: string | null; isDefault?: boolean }[]
-  // Display-only: set on the representative row of a source-package group
-  // (e.g. binutils's eight binary packages sharing one CVE) so the table can
-  // show one row instead of one per sibling. Never persisted — computed in
-  // the browser from sourcePackage, and every member stays a real, separately
-  // addressable Alert underneath (selection, export, and the detail sheet all
-  // still operate on the full list).
-  _groupMembers?: Alert[]
-}
+import { type Alert, NONE_OPTION, groupBySourcePackage, matchesListFilters } from "@/lib/alerts/list-filters"
+import { alertCsvHeaderLine, alertCsvLine, alertJsonRecord, exportFilename } from "@/lib/alerts/export-format"
+
+export type { Alert }
 
 function StatusSelect({ alertIds, currentStatus, onStatusChange }: {
   // One id for a normal row, or every sibling's id when the row is a
@@ -161,7 +123,7 @@ function GroupedPackageCell({ sourcePackage, version, members }: {
   )
 }
 
-function buildColumns(onStatusChange: (id: string, status: string) => void): ColumnDef<Alert>[] {
+export function buildColumns(onStatusChange: (id: string, status: string) => void): ColumnDef<Alert>[] {
   return [
   {
     accessorKey: "cvssScore",
@@ -406,30 +368,26 @@ function buildColumns(onStatusChange: (id: string, status: string) => void): Col
 ]}
 
 
-const STATUS_OPTIONS = [
+export const STATUS_OPTIONS = [
   { value: "open", label: "Open" },
   { value: "in_progress", label: "In Progress" },
   { value: "resolved", label: "Resolved" },
   { value: "ignored", label: "Ignored" },
 ]
 
-const CVSS_OPTIONS = [
+export const CVSS_OPTIONS = [
   { value: "critical", label: "Critical" },
   { value: "high", label: "High" },
   { value: "medium", label: "Medium" },
   { value: "low", label: "Low" },
 ]
 
-// Filter value for alerts with no distro rating / fix status; not a label
-// either can ever have.
-const NONE_OPTION = "\u0000none"
-
-const KEV_OPTIONS = [
+export const KEV_OPTIONS = [
   { value: "kev", label: "KEV" },
   { value: "malware", label: "Malware" },
 ]
 
-const DUE_OPTIONS = [
+export const DUE_OPTIONS = [
   { value: "overdue", label: "Overdue" },
   { value: "urgent", label: "Urgent" },
   { value: "warning", label: "Warning" },
@@ -520,58 +478,16 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
     return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label))
   }, [data])
 
-  const filteredData = useMemo(() => data.filter(alert => {
-    if (assetFilter.size > 0 && !assetFilter.has(alert.assetId)) return false
-    if (statusFilter.size > 0 && !statusFilter.has(alert.status)) return false
-    if (cvssFilter.size > 0) {
-      const tier = getAlertSeverityTier(alert.severity, alert.cvssScore)
-      if (!cvssFilter.has(tier)) return false
+  const filteredData = useMemo(() => {
+    const filters = {
+      asset: assetFilter, status: statusFilter, cvss: cvssFilter, kev: kevFilter, ecosystem: ecosystemFilter,
+      sources: sourcesFilter, tag: tagFilter, dependency: dependencyFilter, inventory: inventoryFilter,
+      due: dueFilter, distro: distroFilter, fixStatus: fixStatusFilter,
     }
-    if (kevFilter.size > 0) {
-      const matches =
-        (kevFilter.has("kev") && alert.isKev) ||
-        (kevFilter.has("malware") && alert.externalId.startsWith("MAL-"))
-      if (!matches) return false
-    }
-    if (ecosystemFilter.size > 0 && !ecosystemFilter.has(alert.ecosystem)) return false
-    if (sourcesFilter.size > 0 && !alert.sources.some(s => sourcesFilter.has(s))) return false
-    if (tagFilter.size > 0 && !alert.tags.some(t => tagFilter.has(t.id))) return false
-    if (dependencyFilter.size > 0) {
-      if (dependencyFilter.has("direct") && alert.packageDirect !== true) return false
-      if (dependencyFilter.has("indirect") && alert.packageDirect !== false) return false
-    }
-    if (inventoryFilter.size > 0 && !inventoryFilter.has(alert.packageExists === false ? "missing" : "present")) return false
-    if (dueFilter.size > 0) {
-      const status = getSlaStatus(alert.dueDate ? new Date(alert.dueDate) : null)
-      if (!dueFilter.has(status)) return false
-    }
-    if (distroFilter.size > 0) {
-      const label = distroPriorityLabel(alert.ecosystem, alert.distroPriority) ?? NONE_OPTION
-      if (!distroFilter.has(label)) return false
-    }
-    if (fixStatusFilter.size > 0 && !fixStatusFilter.has(alert.fixStatus || NONE_OPTION)) return false
-    return true
-  }), [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter, inventoryFilter, dueFilter, distroFilter, fixStatusFilter])
+    return data.filter(alert => matchesListFilters(alert, filters))
+  }, [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter, inventoryFilter, dueFilter, distroFilter, fixStatusFilter])
 
-  // Collapses sibling findings from the same upstream source package (e.g.
-  // binutils splits into eight binary packages on Debian, each reporting the
-  // same CVE) into one row. Nothing is hidden: the representative row lists
-  // every member, and selection/export/the detail sheet all still act on the
-  // real underlying alerts, never the group itself.
-  const groupedData = useMemo(() => {
-    const groups = new Map<string, Alert[]>()
-    for (const alert of filteredData) {
-      const key = `${alert.assetId}::${alert.sourcePackage ?? alert.packageName}::${alert.packageVersion}::${alert.externalId}`
-      const group = groups.get(key)
-      if (group) group.push(alert)
-      else groups.set(key, [alert])
-    }
-    return [...groups.values()].map(members => {
-      if (members.length === 1) return members[0]
-      const [first, ...rest] = [...members].sort((a, b) => a.packageName.localeCompare(b.packageName))
-      return { ...first, _groupMembers: [first, ...rest] }
-    })
-  }, [filteredData])
+  const groupedData = useMemo(() => groupBySourcePackage(filteredData), [filteredData])
 
   const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0 || dependencyFilter.size > 0 || inventoryFilter.size > 0 || dueFilter.size > 0 || distroFilter.size > 0 || fixStatusFilter.size > 0
 
@@ -607,11 +523,6 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
 
   const exportRef = useRef<(() => Alert[]) | undefined>(undefined)
 
-  function escapeCSV(v: unknown): string {
-    const s = v == null ? "" : String(v)
-    return `"${s.replace(/"/g, '""')}"`
-  }
-
   function download(content: string, filename: string, mime: string) {
     const blob = new Blob([content], { type: mime })
     const url = URL.createObjectURL(blob)
@@ -622,70 +533,14 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
 
   function handleExportCSV() {
     const rows = (exportRef.current?.() ?? filteredData).flatMap(a => a._groupMembers ?? [a])
-    const headers = [
-      "Vuln ID", "Severity", "CVSS Score", "CVSS Vector",
-      "EPSS Score", "EPSS Percentile", "KEV", "Approximate Match",
-      "Summary", "Package", "Version", "Ecosystem", "Sources",
-      "Asset", "Hostname", "Tags", "Status", "Notes",
-      "Detected At", "Due Date", "Resolved At", "Updated At",
-    ]
-    const lines = [
-      headers.map(escapeCSV).join(","),
-      ...rows.map(a => [
-        a.externalId,
-        a.severity ?? "",
-        a.cvssScore ?? "",
-        a.cvssVector ?? "",
-        a.epssScore ?? "",
-        a.epssPercentile != null ? (a.epssPercentile * 100).toFixed(1) : "",
-        a.isKev ? "Yes" : "No",
-        a.approximateMatch ? "Yes" : "No",
-        a.summary ?? "",
-        a.packageName,
-        a.packageVersion,
-        a.ecosystem,
-        a.sources.join(";"),
-        a.asset.name || a.asset.hostname,
-        a.asset.hostname,
-        a.tags.map(t => t.name).join(";"),
-        a.status,
-        a.notes ?? "",
-        new Date(a.detectedAt).toISOString(),
-        a.dueDate ? new Date(a.dueDate).toISOString() : "",
-        a.resolvedAt ? new Date(a.resolvedAt).toISOString() : "",
-        new Date(a.updatedAt).toISOString(),
-      ].map(escapeCSV).join(",")),
-    ]
-    download(lines.join("\r\n"), `alerts-${new Date().toISOString().slice(0, 10)}.csv`, "text/csv;charset=utf-8;")
+    const lines = [alertCsvHeaderLine(), ...rows.map(alertCsvLine)]
+    download(lines.join("\r\n"), exportFilename("csv"), "text/csv;charset=utf-8;")
   }
 
   function handleExportJSON() {
     const rows = (exportRef.current?.() ?? filteredData).flatMap(a => a._groupMembers ?? [a])
-    const out = rows.map(a => ({
-      vulnId: a.externalId,
-      severity: a.severity,
-      cvssScore: a.cvssScore,
-      cvssVector: a.cvssVector,
-      epssScore: a.epssScore,
-      epssPercentile: a.epssPercentile,
-      kev: a.isKev,
-      approximateMatch: a.approximateMatch,
-      summary: a.summary,
-      package: a.packageName,
-      version: a.packageVersion,
-      ecosystem: a.ecosystem,
-      sources: a.sources,
-      asset: a.asset.name || a.asset.hostname,
-      hostname: a.asset.hostname,
-      tags: a.tags.map(t => t.name),
-      status: a.status,
-      notes: a.notes,
-      detectedAt: new Date(a.detectedAt).toISOString(),
-      dueDate: a.dueDate ? new Date(a.dueDate).toISOString() : null,
-      resolvedAt: a.resolvedAt ? new Date(a.resolvedAt).toISOString() : null,
-      updatedAt: new Date(a.updatedAt).toISOString(),
-    }))
-    download(JSON.stringify(out, null, 2), `alerts-${new Date().toISOString().slice(0, 10)}.json`, "application/json")
+    const out = rows.map(alertJsonRecord)
+    download(JSON.stringify(out, null, 2), exportFilename("json"), "application/json")
   }
 
   return (
