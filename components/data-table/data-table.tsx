@@ -59,6 +59,49 @@ interface DataTableProps<TData, TValue> {
   initialColumnVisibility?: VisibilityState
   initialPageSize?: number
   exportRef?: React.MutableRefObject<(() => TData[]) | undefined>
+  /**
+   * Server mode: `data` is one page the parent fetched, and paging, sorting
+   * and the two search boxes are the parent's state (the URL, typically).
+   * The table only reports what the user asks for. Without it the table
+   * pages, sorts and searches `data` itself, as before.
+   */
+  server?: ServerTableState
+}
+
+export type ServerTableState = {
+  /** Rows in the whole list, across pages. */
+  rowCount: number
+  pageIndex: number
+  pageSize: number
+  sorting: SortingState
+  /** The search boxes' values (filterColumn's, secondFilterColumn's). */
+  search: { first: string; second: string }
+  onPageChange: (pageIndex: number) => void
+  onPageSizeChange: (pageSize: number) => void
+  onSortingChange: (sorting: SortingState) => void
+  /** Called once typing pauses, not on every key. */
+  onSearchChange: (which: "first" | "second", value: string) => void
+  /** A request for new rows is in flight. */
+  pending?: boolean
+}
+
+const SEARCH_DEBOUNCE_MS = 300
+
+/** A search box's value, typed locally and handed on once typing pauses. */
+function useDebouncedSearch(value: string, onChange: ((v: string) => void) | undefined): [string, (v: string) => void] {
+  const [text, setText] = useState(value)
+  const [lastValue, setLastValue] = useState(value)
+  // A new value from the parent (Reset, a link) replaces what is typed.
+  if (value !== lastValue) {
+    setLastValue(value)
+    setText(value)
+  }
+  useEffect(() => {
+    if (!onChange || text === value) return
+    const timer = setTimeout(() => onChange(text), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [text]) // eslint-disable-line react-hooks/exhaustive-deps
+  return [text, setText]
 }
 
 function CheckboxCell({
@@ -107,8 +150,12 @@ export function DataTable<TData, TValue>({
   initialColumnVisibility = {},
   initialPageSize = 10,
   exportRef,
+  server,
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = useState<SortingState>(initialSorting)
+  const [localSorting, setSorting] = useState<SortingState>(initialSorting)
+  const sorting = server ? server.sorting : localSorting
+  const [firstSearch, setFirstSearch] = useDebouncedSearch(server?.search.first ?? "", server ? (v) => server.onSearchChange("first", v) : undefined)
+  const [secondSearch, setSecondSearch] = useDebouncedSearch(server?.search.second ?? "", server ? (v) => server.onSearchChange("second", v) : undefined)
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
     filterColumn && initialFilterValue ? [{ id: filterColumn, value: initialFilterValue }] : []
   )
@@ -151,18 +198,40 @@ export function DataTable<TData, TValue>({
     data,
     columns: resolvedColumns,
     getRowId,
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     enableRowSelection: !!enableRowSelection,
     autoResetPageIndex: false,
-    initialState: { pagination: { pageSize } },
-    state: { sorting, columnFilters, columnVisibility, rowSelection },
+    ...(server
+      ? {
+          manualPagination: true,
+          manualSorting: true,
+          manualFiltering: true,
+          rowCount: server.rowCount,
+          onSortingChange: (updater) => server.onSortingChange(typeof updater === "function" ? updater(server.sorting) : updater),
+          onPaginationChange: (updater) => {
+            const current = { pageIndex: server.pageIndex, pageSize: server.pageSize }
+            const next = typeof updater === "function" ? updater(current) : updater
+            if (next.pageSize !== current.pageSize) server.onPageSizeChange(next.pageSize)
+            else if (next.pageIndex !== current.pageIndex) server.onPageChange(next.pageIndex)
+          },
+          state: {
+            sorting,
+            columnVisibility,
+            rowSelection,
+            pagination: { pageIndex: server.pageIndex, pageSize: server.pageSize },
+          },
+        }
+      : {
+          onSortingChange: setSorting,
+          onColumnFiltersChange: setColumnFilters,
+          getSortedRowModel: getSortedRowModel(),
+          getFilteredRowModel: getFilteredRowModel(),
+          getPaginationRowModel: getPaginationRowModel(),
+          initialState: { pagination: { pageSize } },
+          state: { sorting, columnFilters, columnVisibility, rowSelection },
+        }),
   })
 
   if (exportRef) {
@@ -172,10 +241,17 @@ export function DataTable<TData, TValue>({
   // Back to the first page when the filters change. Most pages filter outside the table (facet
   // buttons) and hand it the narrowed data, so columnFilters alone does not see that; a change in
   // the number of rows does, and with the same number of rows the page count is the same too, so
-  // the current page can never end up past the last one.
+  // the current page can never end up past the last one. In server mode the parent owns the page.
   useEffect(() => {
-    table.setPageIndex(0)
+    if (!server) table.setPageIndex(0)
   }, [columnFilters, data.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A selection is of the rows on screen; a new page or filter starts without one.
+  useEffect(() => {
+    if (server) setRowSelection({})
+  }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const totalRows = server ? server.rowCount : table.getFilteredRowModel().rows.length
 
   useEffect(() => {
     if (!onRowSelectionChange) return
@@ -187,7 +263,52 @@ export function DataTable<TData, TValue>({
     <div className="space-y-3">
       {/* Toolbar */}
       <div className="flex items-center gap-2">
-        {filterColumn && (
+        {filterColumn && server && (
+          <div className="flex items-center gap-1 max-w-sm w-full">
+            <Input
+              placeholder={filterPlaceholder}
+              value={firstSearch}
+              onChange={(e) => setFirstSearch(e.target.value)}
+              className="flex-1"
+            />
+            {firstSearch && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFirstSearch("")
+                  server.onSearchChange("first", "")
+                  onFilterReset?.()
+                }}
+                className="shrink-0 rounded px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        )}
+        {secondFilterColumn && server && (
+          <div className="flex items-center gap-1">
+            <Input
+              placeholder={secondFilterPlaceholder}
+              value={secondSearch}
+              onChange={(e) => setSecondSearch(e.target.value)}
+              className="w-40"
+            />
+            {secondSearch && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSecondSearch("")
+                  server.onSearchChange("second", "")
+                }}
+                className="shrink-0 rounded px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        )}
+        {filterColumn && !server && (
           <div className="flex items-center gap-1 max-w-sm w-full">
             <Input
               placeholder={filterPlaceholder}
@@ -213,7 +334,7 @@ export function DataTable<TData, TValue>({
             )}
           </div>
         )}
-        {secondFilterColumn && (
+        {secondFilterColumn && !server && (
           <div className="flex items-center gap-1">
             <Input
               placeholder={secondFilterPlaceholder}
@@ -275,7 +396,7 @@ export function DataTable<TData, TValue>({
       </div>
 
       {/* Table */}
-      <div className="rounded-md border overflow-x-auto">
+      <div className={cn("rounded-md border overflow-x-auto transition-opacity", server?.pending && "opacity-60")} aria-busy={server?.pending || undefined}>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
@@ -336,7 +457,7 @@ export function DataTable<TData, TValue>({
       {/* Pagination */}
       <div className="flex items-center justify-between text-sm text-foreground">
         <span>
-          {table.getFilteredRowModel().rows.length} row(s) total
+          {totalRows.toLocaleString("en-US")} row(s) total
         </span>
         <div className="flex items-center gap-2">
           <Button
