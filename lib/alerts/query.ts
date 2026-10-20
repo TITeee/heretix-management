@@ -132,9 +132,13 @@ function orderBy(column: SortColumn, desc: boolean): Prisma.Sql {
 
 export type AlertPage = { rows: Alert[]; total: number; page: number; pageSize: number }
 
-/** One page of the Alerts list for `q`, and how many rows the whole list has. */
-export async function listAlertPage(q: AlertQuery, now: Date = new Date()): Promise<AlertPage> {
-  const conditions = alertConditions(q, now)
+type RowRef = { id: string; rowKey: string }
+
+/**
+ * The list's rows for `q` as SQL: `rows` holds one representative alert per
+ * row (its id, its row key and what it sorts by).
+ */
+function groupedRows(q: AlertQuery, conditions: Prisma.Sql[]): Prisma.Sql {
   const where = conditions.length ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}` : Prisma.empty
   const rowConditions: Prisma.Sql[] = []
   if (q.q) rowConditions.push(Prisma.sql`g."packageHit"`)
@@ -146,7 +150,7 @@ export async function listAlertPage(q: AlertQuery, now: Date = new Date()): Prom
   // rather than sorted (sorting every alert by its key was most of the time);
   // the representative is the smallest (package name, id) pair. r: the
   // representative's own values, from f, so no alert is read twice.
-  const grouped = Prisma.sql`
+  return Prisma.sql`
     WITH f AS MATERIALIZED (
       SELECT a."id", a."findingKey", a."packageName", a."cvssScore", a."epssScore", a."isKev", a."externalId",
              a."ecosystem", a."distroPriority", a."fixStatus", a."detectedAt", a."dueDate", a."updatedAt"
@@ -157,12 +161,20 @@ export async function listAlertPage(q: AlertQuery, now: Date = new Date()): Prom
     ), rows AS (
       SELECT r.*, g."findingKey" AS "rowKey" FROM g JOIN f r ON r."id" = g."rep"[2] ${rowWhere}
     )`
+}
+
+// Grouping a few hundred thousand alerts needs more than PostgreSQL's 4MB default to stay off disk.
+const GROUPING_WORK_MEM = Prisma.sql`SET LOCAL work_mem = '64MB'`
+
+/** One page of the Alerts list for `q`, and how many rows the whole list has. */
+export async function listAlertPage(q: AlertQuery, now: Date = new Date()): Promise<AlertPage> {
+  const conditions = alertConditions(q, now)
+  const grouped = groupedRows(q, conditions)
 
   const offset = (q.page - 1) * q.pageSize
   const [, page] = await prisma.$transaction([
-    // Grouping a few hundred thousand alerts needs more than PostgreSQL's 4MB default to stay off disk.
-    prisma.$executeRaw`SET LOCAL work_mem = '64MB'`,
-    prisma.$queryRaw<{ id: string; rowKey: string; total: bigint }[]>`
+    prisma.$executeRaw(GROUPING_WORK_MEM),
+    prisma.$queryRaw<(RowRef & { total: bigint })[]>`
       ${grouped}
       SELECT r."id", r."rowKey", count(*) OVER () AS "total" FROM rows r
       ORDER BY ${orderBy(q.sort.column, q.sort.desc)}
@@ -172,30 +184,49 @@ export async function listAlertPage(q: AlertQuery, now: Date = new Date()): Prom
   let count = page.length ? page[0].total : BigInt(0)
   if (!page.length && q.page > 1) {
     const [, [row]] = await prisma.$transaction([
-      prisma.$executeRaw`SET LOCAL work_mem = '64MB'`,
+      prisma.$executeRaw(GROUPING_WORK_MEM),
       prisma.$queryRaw<{ count: bigint }[]>`${grouped} SELECT count(*) AS "count" FROM rows`,
     ])
     count = row.count
   }
 
-  // Every alert of the page's rows that matches: the representative first, then by package name.
-  const memberRows = page.length
-    ? await prisma.$queryRaw<{ id: string; findingKey: string }[]>`
-        SELECT a."id", a."findingKey" FROM "Alert" a
-        WHERE a."findingKey" IN (${inList(page.map((p) => p.rowKey))})
-          ${conditions.length ? Prisma.sql`AND ${Prisma.join(conditions, " AND ")}` : Prisma.empty}
-        ORDER BY ARRAY[a."packageName", a."id"]`
-    : []
+  const rows = await loadRows(await memberIds(page, conditions))
+  return { rows, total: Number(count), page: q.page, pageSize: q.pageSize }
+}
+
+/**
+ * Every alert of the list for `q`, every page, in list order (each row's
+ * alerts together, the shown one first), `batchRows` rows at a time.
+ */
+export async function* allListAlerts(q: AlertQuery, now: Date = new Date(), batchRows = 200): AsyncGenerator<Alert[]> {
+  const conditions = alertConditions(q, now)
+  const [, refs] = await prisma.$transaction([
+    prisma.$executeRaw(GROUPING_WORK_MEM),
+    prisma.$queryRaw<RowRef[]>`
+      ${groupedRows(q, conditions)}
+      SELECT r."id", r."rowKey" FROM rows r ORDER BY ${orderBy(q.sort.column, q.sort.desc)}`,
+  ])
+  for (let i = 0; i < refs.length; i += batchRows) {
+    const rows = await loadRows(await memberIds(refs.slice(i, i + batchRows), conditions))
+    yield rows.flatMap((row) => row._groupMembers ?? [row])
+  }
+}
+
+/** The ids of each row's matching alerts: the representative first, then by package name. */
+async function memberIds(refs: RowRef[], conditions: Prisma.Sql[]): Promise<string[][]> {
+  if (refs.length === 0) return []
+  const members = await prisma.$queryRaw<{ id: string; findingKey: string }[]>`
+    SELECT a."id", a."findingKey" FROM "Alert" a
+    WHERE a."findingKey" IN (${inList(refs.map((r) => r.rowKey))})
+      ${conditions.length ? Prisma.sql`AND ${Prisma.join(conditions, " AND ")}` : Prisma.empty}
+    ORDER BY ARRAY[a."packageName", a."id"]`
   const byKey = new Map<string, string[]>()
-  for (const m of memberRows) {
+  for (const m of members) {
     const ids = byKey.get(m.findingKey) ?? []
     ids.push(m.id)
     byKey.set(m.findingKey, ids)
   }
-  const groups = page.map((p) => [p.id, ...(byKey.get(p.rowKey) ?? []).filter((id) => id !== p.id)])
-
-  const rows = await loadRows(groups)
-  return { rows, total: Number(count), page: q.page, pageSize: q.pageSize }
+  return refs.map((r) => [r.id, ...(byKey.get(r.rowKey) ?? []).filter((id) => id !== r.id)])
 }
 
 /** The alerts of each row, shaped as the list shows them (lib/alerts/load-all.ts). */
