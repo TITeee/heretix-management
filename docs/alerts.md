@@ -74,10 +74,13 @@ Distro Rating, Component and Fix Status are set by a scan, not by Refresh Metada
 
 ## The Alerts list
 
-- **Filters**: asset, status, severity, distro rating, fix status, risk (KEV / malware), ecosystem, source, tags, dependency (direct / indirect), inventory (package still present or not), and SLA due. Each takes several values.
-- **Grouping**: one CVE reported against several binary packages built from the same source package (e.g. binutils) is one row that lists every package.
-- **Export**: CSV or JSON of the filtered alerts.
-- Badges elsewhere (asset pages, tags) link here with the matching filter, and list exactly the alerts they counted.
+- **Filters**: asset, status, severity, distro rating, fix status, risk (KEV / malware), ecosystem, source, tags, dependency (direct / indirect; both shows either), inventory (package still present or not), and SLA due. Each takes several values. The package search matches any package of a grouped row.
+- **Grouping**: one CVE reported against several binary packages built from the same source package (e.g. binutils, or a kernel's `kernel-core`, `kernel-modules`, ...) is one row that lists every package.
+- **Paging on the server**: the list loads one page at a time, so it stays fast with hundreds of thousands of alerts. Filters, searches, sort and page are in the URL, so a view can be bookmarked or shared and the back button returns to the previous one.
+- **Bulk status change**: select rows to change their alerts' status together. Once every row of a page is selected, **Select all rows of this list** extends the change to every page of the current view; it is refused if the view has changed since (a scan added or resolved alerts), so nothing outside what was confirmed is touched. Ignoring stays one alert at a time, since it needs a reason.
+- **Export**: CSV or JSON of every alert in the current view, all pages included (`GET /api/alerts/export?format=csv` with the list's URL parameters).
+- Badges elsewhere (asset pages, tags, dashboard) link here with the matching filter, and list exactly the alerts they counted. A package or version they narrow to is shown as a filter that can be removed.
+- `/alerts?legacy=1` opens the previous list, which loads every alert into the browser. It is kept for one release and is impractical beyond tens of thousands of alerts.
 
 ## Remediation
 

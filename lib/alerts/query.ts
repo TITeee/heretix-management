@@ -39,6 +39,10 @@ export function alertConditions(q: AlertQuery, now: Date): Prisma.Sql[] {
   if (q.statuses.length) c.push(Prisma.sql`a."status" IN (${inList(q.statuses)})`)
   if (q.packageName) c.push(Prisma.sql`a."packageName" = ${q.packageName}`)
   if (q.packageVersion) c.push(Prisma.sql`a."packageVersion" = ${q.packageVersion}`)
+  // The vulnerability is part of a row's key, so every alert of a row has the
+  // row's id: searching the alerts before grouping finds the same rows, and
+  // spares grouping every other alert.
+  if (q.vuln) c.push(Prisma.sql`a."externalId" ILIKE ${contains(q.vuln)}`)
   if (q.severityTiers.length) c.push(Prisma.sql`a."severityTier" IN (${inList(q.severityTiers)})`)
   if (q.risks.length) {
     const r: Prisma.Sql[] = []
@@ -142,7 +146,6 @@ function groupedRows(q: AlertQuery, conditions: Prisma.Sql[]): Prisma.Sql {
   const where = conditions.length ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}` : Prisma.empty
   const rowConditions: Prisma.Sql[] = []
   if (q.q) rowConditions.push(Prisma.sql`g."packageHit"`)
-  if (q.vuln) rowConditions.push(Prisma.sql`r."externalId" ILIKE ${contains(q.vuln)}`)
   const rowWhere = rowConditions.length ? Prisma.sql`WHERE ${Prisma.join(rowConditions, " AND ")}` : Prisma.empty
   const packageHit = q.q ? Prisma.sql`bool_or(f."packageName" ILIKE ${contains(q.q)})` : Prisma.sql`true`
 
@@ -308,8 +311,23 @@ export type AlertListFacets = {
   tags: { id: string; name: string }[]
 }
 
-/** The values the list's filters offer: every value some alert has. */
-export async function alertListFacets(): Promise<AlertListFacets> {
+// The filter values change only when a scan or an import adds or drops an
+// asset, ecosystem, tag, ... and reading them scans every alert (0.3 s at
+// 400,000), so the page reuses them for a minute.
+const FACETS_TTL_MS = 60_000
+let facetsCache: { at: number; value: Promise<AlertListFacets> } | null = null
+
+/** The values the list's filters offer: every value some alert has (at most a minute old). */
+export function alertListFacets(): Promise<AlertListFacets> {
+  if (facetsCache && Date.now() - facetsCache.at < FACETS_TTL_MS) return facetsCache.value
+  const value = loadAlertListFacets()
+  facetsCache = { at: Date.now(), value }
+  // A failed read is not kept: the next page load tries again.
+  value.catch(() => { if (facetsCache?.value === value) facetsCache = null })
+  return value
+}
+
+async function loadAlertListFacets(): Promise<AlertListFacets> {
   const [assets, ecosystems, sources, distroLabels, fixStatuses, tags] = await Promise.all([
     prisma.$queryRaw<{ id: string; name: string; hostname: string }[]>`
       SELECT s."id", s."name", s."hostname" FROM "Asset" s
