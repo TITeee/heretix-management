@@ -4,7 +4,7 @@ vi.mock("@/lib/db", () => ({
   prisma: { setting: { findUnique: vi.fn().mockResolvedValue(null) } },
 }))
 
-import { batchSearch, getVulnerabilityById, listCatalog, searchAllVulnerabilities, suggestPackages, SEARCH_MAX_RESULTS } from "./heretix-api"
+import { batchSearch, batchTimeoutMs, getVulnerabilityById, listCatalog, searchAllVulnerabilities, suggestPackages, SEARCH_MAX_RESULTS } from "./heretix-api"
 
 function respondWith(body: unknown, ok = true) {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok, status: ok ? 200 : 500, json: async () => body }))
@@ -137,6 +137,28 @@ describe("batchSearch", () => {
     vi.stubGlobal("fetch", fetchMock)
     await expect(batchSearch(pkgs)).rejects.toThrow("heretix-api batch error: 500 boom")
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("says how long it waited when heretix-api does not answer in time, and does not ask again", async () => {
+    const timeout = Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" })
+    const fetchMock = vi.fn().mockRejectedValue(timeout)
+    vi.stubGlobal("fetch", fetchMock)
+    await expect(batchSearch(pkgs)).rejects.toThrow("did not answer within 300 s (1 packages)")
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("batchTimeoutMs", () => {
+  it("is five minutes unless HERETIX_API_BATCH_TIMEOUT_MS says otherwise", () => {
+    expect(batchTimeoutMs(undefined)).toBe(300_000)
+    expect(batchTimeoutMs("600000")).toBe(600_000)
+  })
+
+  it("ignores a value that is not a positive number", () => {
+    expect(batchTimeoutMs("")).toBe(300_000)
+    expect(batchTimeoutMs("abc")).toBe(300_000)
+    expect(batchTimeoutMs("0")).toBe(300_000)
+    expect(batchTimeoutMs("-5")).toBe(300_000)
   })
 })
 

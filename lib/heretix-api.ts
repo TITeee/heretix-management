@@ -102,17 +102,41 @@ function retryAfterSeconds(header: string | null, maxSeconds = BATCH_RETRY_MAX_S
   return Math.min(Math.max(n, 1), maxSeconds)
 }
 
+// How long one batch search may take. Its time depends on whether heretix-api's database
+// has the data in memory: one RHEL host's 523 packages took 4 s warm and 171 s once the
+// database files had dropped out of the OS cache. A scan runs behind the scheduler or an
+// upload that waits minutes (heretix-cli upload: 5 by default), so it is given that long.
+const DEFAULT_BATCH_TIMEOUT_MS = 5 * 60_000
+
+export function batchTimeoutMs(env: string | undefined = process.env.HERETIX_API_BATCH_TIMEOUT_MS): number {
+  const n = Number(env)
+  return env && Number.isFinite(n) && n > 0 ? n : DEFAULT_BATCH_TIMEOUT_MS
+}
+
 export async function batchSearch(
   packages: BatchPackage[]
 ): Promise<BatchResultItem[]> {
   const [baseUrl, headers] = await Promise.all([getHeretixApiUrl(), apiHeaders()])
+  const timeoutMs = batchTimeoutMs()
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(`${baseUrl}/api/v1/vulnerabilities/search/batch`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ packages }),
-      signal: AbortSignal.timeout(60_000),
-    })
+    let res: Response
+    try {
+      res = await fetch(`${baseUrl}/api/v1/vulnerabilities/search/batch`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ packages }),
+        signal: AbortSignal.timeout(timeoutMs),
+      })
+    } catch (err) {
+      // Not retried: asking again only doubles the load on a heretix-api that is already slow.
+      if (err instanceof Error && err.name === "TimeoutError") {
+        throw new Error(
+          `heretix-api batch search did not answer within ${Math.round(timeoutMs / 1000)} s (${packages.length} packages). ` +
+            "Its database may be reading from disk or busy; raise HERETIX_API_BATCH_TIMEOUT_MS if this persists."
+        )
+      }
+      throw err
+    }
     if (res.status === 429 && attempt < BATCH_MAX_RETRIES) {
       await res.text().catch(() => "")
       await new Promise((resolve) => setTimeout(resolve, retryAfterSeconds(res.headers.get("retry-after")) * 1000))

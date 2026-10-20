@@ -58,6 +58,7 @@ Needs Node.js 22 (as in the Docker image), pnpm, PostgreSQL 15+ with a `heretix_
 | `POSTGRES_PASSWORD` | with Docker | `changeme` | Password of the Compose database |
 | `HERETIX_API_URL` | | `http://host.docker.internal:5000` with Compose, `http://localhost:5000` without | heretix-api URL. The defaults reach a heretix-api on the same host; set it for one elsewhere. With Docker it is resolved inside the container, where `localhost` is the container itself. **Settings → Vulnerability API** overrides it |
 | `HERETIX_API_KEY` | | | heretix-api key. Settings overrides it |
+| `HERETIX_API_BATCH_TIMEOUT_MS` | | `300000` (5 minutes) | How long a scan waits for one heretix-api batch search. A large host (an RHEL server with its kernels) can take minutes when heretix-api's database has to read from disk |
 | `ANTHROPIC_API_KEY` | | | Key for AI Insight. **Settings → AI** overrides it |
 | `CRON_REFRESH` | | `0 12 * * *` | When the metadata refresh runs (cron, UTC) |
 | `CRON_SCAN` | | `0 13 * * *` | When every asset is scanned (cron, UTC) |
