@@ -212,6 +212,24 @@ export async function* allListAlerts(q: AlertQuery, now: Date = new Date(), batc
   }
 }
 
+/**
+ * Every alert behind the list for `q` (all its rows, each row's matching
+ * alerts), and how many rows that is, as the list counts them. What a bulk
+ * action on "everything this view shows" acts on.
+ */
+export async function allListAlertIds(q: AlertQuery, now: Date = new Date()): Promise<{ rowCount: number; alertIds: string[] }> {
+  const conditions = alertConditions(q, now)
+  const grouped = groupedRows(q, conditions)
+  const [, [{ count }], alerts] = await prisma.$transaction([
+    prisma.$executeRaw(GROUPING_WORK_MEM),
+    prisma.$queryRaw<{ count: bigint }[]>`${grouped} SELECT count(*) AS "count" FROM rows`,
+    prisma.$queryRaw<{ id: string }[]>`
+      ${grouped}
+      SELECT f."id" FROM f WHERE f."findingKey" IN (SELECT r."rowKey" FROM rows r)`,
+  ])
+  return { rowCount: Number(count), alertIds: alerts.map((a) => a.id) }
+}
+
 /** The ids of each row's matching alerts: the representative first, then by package name. */
 async function memberIds(refs: RowRef[], conditions: Prisma.Sql[]): Promise<string[][]> {
   if (refs.length === 0) return []

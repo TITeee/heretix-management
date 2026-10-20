@@ -4,6 +4,7 @@ import React, { useMemo, useState, useTransition } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import type { SortingState } from "@tanstack/react-table"
 import { Download, X } from "lucide-react"
+import { toast } from "sonner"
 import { DataTable } from "@/components/data-table/data-table"
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter"
 import { Button } from "@/components/ui/button"
@@ -132,21 +133,47 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
 
   const columns = useMemo(() => buildColumns(handleStatusChange), [])
 
+  // Every row of the page is selected and the list has more: offer the whole view.
+  const [selectedRowCount, setSelectedRowCount] = useState(0)
+  const [allMatching, setAllMatching] = useState(false)
+  const [allMatchingFor, setAllMatchingFor] = useState(rows)
+  if (allMatchingFor !== rows) {
+    setAllMatchingFor(rows)
+    setAllMatching(false)
+  }
+  const canSelectAllMatching = rows.length > 0 && selectedRowCount === rows.length && total > rows.length
+
   async function handleBulkStatusChange() {
-    if (!bulkStatus || selectedAlerts.length === 0) return
+    if (!bulkStatus || (selectedAlerts.length === 0 && !allMatching)) return
+    const label = STATUS_LABELS[bulkStatus] ?? bulkStatus
+    if (allMatching && !window.confirm(`Change every alert in all ${total.toLocaleString("en-US")} rows of this list to ${label}?`)) return
     setBulkLoading(true)
-    await Promise.all(
-      selectedAlerts.map((alert) =>
-        fetch(`/api/alerts/${alert.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: bulkStatus }),
+    try {
+      const res = await fetch("/api/alerts/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          allMatching
+            ? { status: bulkStatus, query: alertQueryToSearchParams({ ...query, page: 1 }).toString(), expectedRows: total }
+            : { status: bulkStatus, ids: selectedAlerts.map((a) => a.id) }
+        ),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? "Update failed.", { style: { background: "#e11d48", color: "#fff", border: "none" } })
+      } else {
+        toast.success(`${data.updated.toLocaleString("en-US")} alert${data.updated !== 1 ? "s" : ""} set to ${label}.`, {
+          style: { background: "#0d9488", color: "#fff", border: "none" },
         })
-      )
-    )
-    setBulkStatus("")
-    setBulkLoading(false)
-    router.refresh()
+        setBulkStatus("")
+        setAllMatching(false)
+      }
+    } catch {
+      toast.error("Update failed.", { style: { background: "#e11d48", color: "#fff", border: "none" } })
+    } finally {
+      setBulkLoading(false)
+      router.refresh()
+    }
   }
 
   const exportParams = alertQueryToSearchParams({ ...query, page: 1 })
@@ -194,6 +221,24 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
         )}
       </div>
 
+      {(canSelectAllMatching || allMatching) && (
+        <div className="flex items-center justify-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm">
+          {allMatching ? (
+            <>
+              <span>All {total.toLocaleString("en-US")} rows of this list are selected.</span>
+              <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setAllMatching(false)}>Clear selection</Button>
+            </>
+          ) : (
+            <>
+              <span>All {rows.length} rows on this page are selected.</span>
+              <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setAllMatching(true)}>
+                Select all {total.toLocaleString("en-US")} rows of this list
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
       <DataTable
         columns={columns}
         data={shownRows}
@@ -204,7 +249,11 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
         onRowClick={(row) => { setSelected(row); setOpen(true) }}
         enableRowSelection
         getRowId={(row) => row.id}
-        onRowSelectionChange={(selectedRows) => setSelectedAlerts(selectedRows.flatMap((r) => r._groupMembers ?? [r]))}
+        onRowSelectionChange={(selectedRows) => {
+          setSelectedRowCount(selectedRows.length)
+          setSelectedAlerts(selectedRows.flatMap((r) => r._groupMembers ?? [r]))
+          if (selectedRows.length < rows.length) setAllMatching(false)
+        }}
         initialColumnVisibility={{ updatedAt: false, sources: false, dueDate: false, distroPriority: false, fixStatus: false }}
         server={{
           rowCount: total,
@@ -237,9 +286,11 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
                 <a href={exportHref("json")} className="px-3 py-2 text-sm text-left hover:bg-accent rounded-b-md">JSON</a>
               </div>
             </div>
-            {selectedAlerts.length > 0 && (
+            {(selectedAlerts.length > 0 || allMatching) && (
               <>
-                <span className="text-sm text-muted-foreground">{selectedAlerts.length} selected</span>
+                <span className="text-sm text-muted-foreground">
+                  {allMatching ? `All ${total.toLocaleString("en-US")} rows selected` : `${selectedAlerts.length} selected`}
+                </span>
                 <Select value={bulkStatus} onValueChange={(v) => { if (v) setBulkStatus(v) }}>
                   <SelectTrigger className="h-8 w-44 text-sm">
                     <span className="flex items-center gap-1.5">

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db"
 import { resetDb } from "@/lib/test-utils/db"
 import { loadAllListAlerts } from "@/lib/alerts/load-all"
 import { type Alert, type ListFilters, NONE_OPTION, groupBySourcePackage, matchesListFilters } from "@/lib/alerts/list-filters"
-import { listAlertPage } from "@/lib/alerts/query"
+import { allListAlertIds, listAlertPage } from "@/lib/alerts/query"
 import { NONE, parseAlertQuery, type AlertQuery, type SortColumn } from "@/lib/alerts/query-params"
 import { distroPrioritySortKey } from "@/lib/distro-priority"
 import { fixStatusSortKey } from "@/lib/fix-status"
@@ -216,6 +216,18 @@ describe("the Alerts list in SQL agrees with the browser-side list", () => {
     // The combinations must actually exercise the filters, not only return nothing.
     expect(nonEmpty).toBeGreaterThan(100)
   }, 300_000)
+
+  it("finds every alert behind a view, as its pages show them, for 40 random filter combinations", async () => {
+    rand = rng(11)
+    for (let i = 0; i < 40; i++) {
+      const q = randomQuery()
+      const expected = reference(q)
+      const { rowCount, alertIds } = await allListAlertIds(q, NOW)
+      const context = JSON.stringify({ i, q })
+      expect(rowCount, context).toBe(expected.length)
+      expect([...alertIds].sort(), context).toEqual(expected.flatMap((r) => r._groupMembers ?? [r]).map((a) => a.id).sort())
+    }
+  }, 120_000)
 
   it("pages without repeating or skipping a row", async () => {
     const q = parseAlertQuery({ status: "", sort: "isKev" })
