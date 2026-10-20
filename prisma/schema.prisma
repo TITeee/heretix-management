@@ -179,6 +179,22 @@ model Alert {
   // "Windows Kernel"; null where the source gives none). Display only. Same
   // lifecycle as distroPriority: per package match, so only a scan sets it.
   component         String?
+  // Computed by PostgreSQL from the columns above (GENERATED ALWAYS AS ...
+  // STORED, migration 20261020120000_add_alert_derived_columns), so every
+  // write path keeps them right and the Alerts list can filter, group and
+  // count in SQL. Never written by the app. dbgenerated() tells Prisma the
+  // database fills them, so a later migration does not try to drop the
+  // expression. lib/alert-derived-columns.integration.test.ts checks they
+  // agree with the TypeScript that decides the same thing.
+  //
+  // One row of the Alerts list: the asset, the upstream source package, its
+  // version and the vulnerability, the key the list groups sibling binary
+  // packages under ("<assetId>\x1f<sourcePackage ?? packageName>\x1f<packageVersion>\x1f<externalId>").
+  findingKey        String?   @default(dbgenerated())
+  // getAlertSeverityTier(severity, cvssScore): critical / high / medium / low / na.
+  severityTier      String?   @default(dbgenerated())
+  // distroPriorityLabel(ecosystem, distroPriority): "Red Hat: low", or null.
+  distroLabel       String?   @default(dbgenerated())
   detectedAt        DateTime       @default(now())
   dueDate           DateTime?
   resolvedAt     DateTime?
@@ -191,6 +207,7 @@ model Alert {
   @@index([isKev])
   @@index([epssScore])
   @@index([dueDate])
+  @@index([findingKey])
   // status is filtered on in nearly every alert query (dashboard cards, tag
   // detail counts, per-asset severity summaries) but wasn't indexed on its
   // own — only reachable via the composite unique index above, which needs
