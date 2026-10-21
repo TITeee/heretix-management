@@ -30,6 +30,7 @@ import { useRouter } from "next/navigation"
 import { getSlaStatus, formatDaysUntilDue } from "@/lib/sla"
 import { graceEndsAt } from "@/lib/scan-resolve"
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/severity"
+import { epssChangeText } from "@/lib/epss-change"
 import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
 import { cvssVersionLabel } from "@/lib/cvss"
 import { TagBadge } from "@/components/tags/tag-badge"
@@ -219,11 +220,7 @@ const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: str
   epss_changed: {
     icon: TrendingUp,
     iconClass: "text-blue-500",
-    label: (data) => {
-      const from = data.percentileFrom != null ? `${((data.percentileFrom as number) * 100).toFixed(1)}%ile` : (data.from ?? "n/a")
-      const to = data.percentileTo != null ? `${((data.percentileTo as number) * 100).toFixed(1)}%ile` : (data.to ?? "n/a")
-      return `EPSS updated: ${from} → ${to}`
-    },
+    label: (data) => `EPSS updated: ${epssChangeText(data)}`,
   },
   severity_changed: {
     icon: TrendingDown,

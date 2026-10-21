@@ -9,6 +9,7 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X } from "lucid
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter"
 import { AlertDetailSheet, type SheetAlert, STATUS_ICON_MAP as SHARED_STATUS_ICONS } from "@/components/alerts/alert-detail-sheet"
 import { STATUS_LABELS } from "@/lib/severity"
+import { epssSide } from "@/lib/epss-change"
 
 // Same icon glyphs as the alerts table's status badges, just smaller to fit this
 // timeline's denser rows.
@@ -83,17 +84,14 @@ function EventChange({ type, data }: { type: string; data: Record<string, unknow
           <span>{String(data.to ?? "n/a")}</span>
         </span>
       )
-    case "epss_changed": {
-      const from = data.percentileFrom != null ? `${((data.percentileFrom as number) * 100).toFixed(1)}%ile` : String(data.from ?? "n/a")
-      const to = data.percentileTo != null ? `${((data.percentileTo as number) * 100).toFixed(1)}%ile` : String(data.to ?? "n/a")
+    case "epss_changed":
       return (
         <span className="inline-flex items-center gap-1.5">
-          <span>{from}</span>
+          <span>{epssSide(data, "from")}</span>
           <To />
-          <span>{to}</span>
+          <span>{epssSide(data, "to")}</span>
         </span>
       )
-    }
     default:
       return <span className="text-muted-foreground"></span>
   }
