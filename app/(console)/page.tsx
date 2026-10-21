@@ -547,11 +547,12 @@ export default async function DashboardPage() {
                     </button>
                   } />
                   <TooltipContent side="right" className="flex flex-col items-start gap-1 max-w-xs text-left">
-                    <p><strong>Overdue</strong>: past the SLA deadline</p>
+                    <p>The deadline for each severity is set in Settings → SLA. The groups below are fixed.</p>
+                    <p><strong>Overdue</strong>: past the deadline</p>
                     <p><strong>Urgent</strong>: due within 24 hours</p>
                     <p><strong>Warning</strong>: due within 7 days</p>
                     <p><strong>OK</strong>: more than 7 days remaining</p>
-                    <p><strong>Unscored</strong>: no CVSS score yet, no deadline set</p>
+                    <p><strong>Unscored</strong>: no severity rating (or CVSS 0.0), so no deadline</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
