@@ -481,7 +481,9 @@ export default function SearchPage() {
           <Tabs defaultValue="nvd" className="mt-4">
             <TabsList>
               <TabsTrigger value="nvd">NVD</TabsTrigger>
-              <TabsTrigger value="osv">OSV</TabsTrigger>
+              {(detailData?.osvVulnerabilities?.length ?? 0) > 0 && (
+                <TabsTrigger value="osv">OSV</TabsTrigger>
+              )}
               {(detailData?.advisoryVulnerabilities?.length ?? 0) > 0 && (
                 <TabsTrigger value="advisory">Advisory</TabsTrigger>
               )}
