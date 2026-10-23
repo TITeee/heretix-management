@@ -7,6 +7,7 @@ import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
 import { osvDistroRatings } from "@/lib/distro-priority"
 import { cnaModules } from "@/lib/cna-modules"
 import { fixStatusLabel } from "@/lib/fix-status"
+import { isOwnAdvisory, isOwnAdvisoryProduct, type AdvisoryAlert } from "@/lib/advisory-own"
 
 export type NvdPackage = {
   cpe: string | null
@@ -633,10 +634,17 @@ export function OsvTab({ detail, loading, error, alert }: { detail: VulnDetail |
   )
 }
 
-export function AdvisoryTab({ detail, loading }: { detail: VulnDetail | null; loading: boolean }) {
+/**
+ * With the alert it is opened from, the advisories (and the rows of an advisory's Affected Products)
+ * that are the alert's own are marked "This alert" and listed first: CVE-2024-6387 has nine advisories
+ * and a Red Hat 9 alert cannot otherwise tell which is its own. See lib/advisory-own.ts.
+ */
+export function AdvisoryTab({ detail, loading, alert }: { detail: VulnDetail | null; loading: boolean; alert?: AdvisoryAlert | null }) {
   if (loading) return <DetailSkeleton />
 
-  const advisories = detail?.advisoryVulnerabilities ?? []
+  const ownFirst = <T,>(items: T[], isOwn: (item: T) => boolean) =>
+    [...items].sort((a, b) => Number(isOwn(b)) - Number(isOwn(a)))
+  const advisories = ownFirst(detail?.advisoryVulnerabilities ?? [], (adv) => isOwnAdvisory(adv, alert))
   if (advisories.length === 0) {
     return <p className="text-sm text-muted-foreground py-2">No Advisory data available.</p>
   }
@@ -656,6 +664,7 @@ export function AdvisoryTab({ detail, loading }: { detail: VulnDetail | null; lo
               <div className="flex items-center gap-2">
                 <span className="w-28 text-muted-foreground shrink-0">Advisory ID</span>
                 <span className="font-mono text-xs">{adv.externalId}</span>
+                {isOwnAdvisory(adv, alert) && <Badge variant="default" className="text-[10px]">This alert</Badge>}
               </div>
               {adv.cveId && (
                 <div className="flex items-center gap-2">
@@ -757,10 +766,13 @@ export function AdvisoryTab({ detail, loading }: { detail: VulnDetail | null; lo
                     </tr>
                   </thead>
                   <tbody>
-                    {adv.affectedProducts.map((p, i) => (
+                    {ownFirst(adv.affectedProducts, (p) => isOwnAdvisoryProduct(p, alert)).map((p, i) => (
                       <tr key={i} className="border-b last:border-0">
                         <td className="px-3 py-2">
-                          <div className="font-medium">{p.product}</div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium">{p.product}</span>
+                            {isOwnAdvisoryProduct(p, alert) && <Badge variant="default" className="text-[10px]">This alert</Badge>}
+                          </div>
                           <div className="text-muted-foreground">{p.vendor}</div>
                         </td>
                         <td className="px-3 py-2 font-mono text-muted-foreground">

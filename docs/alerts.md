@@ -112,7 +112,7 @@ Click an alert to open it:
 | **Overview** | CVSS (with version), distro rating, EPSS, KEV, sources, summary; the package with its fixed version and fix status; the asset; the tags the alert falls under (the asset's tags and the package name's tags); status, ignore reason, memo; prior judgments of the same finding on other assets |
 | **NVD** | CVSS metrics per version (each coloured by its own rating), CWE, references |
 | **OSV** | Each OSV record: severity, the distro's rating, affected ranges, references |
-| **Advisory** | Vendor advisories with their affected products. A row with no fix shows *All versions (no fix yet)* and the fix status. Shown when advisory data exists |
+| **Advisory** | Vendor advisories with their affected products. A row with no fix shows *All versions (no fix yet)* and the fix status. For a Red Hat or Oracle Linux alert, the advisory and the Affected Products rows for its own release and package (or source package) are marked **This alert** and listed first; other alerts get no mark. Shown when advisory data exists |
 | **CNA** | The CVE Record's own data. Shown when available |
 | **Dependents** *(Beta)* | The packages that depend on the vulnerable one, as a graph. npm / pnpm lockfile data is fully supported, Go and PyPI partially |
 | **Timeline** | The alert's events |

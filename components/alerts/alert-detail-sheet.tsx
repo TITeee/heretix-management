@@ -1271,7 +1271,11 @@ export function AlertDetailSheet({
           </TabsContent>
 
           <TabsContent value="advisory" className="flex-1 overflow-y-auto px-6 py-4">
-            <AdvisoryTab detail={vulnDetail} loading={loadingDetail} />
+            <AdvisoryTab
+              detail={vulnDetail}
+              loading={loadingDetail}
+              alert={alert ? { ecosystem: alert.ecosystem, packageName: alert.packageName, sourcePackage: alert.sourcePackage ?? group?.sourcePackage } : null}
+            />
           </TabsContent>
 
           <TabsContent value="cna" className="flex-1 overflow-y-auto px-6 py-4">
