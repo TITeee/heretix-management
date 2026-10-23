@@ -85,6 +85,29 @@ export type RemediationPlan = {
   noFix: NoFixGroup[]
 }
 
+/** Which list of groups a group key belongs to: changes to make, no-fix groups, accepted-with-fix changes. */
+export type RemediationSection = "actions" | "noFix" | "accepted"
+
+export const REMEDIATION_SECTIONS: RemediationSection[] = ["actions", "noFix", "accepted"]
+
+/**
+ * A group as the Remediation tab receives it: the counts, not the alert ids. A
+ * group can hold tens of thousands of alerts, so the tab asks for the ones it
+ * shows a page at a time (GET /api/assets/[id]/remediation/alerts).
+ */
+type Summarized<T extends GroupStats> = Omit<T, "alertIds"> & { count: number }
+export type RemediationActionSummary = Summarized<RemediationAction>
+export type NoFixGroupSummary = Summarized<NoFixGroup>
+export type RemediationPlanSummary = { actions: RemediationActionSummary[]; noFix: NoFixGroupSummary[] }
+
+export function summarizeGroup<T extends GroupStats>({ alertIds, ...rest }: T): Summarized<T> {
+  return { ...rest, count: alertIds.length } as Summarized<T>
+}
+
+export function summarizePlan(plan: RemediationPlan): RemediationPlanSummary {
+  return { actions: plan.actions.map(summarizeGroup), noFix: plan.noFix.map(summarizeGroup) }
+}
+
 // OSV ecosystem prefixes for OS packages, including the legacy spellings
 // lib/purl.ts still resolves. Anything else with an ecosystem is a language
 // package; an empty ecosystem (an OS package whose distro wasn't known) is

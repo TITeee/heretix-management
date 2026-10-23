@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { withApiErrorHandling } from "@/lib/api-handler"
-import { buildRemediationPlan } from "@/lib/remediation"
+import { summarizeGroup, summarizePlan } from "@/lib/remediation"
+import { loadRemediation } from "@/lib/remediation-data"
 
 /**
  * The asset's open and in-progress alerts grouped into remediation actions and
- * no-fix groups (see lib/remediation.ts), plus the alerts themselves so the
- * page can list each group's findings and open one in the alert sheet.
+ * no-fix groups (see lib/remediation.ts), as counts only. The alerts inside a
+ * group are read a page at a time from ./alerts: a group can hold tens of
+ * thousands of them.
  *
  * acceptedWithFix groups, the same way, the alerts ignored as accepted risk
  * that now have a fixed version. They are only pointed out: an acceptance made
@@ -25,25 +27,9 @@ export const GET = withApiErrorHandling("assets.remediation", async (
   const asset = await prisma.asset.findUnique({ where: { id }, select: { id: true } })
   if (!asset) return NextResponse.json({ error: "Asset not found" }, { status: 404 })
 
-  const include = { asset: { select: { id: true, name: true, hostname: true } } }
-  const [alerts, accepted, packages] = await Promise.all([
-    prisma.alert.findMany({
-      where: { assetId: id, status: { in: ["open", "in_progress"] } },
-      include,
-    }),
-    prisma.alert.findMany({
-      where: { assetId: id, status: "ignored", ignoreReason: "accepted_risk", fixedVersion: { not: null } },
-      include,
-    }),
-    prisma.package.findMany({
-      where: { assetId: id },
-      select: { name: true, version: true, ecosystem: true, direct: true, deps: true, source: true },
-    }),
-  ])
-
+  const { plan, acceptedWithFix } = await loadRemediation(id)
   return NextResponse.json({
-    plan: buildRemediationPlan(alerts, packages),
-    acceptedWithFix: buildRemediationPlan(accepted, packages).actions,
-    alerts: [...alerts, ...accepted],
+    plan: summarizePlan(plan),
+    acceptedWithFix: acceptedWithFix.map(summarizeGroup),
   })
 })

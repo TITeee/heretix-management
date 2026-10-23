@@ -97,7 +97,7 @@ Every asset page (container image, host, or appliance) opens on a **Remediation*
 | Update a product | A product registered by hand or by CSV import (appliance firmware, software outside a package manager), and a Windows Server release from a heretix-cli SBOM |
 | Update a package | A language package whose place in the dependency graph is unknown |
 
-Changes are ordered with KEV first, then by the worst severity, then by the number of findings. Each shows the fixed versions and lists its alerts, with the component each is in (for a Windows Server, Microsoft's tag); click one to open the detail panel.
+Changes are ordered with KEV first, then by the worst severity, then by the number of findings. Each shows the fixed versions and lists its alerts, with the component each is in (for a Windows Server, Microsoft's tag); click one to open the detail panel. A group's alerts are loaded when it is expanded, the most urgent 100 first (KEV, then severity, then CVSS), with *Show more* for the rest, so a group of tens of thousands of alerts (an outdated kernel) opens at once.
 
 **No fix available** (findings with no fixed version) are grouped by the distro's fix status (Under investigation, Affected, Fix deferred, Will not fix, Out of support, or none given), with the distro ratings counted. No upgrade resolves these, so each group can be left open to wait for a fix, or **accepted** at once: its alerts become Ignored with the reason Accepted risk (not exported to VEX) and an optional memo on each timeline, and each one reopens automatically when a scan finds a fixed version for it. Changing such an alert's status or reason by hand afterward drops the automatic reopening.
 

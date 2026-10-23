@@ -22,8 +22,9 @@ The console's own routes under `/api`. All of them need a signed-in session, exc
 | PATCH | `/api/assets/[id]/packages/[pkgId]` | Edit a manual package |
 | DELETE | `/api/assets/[id]/packages/[pkgId]` | Delete a manual package |
 | GET | `/api/assets/[id]/dependency-graph` | Nodes and edges for the dependency graph |
-| GET | `/api/assets/[id]/remediation` | The asset's open and in-progress alerts grouped into changes to make and no-fix groups (`plan`), the alerts ignored as accepted risk that now have a fixed version (`acceptedWithFix`), and the alerts themselves |
-| POST | `/api/assets/[id]/remediation/accept` | Accept no-fix alerts: `{ "alertIds": [...], "memo": "..." }` sets each open/in-progress alert of this asset with no fixed version to Ignored (Accepted risk) and reopens it once a fix exists; other ids are skipped. Returns `{ accepted, skipped }`. Audited |
+| GET | `/api/assets/[id]/remediation` | The asset's open and in-progress alerts grouped into changes to make and no-fix groups (`plan`), and the alerts ignored as accepted risk that now have a fixed version (`acceptedWithFix`). Each group carries its `count` and severity counts, not its alerts |
+| GET | `/api/assets/[id]/remediation/alerts` | One group's alerts, most urgent first (KEV, severity tier, CVSS): `?section=actions|noFix|accepted&key=<group key>&offset=0&limit=100` (limit at most 500). Returns `{ total, alerts }`; 404 once the group is gone |
+| POST | `/api/assets/[id]/remediation/accept` | Accept no-fix alerts, named by `{ "alertIds": [...], "memo": "..." }` or by a whole no-fix group, `{ "groupKey": "deferred", "memo": "..." }` (the group's `key` from the plan; `""` for no fix status given). Sets each open/in-progress alert of this asset with no fixed version to Ignored (Accepted risk) and reopens it once a fix exists; other ids are skipped. Returns `{ accepted, skipped }`. Audited |
 
 ## Alerts
 
