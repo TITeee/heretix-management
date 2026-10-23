@@ -57,6 +57,26 @@ describe("scanAsset — scope=excluded packages", () => {
     expect(queriedNames).toEqual(["lodash"])
   })
 
+  it("sends the source package and its version with an OS package, and nothing extra with others", async () => {
+    const asset = await createAsset()
+    await prisma.package.create({
+      data: { assetId: asset.id, name: "dmsetup", version: "2:1.02.205-2", rawVersion: "2:1.02.205-2", ecosystem: "Debian:13", source: "sbom", deps: [], sourcePackage: "lvm2", sourceVersion: "2.03.31-2" },
+    })
+    await prisma.package.create({
+      data: { assetId: asset.id, name: "mount", version: "2.41-5", rawVersion: "2.41-5", ecosystem: "Debian:13", source: "sbom", deps: [], sourcePackage: "util-linux" },
+    })
+    await prisma.package.create({
+      data: { assetId: asset.id, name: "lodash", version: "4.17.20", rawVersion: "4.17.20", ecosystem: "npm", source: "sbom", deps: [] },
+    })
+
+    await scanAsset(asset.id)
+
+    const sent = Object.fromEntries(mockedBatchSearch.mock.calls[0][0].map((p: { package: string }) => [p.package, p]))
+    expect(sent.dmsetup).toEqual({ package: "dmsetup", version: "2:1.02.205-2", ecosystem: "Debian:13", sourcePackage: "lvm2", sourceVersion: "2.03.31-2" })
+    expect(sent.mount).toEqual({ package: "mount", version: "2.41-5", ecosystem: "Debian:13", sourcePackage: "util-linux" })
+    expect(sent.lodash).toEqual({ package: "lodash", version: "4.17.20", ecosystem: "npm" })
+  })
+
   it("never sends a scope=excluded CPE-matched package to heretix-api", async () => {
     const asset = await createAsset()
     await prisma.package.create({

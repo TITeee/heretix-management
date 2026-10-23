@@ -109,8 +109,8 @@ export async function scanAsset(
   const normalPkgs = runtimePkgs.filter((p) => !p.cpe || p.cpe.trim().length === 0)
 
   // heretix-api echoes back the package name/version it matched against, not the
-  // Package row itself, so sourcePackage (display-only, never part of alert
-  // identity) has to be looked up rather than carried through the search call.
+  // Package row itself, so sourcePackage (sent with the search for Debian, Ubuntu
+  // and Alpine, but never part of alert identity) has to be looked up from the row.
   const sourcePackageByKey = new Map(pkgs.map((p) => [packageKey(p.name, p.version), p.sourcePackage]))
   // The optional features installed on a Windows Server, from its OS package;
   // empty (unknown) for every other package. See lib/windows-roles.ts.
@@ -520,6 +520,8 @@ export async function scanAsset(
           package: p.name,
           version: p.version,
           ...(p.ecosystem.trim().length > 0 && { ecosystem: p.ecosystem }),
+          ...(p.sourcePackage && { sourcePackage: p.sourcePackage }),
+          ...(p.sourceVersion && { sourceVersion: p.sourceVersion }),
         }))
       )
 

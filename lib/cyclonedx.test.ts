@@ -144,6 +144,38 @@ describe("convertCycloneDXToInventory — Syft", () => {
     expect(pkg(inv, "openssl-libs")).toMatchObject({ ecosystem: "Rocky Linux:9", sourcePackage: "openssl" })
   })
 
+  // Debian, Ubuntu and Alpine advisories give source versions, and a binary's version can differ
+  // from its source's (dmsetup 2:1.02.205-2 is built from lvm2 2.03.31-2).
+  it("reads the source version an SBOM gives for an OS package, and none for a language package", () => {
+    const inv = convertCycloneDXToInventory({
+      components: [
+        {
+          "bom-ref": "dmsetup", type: "library", name: "dmsetup", version: "2:1.02.205-2",
+          purl: "pkg:deb/debian/dmsetup@2:1.02.205-2?distro=debian-13",
+          properties: [{ name: "heretix:source-package", value: "lvm2" }, { name: "heretix:source-version", value: "2.03.31-2" }],
+        },
+        {
+          "bom-ref": "login", type: "library", name: "login", version: "1:4.16.0-2+really2.41-5",
+          purl: "pkg:deb/debian/login@1:4.16.0-2+really2.41-5?distro=debian-13",
+          properties: [{ name: "syft:metadata:source", value: "util-linux" }, { name: "syft:metadata:sourceVersion", value: "2.41-5" }],
+        },
+        {
+          "bom-ref": "mount", type: "library", name: "mount", version: "2.41-5",
+          purl: "pkg:deb/debian/mount@2.41-5?distro=debian-13",
+          properties: [{ name: "heretix:source-package", value: "util-linux" }],
+        },
+        {
+          "bom-ref": "lodash", type: "library", name: "lodash", version: "4.17.21", purl: "pkg:npm/lodash@4.17.21",
+          properties: [{ name: "heretix:source-version", value: "9.9.9" }],
+        },
+      ],
+    })
+    expect(pkg(inv, "dmsetup")).toMatchObject({ sourcePackage: "lvm2", sourceVersion: "2.03.31-2" })
+    expect(pkg(inv, "login")).toMatchObject({ sourcePackage: "util-linux", sourceVersion: "2.41-5" })
+    expect(pkg(inv, "mount")).toMatchObject({ sourcePackage: "util-linux", sourceVersion: null })
+    expect(pkg(inv, "lodash").sourceVersion).toBeNull()
+  })
+
   it("drops RPM gpg-pubkey entries, which are imported signing keys rather than packages", () => {
     const inv = convertCycloneDXToInventory({
       components: [

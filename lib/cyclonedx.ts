@@ -173,6 +173,17 @@ function sourcePackageOf(c: CycloneDXComponent, name: string, isOsPackage: boole
 }
 
 /**
+ * The source package's version, when the SBOM says it differs from the binary's
+ * own (dpkg "Source: lvm2 (2.03.31-2)" on dmsetup 2:1.02.205-2). heretix-api
+ * compares it with the Debian, Ubuntu and Alpine advisories, which give source
+ * versions. Read for OS packages only.
+ */
+function sourceVersionOf(c: CycloneDXComponent, isOsPackage: boolean): string | null {
+  if (!isOsPackage) return null
+  return property(c, "heretix:source-version") ?? property(c, "syft:metadata:sourceVersion") ?? null
+}
+
+/**
  * The component's license strings, as written: heretix-cli puts an SPDX id in
  * license.id, an SPDX expression in expression, and anything else (rpm's
  * "GPLv2+ and MIT") in license.name; other scanners use the same three fields.
@@ -363,6 +374,7 @@ export function convertCycloneDXToInventory(bom: CycloneDXBom) {
       scope: c.scope === "excluded" || osManaged ? "excluded" : null,
       category,
       sourcePackage: sourcePackageOf(c, name, isOsPackage),
+      sourceVersion: sourceVersionOf(c, isOsPackage),
       licenses: licensesOf(c),
       // heretix-cli's list of the optional features installed on a Windows
       // Server, on the OS package; empty when absent (unknown).

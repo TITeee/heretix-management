@@ -173,6 +173,40 @@ describe("POST /api/assets — CycloneDX import", () => {
   })
 })
 
+describe("POST /api/assets — source version", () => {
+  beforeEach(async () => {
+    await resetDb()
+  })
+
+  afterAll(async () => {
+    await prisma.$disconnect()
+  })
+
+  const bomWith = (sourceVersion: string | null) => ({
+    bomFormat: "CycloneDX",
+    metadata: { component: { "bom-ref": "root", name: "deb-host", version: "1.0", type: "container" } },
+    components: [{
+      "bom-ref": "dmsetup", type: "library", name: "dmsetup", version: "2:1.02.205-2",
+      purl: "pkg:deb/debian/dmsetup@2:1.02.205-2?distro=debian-13",
+      properties: [
+        { name: "heretix:source-package", value: "lvm2" },
+        ...(sourceVersion ? [{ name: "heretix:source-version", value: sourceVersion }] : []),
+      ],
+    }],
+  })
+
+  it("stores heretix-cli's source version, and updates it on a re-import of the same package", async () => {
+    // An SBOM from a heretix-cli that predates the property: nothing to store.
+    const first = await (await POST(postRequest(bomWith(null)))).json()
+    expect((await prisma.package.findFirstOrThrow({ where: { assetId: first.id } })).sourceVersion).toBeNull()
+
+    const res = await POST(postRequest(bomWith("2.03.31-2")))
+    expect(res.status).toBeLessThan(300)
+    const pkg = await prisma.package.findFirstOrThrow({ where: { assetId: first.id, name: "dmsetup" } })
+    expect(pkg).toMatchObject({ sourcePackage: "lvm2", sourceVersion: "2.03.31-2" })
+  })
+})
+
 describe("POST /api/assets — re-import diff", () => {
   beforeEach(async () => {
     await resetDb()
