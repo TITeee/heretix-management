@@ -76,6 +76,11 @@ export type BatchPackage = {
   package: string
   version: string
   ecosystem?: string
+  // The source package an OS package was built from and its version, when known (see
+  // Package.sourcePackage / sourceVersion). heretix-api matches Debian, Ubuntu and Alpine
+  // packages by them; an older heretix-api ignores them.
+  sourcePackage?: string
+  sourceVersion?: string
 }
 
 export type BatchResultItem = {

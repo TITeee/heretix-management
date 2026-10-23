@@ -65,9 +65,16 @@ model Package {
   // The upstream source package this binary package was split from (dpkg
   // "Source:", rpm SourceRpm, apk "o:"), from heretix-cli's heretix:source-package
   // property. Null when the ecosystem has no such split (npm, PyPI, ...) or the
-  // binary package name already is the source name. Used only to group sibling
-  // packages in the UI — never in alert identity or matching.
+  // binary package name already is the source name. Groups sibling packages in
+  // the UI, and for Debian, Ubuntu and Alpine is sent to heretix-api with
+  // sourceVersion: their advisories name source packages and source versions.
+  // Never part of alert identity.
   sourcePackage String?
+  // The source package's version when it differs from the binary's own (dpkg
+  // "Source: lvm2 (2.03.31-2)" on dmsetup 2:1.02.205-2), from heretix-cli's
+  // heretix:source-version property or Syft's sourceVersion. Null when they are
+  // the same or the SBOM does not say; heretix-api then compares the binary's.
+  sourceVersion String?
   // License strings exactly as the inventory gave them: an SPDX id or
   // expression where the package manager uses SPDX (npm, PyPI, Composer), free
   // text otherwise (rpm's "GPLv2+ and MIT"). Not normalized. One entry per

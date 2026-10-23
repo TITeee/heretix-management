@@ -125,6 +125,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
     scope?: string | null
     category?: string | null
     sourcePackage?: string | null
+    sourceVersion?: string | null
     licenses?: unknown
     windowsFeatures?: unknown
   }) => ({
@@ -139,6 +140,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
     scope: p.scope ?? null,
     category: p.category ?? null,
     sourcePackage: p.sourcePackage ?? null,
+    sourceVersion: p.sourceVersion ?? null,
     licenses: Array.isArray(p.licenses)
       ? p.licenses.filter((l): l is string => typeof l === "string" && l.trim() !== "")
       : [],
@@ -183,7 +185,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
       where: { assetId: existing.id, source: { not: "manual" } },
     })
 
-    type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[]; scope: string | null; category: string | null; sourcePackage: string | null; licenses: string[]; windowsFeatures: string[] }
+    type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[]; scope: string | null; category: string | null; sourcePackage: string | null; sourceVersion: string | null; licenses: string[]; windowsFeatures: string[] }
     const { toCreate, toUpdateMeta, toDelete, supersededVersions } = diffPackages(
       existingPkgs,
       incomingPackages as IncomingPkg[]
@@ -209,6 +211,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
       ex.scope !== inc.scope ||
       ex.category !== inc.category ||
       ex.sourcePackage !== inc.sourcePackage ||
+      ex.sourceVersion !== inc.sourceVersion ||
       JSON.stringify(ex.licenses) !== JSON.stringify(inc.licenses) ||
       JSON.stringify(ex.windowsFeatures) !== JSON.stringify(inc.windowsFeatures) ||
       JSON.stringify(ex.deps) !== JSON.stringify(inc.deps ?? [])
@@ -227,7 +230,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
       ...metaChanged.map(({ existing: ex, incoming: inc }) =>
         prisma.package.update({
           where: { id: ex.id },
-          data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [], scope: inc.scope, category: inc.category, sourcePackage: inc.sourcePackage, licenses: inc.licenses, windowsFeatures: inc.windowsFeatures },
+          data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [], scope: inc.scope, category: inc.category, sourcePackage: inc.sourcePackage, sourceVersion: inc.sourceVersion, licenses: inc.licenses, windowsFeatures: inc.windowsFeatures },
         })
       ),
       ...(historyEntries.length > 0
