@@ -8,6 +8,7 @@ import { osvDistroRatings } from "@/lib/distro-priority"
 import { cnaModules } from "@/lib/cna-modules"
 import { fixStatusLabel } from "@/lib/fix-status"
 import { isOwnAdvisory, isOwnAdvisoryProduct, type AdvisoryAlert } from "@/lib/advisory-own"
+import { ownVersions, osvRangeLabel } from "@/lib/osv-own-versions"
 
 export type NvdPackage = {
   cpe: string | null
@@ -54,7 +55,7 @@ export type NvdRawData = {
 export type OsvRawData = {
   details?: string
   references?: Array<{ type: string; url: string }>
-  affected?: Array<{ versions?: string[] }>
+  affected?: Array<{ package?: { ecosystem?: string; name?: string }; versions?: string[] }>
   severity?: Array<{ type: string; score: string }>
 }
 
@@ -424,7 +425,7 @@ function OsvRefBadge({ type }: { type: string }) {
 }
 
 /** What the OSV tab needs to know about the alert it is opened from, to say which of the record's entries are its own. */
-export type OsvTabAlert = { ecosystem: string; packageName: string; sourcePackage?: string | null }
+export type OsvTabAlert = { ecosystem: string; packageName: string; sourcePackage?: string | null; version?: string | null }
 
 /**
  * One OSV record can cover several releases of a distribution (DEBIAN-CVE-2026-8376 lists Debian
@@ -556,13 +557,7 @@ export function OsvTab({ detail, loading, error, alert }: { detail: VulnDetail |
                       // known yet). Keeping lastAffectedVersion out of the Fixed column matters
                       // here specifically: showing it there read as "fixed at this version" when
                       // it means the opposite — this version is still affected.
-                      const lower = pkg.introducedVersion ? `≥ ${pkg.introducedVersion}` : null
-                      const upper = pkg.fixedVersion
-                        ? `< ${pkg.fixedVersion}`
-                        : pkg.lastAffectedVersion
-                        ? `≤ ${pkg.lastAffectedVersion}`
-                        : null
-                      const range = [lower, upper].filter(Boolean).join(", ") || "n/a"
+                      const range = osvRangeLabel(pkg)
                       const own = isOwnEntry(pkg, alert)
                       return (
                         <tr key={i} className={`border-b last:border-0 ${own ? "bg-primary/5" : ""}`}>
@@ -591,18 +586,36 @@ export function OsvTab({ detail, loading, error, alert }: { detail: VulnDetail |
 
           {/* Specific Versions */}
           {(() => {
-            const versions = [...new Set(
-              (osv.rawData?.affected ?? []).flatMap(a => a.versions ?? [])
-            )]
-            if (versions.length === 0) return null
+            // With an alert, only the versions of its own entry: the record merges every release
+            // (Debian 12, 13, 14), and the alert's own version is the one it was matched on.
+            const own = ownVersions(osv.rawData?.affected, alert ? { ...alert } : null)
+            const versions = own
+              ? own.versions
+              : [...new Set((osv.rawData?.affected ?? []).flatMap(a => a.versions ?? []))]
+            if (versions.length === 0 && !own) return null
+            const ownEntry = own ? osv.affectedPackages.find((p) => isOwnEntry(p, alert)) : undefined
+            const allVersions = !!ownEntry && osvRangeLabel(ownEntry).startsWith("All versions")
             return (
               <section className="space-y-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Specific Affected Versions ({versions.length})</h3>
-                <div className="max-h-32 overflow-y-auto rounded-md border p-2 grid grid-cols-3 gap-1">
-                  {versions.map((v) => (
-                    <span key={v} className="font-mono text-xs text-muted-foreground">{v}</span>
-                  ))}
-                </div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Specific Affected Versions ({versions.length})
+                  {own && alert && <span className="ml-2 font-normal normal-case tracking-normal">{alert.ecosystem} / {alert.packageName}</span>}
+                </h3>
+                {versions.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto rounded-md border p-2 grid grid-cols-3 gap-1">
+                    {versions.map((v) => (
+                      <span key={v} className={`font-mono text-xs ${own?.hasOwnVersion && v === alert?.version ? "text-foreground font-medium bg-primary/10 rounded px-1" : "text-muted-foreground"}`}>
+                        {v}
+                        {own?.hasOwnVersion && v === alert?.version && <Badge variant="outline" className="ml-1 text-[10px]">Installed</Badge>}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {own && !own.hasOwnVersion && (
+                  <p className="text-xs text-muted-foreground">
+                    {alert?.version ? `${alert.version} is not in this list; ` : ""}the match came from the range in Affected Packages above{allVersions ? ": every version is affected until a fix" : ""}.
+                  </p>
+                )}
               </section>
             )
           })()}

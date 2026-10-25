@@ -1266,7 +1266,7 @@ export function AlertDetailSheet({
               detail={vulnDetail}
               loading={loadingDetail}
               error={fetchError}
-              alert={alert ? { ecosystem: alert.ecosystem, packageName: alert.packageName, sourcePackage: alert.sourcePackage ?? group?.sourcePackage } : null}
+              alert={alert ? { ecosystem: alert.ecosystem, packageName: alert.packageName, sourcePackage: alert.sourcePackage ?? group?.sourcePackage, version: alert.packageVersion } : null}
             />
           </TabsContent>
 
