@@ -4,16 +4,18 @@ import { auth } from "@/lib/auth"
 import { scanAsset } from "@/lib/scan"
 import { carryForwardAlerts } from "@/lib/alerts"
 import { logger } from "@/lib/logger"
+import { withApiErrorHandling } from "@/lib/api-handler"
+import { readJsonBody } from "@/lib/request-body"
 
-export async function PATCH(
+export const PATCH = withApiErrorHandling("assets.packages.update", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string; pkgId: string }> }
-) {
+) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { pkgId } = await params
-  const { name, version, ecosystem, location, cpe } = await req.json()
+  const { name, version, ecosystem, location, cpe } = await readJsonBody(req)
 
   const pkg = await prisma.package.findUnique({ where: { id: pkgId } })
   if (!pkg) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -71,12 +73,12 @@ export async function PATCH(
   }
 
   return NextResponse.json(updated)
-}
+})
 
-export async function DELETE(
+export const DELETE = withApiErrorHandling("assets.packages.delete", async (
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; pkgId: string }> }
-) {
+) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -90,4 +92,4 @@ export async function DELETE(
   })
   await prisma.package.delete({ where: { id: pkgId } })
   return new NextResponse(null, { status: 204 })
-}
+})

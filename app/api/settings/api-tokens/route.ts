@@ -10,6 +10,7 @@ import {
   hashApiToken,
   isApiTokenScope,
 } from "@/lib/api-token"
+import { readJsonBody } from "@/lib/request-body"
 
 // Token management is session-only and admin-only: these routes call auth(),
 // not authenticate(), so an API token can never mint or revoke tokens.
@@ -33,7 +34,7 @@ export const POST = withApiErrorHandling("apiTokens.create", async (req: NextReq
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (session.user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  const body = await req.json()
+  const body = await readJsonBody(req)
   const name = typeof body.name === "string" ? body.name.trim() : ""
   if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 })
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { Prisma } from "@prisma/client"
 import { logger } from "@/lib/logger"
+import { BodyTooLargeError } from "@/lib/request-body"
 
 // Most route handlers only ever returned NextResponse.json({error}, {status})
 // for conditions they anticipated; anything unexpected (a malformed request
@@ -16,6 +17,9 @@ export function withApiErrorHandling<Args extends unknown[]>(
     try {
       return await handler(...args)
     } catch (err) {
+      if (err instanceof BodyTooLargeError) {
+        return NextResponse.json({ error: err.message }, { status: 413 })
+      }
       if (err instanceof SyntaxError) {
         return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
       }

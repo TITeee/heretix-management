@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { assertPublicHttpUrl } from "@/lib/url-guard"
+import { withApiErrorHandling } from "@/lib/api-handler"
+import { readJsonBody } from "@/lib/request-body"
+import { secretOrStored } from "@/lib/settings-store"
 
-export async function POST(req: NextRequest) {
+export const POST = withApiErrorHandling("settings.test", async (req: NextRequest) => {
   const session = await auth()
   if (!session || session.user?.role !== "admin") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { url, apiKey } = await req.json()
-  if (!url) return NextResponse.json({ error: "url is required" }, { status: 400 })
+  const { url, apiKey: sentKey } = (await readJsonBody(req)) as { url?: unknown; apiKey?: unknown }
+  if (!url || typeof url !== "string") return NextResponse.json({ error: "url is required" }, { status: 400 })
+  const apiKey = await secretOrStored("HERETIX_API_KEY", sentKey)
 
   try {
     await assertPublicHttpUrl(url)
@@ -35,4 +39,4 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Could not connect to heretix-api" }, { status: 502 })
   }
-}
+})

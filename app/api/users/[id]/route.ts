@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth"
 import bcrypt from "bcryptjs"
 import { createAuditLog } from "@/lib/audit"
 import { withApiErrorHandling } from "@/lib/api-handler"
+import { readJsonBody } from "@/lib/request-body"
+import { passwordProblem } from "@/lib/password"
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -13,11 +15,15 @@ export const PATCH = withApiErrorHandling("users.update", async (req: NextReques
   if (session.user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { id } = await ctx.params
-  const body = await req.json()
+  const body = await readJsonBody(req)
   const { email, password, name, role } = body
 
   if (role && !["admin", "operator"].includes(role)) {
     return NextResponse.json({ error: "Invalid role" }, { status: 400 })
+  }
+  if (password) {
+    const problem = passwordProblem(password)
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 })
   }
 
   // Prevent changing own role
@@ -38,14 +44,17 @@ export const PATCH = withApiErrorHandling("users.update", async (req: NextReques
   if (name !== undefined) data.name = name || null
   if (role !== undefined) data.role = role
   if (password) data.password = await bcrypt.hash(password, 12)
+  const isPasswordReset = !!password && Object.keys(data).length === 1
+  const changedFields = Object.keys(data).filter(k => k !== "password")
+  // A new password signs the user out everywhere (see the jwt callback in
+  // lib/auth.ts): a session opened with the old one, by whoever knew it, ends.
+  if (password) data.sessionVersion = { increment: 1 }
 
   const user = await prisma.user.update({
     where: { id },
     data,
     select: { id: true, email: true, name: true, role: true, createdAt: true },
   })
-  const isPasswordReset = !!password && Object.keys(data).length === 1
-  const changedFields = Object.keys(data).filter(k => k !== "password")
   await createAuditLog({
     userId: session.user.id, userEmail: session.user.email,
     action: isPasswordReset ? "user_password_reset" : "user_updated",

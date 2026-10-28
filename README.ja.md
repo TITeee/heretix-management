@@ -90,7 +90,7 @@ curl -s -o /dev/null -w "%{http_code}\n" localhost:3000/login   # → 200
 docker compose exec app node_modules/.bin/tsx prisma/seed.ts
 ```
 
-`admin@example.com` / `changeme` と既定のタグが作成されます（`SEED_EMAIL` と `SEED_PASSWORD` で変更可）。`AUTH_URL` でサインインしたら、**Users** の画面でパスワードを変更してください。
+管理者ユーザー `admin@example.com` と既定のタグが作成されます。パスワードは自動で生成され、コマンドの出力に一度だけ表示されます。`SEED_EMAIL` と `SEED_PASSWORD`（12 文字以上）で、自分で指定することもできます。`AUTH_URL` でサインインしたら、**Users** の画面でパスワードを変更してください。
 
 ### 4. heretix-api に接続する
 

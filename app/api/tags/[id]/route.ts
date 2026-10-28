@@ -3,11 +3,13 @@ import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { buildAlertSummary } from "@/components/alerts/alert-summary-badges"
 import { countSeverityByKey, type SeverityCounts } from "@/lib/severity"
+import { withApiErrorHandling } from "@/lib/api-handler"
+import { readJsonBody } from "@/lib/request-body"
 
-export async function GET(
+export const GET = withApiErrorHandling("tags.get", async (
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -80,12 +82,12 @@ export async function GET(
   }
 
   return NextResponse.json({ ...tag, alertSummary, kevCount, assetAlertSeverities, packageAlertSeverities, packageEcosystems })
-}
+})
 
-export async function PATCH(
+export const PATCH = withApiErrorHandling("tags.update", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -94,7 +96,7 @@ export async function PATCH(
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
   if (existing.isDefault) return NextResponse.json({ error: "Default tags cannot be modified" }, { status: 403 })
 
-  const { name, color, description } = await req.json()
+  const { name, color, description } = await readJsonBody(req)
 
   try {
     const tag = await prisma.tag.update({
@@ -109,12 +111,12 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Tag name already exists" }, { status: 409 })
   }
-}
+})
 
-export async function DELETE(
+export const DELETE = withApiErrorHandling("tags.delete", async (
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -125,4 +127,4 @@ export async function DELETE(
 
   await prisma.tag.delete({ where: { id } })
   return new NextResponse(null, { status: 204 })
-}
+})

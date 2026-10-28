@@ -36,6 +36,7 @@ export default function SettingsPage() {
   const [vulnApiKey, setVulnApiKey] = useState("")
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState("")
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
@@ -47,6 +48,7 @@ export default function SettingsPage() {
   const [slackTagIds, setSlackTagIds] = useState<string[]>([])
   const [slackSaving, setSlackSaving] = useState(false)
   const [slackSaved, setSlackSaved] = useState(false)
+  const [slackSaveError, setSlackSaveError] = useState("")
   const [slackTesting, setSlackTesting] = useState(false)
   const [slackTestResult, setSlackTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [assetTags, setAssetTags] = useState<Tag[]>([])
@@ -57,6 +59,7 @@ export default function SettingsPage() {
   const [aiModel, setAiModel] = useState("")
   const [aiSaving, setAiSaving] = useState(false)
   const [aiSaved, setAiSaved] = useState(false)
+  const [aiSaveError, setAiSaveError] = useState("")
   const [aiTesting, setAiTesting] = useState(false)
   const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
@@ -93,15 +96,30 @@ export default function SettingsPage() {
       .then((config: SlaConfig) => setSlaConfig(config))
   }, [])
 
+  // The server refuses a value it cannot use (an unusable URL, say) with 400.
+  // Returns its message, or "" when the settings were saved.
+  async function saveSettings(values: Record<string, string>): Promise<string> {
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      })
+      if (res.ok) return ""
+      const data = await res.json().catch(() => ({}))
+      return data.error ?? "Failed to save"
+    } catch {
+      return "Network error"
+    }
+  }
+
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSaving(true)
-    await fetch("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ HERETIX_API_URL: vulnApiUrl, HERETIX_API_KEY: vulnApiKey }),
-    })
+    const error = await saveSettings({ HERETIX_API_URL: vulnApiUrl, HERETIX_API_KEY: vulnApiKey })
     setSaving(false)
+    setSaveError(error)
+    if (error) return
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -109,18 +127,16 @@ export default function SettingsPage() {
   async function handleSlackSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSlackSaving(true)
-    await fetch("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        SLACK_ENABLED: slackEnabled ? "true" : "false",
-        SLACK_WEBHOOK_URL: slackWebhookUrl,
-        SLACK_MIN_SEVERITY: slackMinSeverity,
-        SLACK_FILTER_TYPE: slackFilterType,
-        SLACK_TAG_IDS: JSON.stringify(slackTagIds),
-      }),
+    const error = await saveSettings({
+      SLACK_ENABLED: slackEnabled ? "true" : "false",
+      SLACK_WEBHOOK_URL: slackWebhookUrl,
+      SLACK_MIN_SEVERITY: slackMinSeverity,
+      SLACK_FILTER_TYPE: slackFilterType,
+      SLACK_TAG_IDS: JSON.stringify(slackTagIds),
     })
     setSlackSaving(false)
+    setSlackSaveError(error)
+    if (error) return
     setSlackSaved(true)
     setTimeout(() => setSlackSaved(false), 2000)
   }
@@ -146,16 +162,14 @@ export default function SettingsPage() {
   async function handleAiSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setAiSaving(true)
-    await fetch("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        AI_ENABLED: aiEnabled ? "true" : "false",
-        AI_API_KEY: aiApiKey,
-        AI_MODEL: aiModel,
-      }),
+    const error = await saveSettings({
+      AI_ENABLED: aiEnabled ? "true" : "false",
+      AI_API_KEY: aiApiKey,
+      AI_MODEL: aiModel,
     })
     setAiSaving(false)
+    setAiSaveError(error)
+    if (error) return
     setAiSaved(true)
     setTimeout(() => setAiSaved(false), 2000)
   }
@@ -295,6 +309,7 @@ export default function SettingsPage() {
               </Button>
             </div>
 
+            {saveError && <p className="text-sm text-destructive">{saveError}</p>}
             {testResult && (
               <p className={`text-sm ${testResult.ok ? "text-green-600" : "text-destructive"}`}>
                 {testResult.msg}
@@ -431,6 +446,7 @@ export default function SettingsPage() {
               )}
             </div>
 
+            {slackSaveError && <p className="text-sm text-destructive">{slackSaveError}</p>}
             {slackTestResult && (
               <p className={`text-sm ${slackTestResult.ok ? "text-green-600" : "text-destructive"}`}>
                 {slackTestResult.msg}
@@ -502,6 +518,7 @@ export default function SettingsPage() {
               )}
             </div>
 
+            {aiSaveError && <p className="text-sm text-destructive">{aiSaveError}</p>}
             {aiTestResult && (
               <p className={`text-sm ${aiTestResult.ok ? "text-green-600" : "text-destructive"}`}>
                 {aiTestResult.msg}

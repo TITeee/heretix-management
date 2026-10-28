@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { withApiErrorHandling } from "@/lib/api-handler"
-import { stringList } from "@/lib/request-body"
+import { readJsonBody, stringList } from "@/lib/request-body"
 
 export const POST = withApiErrorHandling("tags.packages.update", async (
   req: NextRequest,
@@ -12,7 +12,7 @@ export const POST = withApiErrorHandling("tags.packages.update", async (
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id: tagId } = await params
-  const body = await req.json()
+  const body = await readJsonBody(req)
   // packageNames is the tag page's multi-select; a single packageName is still accepted.
   const packageNames = stringList(body.packageNames ?? (body.packageName === undefined ? undefined : [body.packageName]))
   if (!packageNames) {

@@ -1,23 +1,39 @@
 import { PrismaClient } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 import bcrypt from "bcryptjs"
+import { randomBytes } from "node:crypto"
 import "dotenv/config"
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
 const prisma = new PrismaClient({ adapter })
 
+// The rule of lib/password.ts, which the container's runtime image does not
+// ship (it has prisma/ but not lib/): 12 characters at least, 72 bytes at most.
+function seedPasswordProblem(password: string): string | null {
+  if ([...password].length < 12) return "SEED_PASSWORD must be at least 12 characters"
+  if (new TextEncoder().encode(password).length > 72) return "SEED_PASSWORD must be at most 72 bytes"
+  return null
+}
+
 async function main() {
   const email = process.env.SEED_EMAIL ?? "admin@example.com"
-  const password = process.env.SEED_PASSWORD ?? "changeme"
   const name = process.env.SEED_NAME ?? "Administrator"
 
   const existing = await prisma.user.findUnique({ where: { email } })
   if (existing) {
     console.log(`User already exists: ${email}`)
   } else {
+    // No fixed default: a known first password ("changeme") is the first one tried.
+    const given = process.env.SEED_PASSWORD
+    const password = given ?? randomBytes(18).toString("base64url")
+    const problem = given === undefined ? null : seedPasswordProblem(given)
+    if (problem) throw new Error(problem)
     const hash = await bcrypt.hash(password, 12)
     await prisma.user.create({ data: { email, password: hash, name, role: "admin" } })
     console.log(`Created user: ${email}`)
+    if (given === undefined) {
+      console.log(`Generated password (shown only now; change it on the Users page): ${password}`)
+    }
   }
 
   const defaultTags = [

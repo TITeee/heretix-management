@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { withApiErrorHandling } from "@/lib/api-handler"
+import { readJsonBody } from "@/lib/request-body"
 
 export const POST = withApiErrorHandling("assets.packages.create", async (
   req: NextRequest,
@@ -15,7 +16,7 @@ export const POST = withApiErrorHandling("assets.packages.create", async (
   const asset = await prisma.asset.findUnique({ where: { id } })
   if (!asset) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  const { name, version, rawVersion, ecosystem, source, location, cpe } = await req.json()
+  const { name, version, rawVersion, ecosystem, source, location, cpe } = await readJsonBody(req)
   if (!name || !version) {
     return NextResponse.json({ error: "name and version are required" }, { status: 400 })
   }

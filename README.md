@@ -90,7 +90,7 @@ On first start, the container creates the database schema and then starts the co
 docker compose exec app node_modules/.bin/tsx prisma/seed.ts
 ```
 
-This creates `admin@example.com` / `changeme` (set `SEED_EMAIL` and `SEED_PASSWORD` to choose your own) and the default tags. Sign in at your `AUTH_URL`, then change the password on the **Users** page.
+This creates the admin user `admin@example.com` with a generated password, printed once in the command's output, and the default tags. Set `SEED_EMAIL` and `SEED_PASSWORD` (at least 12 characters) to choose your own. Sign in at your `AUTH_URL`, then change the password on the **Users** page.
 
 ### 4. Connect to heretix-api
 

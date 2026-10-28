@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth"
 import { withApiErrorHandling } from "@/lib/api-handler"
 import { createAuditLog } from "@/lib/audit"
 import { noFixWhere } from "@/lib/remediation-data"
+import { readJsonBody } from "@/lib/request-body"
 
 const DEFAULT_REASON = "No fix available: accepted until one is"
 
@@ -31,7 +32,7 @@ export const POST = withApiErrorHandling("assets.remediation.accept", async (
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id: assetId } = await params
-  const body = await req.json()
+  const body = await readJsonBody(req)
   const alertIds: unknown = body?.alertIds
   const groupKey: unknown = body?.groupKey
   const memo = typeof body?.memo === "string" ? body.memo.trim() : ""

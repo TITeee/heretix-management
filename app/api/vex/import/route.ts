@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { withApiErrorHandling } from "@/lib/api-handler"
 import { parsePURL } from "@/lib/purl"
+import { importBodyMaxBytes, readJsonBody } from "@/lib/request-body"
 
 type VexVersionEntry = {
   version?: string
@@ -32,7 +33,7 @@ export const POST = withApiErrorHandling("vex.import", async (req: NextRequest) 
     return NextResponse.json({ error: "assetId is required — import VEX from an asset's page" }, { status: 400 })
   }
 
-  const body = await req.json()
+  const body = await readJsonBody(req, importBodyMaxBytes())
   if (body.bomFormat !== "CycloneDX") {
     return NextResponse.json({ error: "Only CycloneDX VEX format is supported" }, { status: 400 })
   }

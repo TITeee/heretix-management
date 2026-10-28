@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth"
 import bcrypt from "bcryptjs"
 import { createAuditLog } from "@/lib/audit"
 import { withApiErrorHandling } from "@/lib/api-handler"
+import { readJsonBody } from "@/lib/request-body"
+import { passwordProblem } from "@/lib/password"
 
 export const GET = withApiErrorHandling("users.list", async () => {
   const session = await auth()
@@ -22,11 +24,13 @@ export const POST = withApiErrorHandling("users.create", async (req: NextRequest
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (session.user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  const { email, password, name, role } = await req.json()
+  const { email, password, name, role } = await readJsonBody(req)
 
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
   }
+  const problem = passwordProblem(password)
+  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
   if (role && !["admin", "operator"].includes(role)) {
     return NextResponse.json({ error: "Invalid role" }, { status: 400 })
   }

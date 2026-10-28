@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
+import { withApiErrorHandling } from "@/lib/api-handler"
+import { readJsonBody } from "@/lib/request-body"
 
-export async function GET() {
+export const GET = withApiErrorHandling("tags.list", async () => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -13,13 +15,13 @@ export async function GET() {
     },
   })
   return NextResponse.json(tags)
-}
+})
 
-export async function POST(req: NextRequest) {
+export const POST = withApiErrorHandling("tags.create", async (req: NextRequest) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { name, type, color, description } = await req.json()
+  const { name, type, color, description } = await readJsonBody(req)
   if (!name || !type) return NextResponse.json({ error: "name and type are required" }, { status: 400 })
   if (type !== "asset" && type !== "package") return NextResponse.json({ error: "type must be asset or package" }, { status: 400 })
 
@@ -29,4 +31,4 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Tag name already exists" }, { status: 409 })
   }
-}
+})

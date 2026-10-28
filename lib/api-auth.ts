@@ -2,15 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { logger } from "@/lib/logger"
+import { clientIp } from "@/lib/client-ip"
 import { isTokenAuthRateLimited, recordTokenAuthFailure } from "@/lib/rate-limit"
 import { TOKEN_PREFIX, hashApiToken, isApiTokenScope, type Actor, type ApiTokenScope } from "@/lib/api-token"
 
 // Kept apart from lib/api-token.ts, which holds the pure helpers: this pulls in
 // next-auth, which the unit-test environment cannot load.
-
-function clientIp(req: NextRequest): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? req.headers.get("x-real-ip") ?? "unknown"
-}
 
 /**
  * Authenticates a request by session cookie or `Authorization: Bearer hx_...`.
@@ -34,7 +31,7 @@ export async function authenticate(
     return { actor: { via: "session", userId: session.user.id, userEmail: session.user.email } }
   }
 
-  const ip = clientIp(req)
+  const ip = clientIp(req.headers)
   const unauthorized = (reason: string) => {
     recordTokenAuthFailure(ip)
     logger.warn("api token rejected", { reason, ip })

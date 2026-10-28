@@ -63,7 +63,8 @@ Needs Node.js 22 (as in the Docker image), pnpm, PostgreSQL 15+ with a `heretix_
 | `CRON_REFRESH` | | `0 12 * * *` | When the metadata refresh runs (cron, UTC) |
 | `CRON_SCAN` | | `0 13 * * *` | When every asset is scanned (cron, UTC) |
 | `SCAN_STALE_HOURS` | | `36` | Without a successful scan for this long, the dashboard says the scheduler may not be running |
-| `SEED_EMAIL` / `SEED_PASSWORD` / `SEED_NAME` | | `admin@example.com` / `changeme` / `Administrator` | The admin user `seed` creates |
+| `SEED_EMAIL` / `SEED_PASSWORD` / `SEED_NAME` | | `admin@example.com` / (generated, printed once) / `Administrator` | The admin user `seed` creates. `SEED_PASSWORD` must be at least 12 characters |
+| `MAX_IMPORT_BODY_MB` | | `50` | Largest SBOM, CSV or VEX upload accepted, in MB; a larger one is refused with 413. A heretix-cli SBOM is about 1.1 KB a package. Other requests are limited to 1 MB |
 
 heretix-api's URL and key are read from Settings first, so they can be changed without a restart. Slack, SLA, and the AI model are configured in Settings only.
 

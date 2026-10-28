@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth"
 import { createAuditLog } from "@/lib/audit"
 import { withApiErrorHandling } from "@/lib/api-handler"
 import { validateCsvRows, type RawCsvRow, type CsvImportRow } from "@/lib/csv-import"
+import { importBodyMaxBytes, readJsonBody } from "@/lib/request-body"
 
 type RowStatus = "create" | "update" | "skip" | "error"
 type RowResult = { line: number; hostname: string; status: RowStatus; message?: string }
@@ -124,7 +125,7 @@ export const POST = withApiErrorHandling("assets.importCsv", async (req: NextReq
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { rows, commit, updateExisting } = await req.json()
+  const { rows, commit, updateExisting } = await readJsonBody(req, importBodyMaxBytes())
   if (!Array.isArray(rows) || rows.length === 0) {
     return NextResponse.json({ error: "rows must be a non-empty array" }, { status: 400 })
   }

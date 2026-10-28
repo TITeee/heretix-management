@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
+import { withApiErrorHandling } from "@/lib/api-handler"
+import { readJsonBody } from "@/lib/request-body"
 
-export async function GET(req: NextRequest) {
+export const GET = withApiErrorHandling("settings.sla.get", async (req: NextRequest) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -22,15 +24,15 @@ export async function GET(req: NextRequest) {
     // If parsing fails, return defaults
     return NextResponse.json(DEFAULT_SLA_CONFIG)
   }
-}
+})
 
-export async function POST(req: NextRequest) {
+export const POST = withApiErrorHandling("settings.sla.update", async (req: NextRequest) => {
   const session = await auth()
   if (!session || session.user?.role !== "admin") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const config = (await req.json()) as Partial<SlaConfig>
+  const config = (await readJsonBody(req)) as Partial<SlaConfig>
 
   // Validate config
   const validated = {
@@ -49,4 +51,4 @@ export async function POST(req: NextRequest) {
   })
 
   return NextResponse.json(validated)
-}
+})

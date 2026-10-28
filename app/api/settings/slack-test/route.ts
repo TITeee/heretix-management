@@ -2,14 +2,18 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { testSlackWebhook } from "@/lib/slack"
 import { assertPublicHttpUrl } from "@/lib/url-guard"
+import { withApiErrorHandling } from "@/lib/api-handler"
+import { readJsonBody } from "@/lib/request-body"
+import { secretOrStored } from "@/lib/settings-store"
 
-export async function POST(req: NextRequest) {
+export const POST = withApiErrorHandling("settings.slackTest", async (req: NextRequest) => {
   const session = await auth()
   if (!session || session.user?.role !== "admin") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { url } = await req.json()
+  const { url: sentUrl } = (await readJsonBody(req)) as { url?: unknown }
+  const url = await secretOrStored("SLACK_WEBHOOK_URL", sentUrl)
   if (!url) return NextResponse.json({ error: "url is required" }, { status: 400 })
 
   try {
@@ -33,4 +37,4 @@ export async function POST(req: NextRequest) {
     const msg = err instanceof Error ? err.message : "Connection failed"
     return NextResponse.json({ error: msg }, { status: 502 })
   }
-}
+})

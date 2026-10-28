@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Plus, Pencil, Trash2 } from "lucide-react"
+import { PASSWORD_MIN_LENGTH } from "@/lib/password"
 
 type User = {
   id: string
@@ -213,6 +214,10 @@ export function UsersClient({ currentUserId }: { currentUserId: string }) {
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 placeholder={editingUser ? "••••••••" : ""}
               />
+              <p className="text-xs text-muted-foreground">
+                At least {PASSWORD_MIN_LENGTH} characters.
+                {editingUser && " A new password signs this user out of every session."}
+              </p>
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium">Role</label>

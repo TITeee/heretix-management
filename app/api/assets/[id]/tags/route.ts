@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { withApiErrorHandling } from "@/lib/api-handler"
-import { stringList } from "@/lib/request-body"
+import { readJsonBody, stringList } from "@/lib/request-body"
 
 // An omitted or empty list is "nothing to do on this side", not an error.
 function optionalList(value: unknown): string[] | null {
@@ -23,7 +23,7 @@ export const POST = withApiErrorHandling("assets.tags.update", async (
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id: assetId } = await params
-  const body = await req.json()
+  const body = await readJsonBody(req)
   const add = optionalList(body.add)
   const remove = optionalList(body.remove)
   if (!add || !remove) {

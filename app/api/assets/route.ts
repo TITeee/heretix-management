@@ -10,6 +10,7 @@ import { withApiErrorHandling } from "@/lib/api-handler"
 import { authenticate } from "@/lib/api-auth"
 import { auditIdentity, type ApiTokenScope } from "@/lib/api-token"
 import { scanAsset } from "@/lib/scan"
+import { importBodyMaxBytes, readJsonBody } from "@/lib/request-body"
 
 export const GET = withApiErrorHandling("assets.list", async (req: NextRequest) => {
   const session = await auth()
@@ -43,7 +44,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
   const { actor } = authResult
   const audit = auditIdentity(actor)
 
-  const body = await req.json()
+  const body = await readJsonBody(req, importBodyMaxBytes())
 
   // Convert the CycloneDX BOM to the shape the import below reads. It comes as the
   // whole body (CI) or as body.inventory (the console's file upload). Anything else

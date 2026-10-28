@@ -7,12 +7,17 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String?
-  role      String   @default("admin")
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  email          String   @unique
+  password       String
+  name           String?
+  // operator unless a user is made an admin on purpose (the seed and the
+  // Users page say which they create).
+  role           String   @default("operator")
+  // Raised when the password changes: a session carries the number it was
+  // opened with, and one that no longer matches is signed out (lib/auth.ts).
+  sessionVersion Int      @default(0)
+  createdAt      DateTime @default(now())
 }
 
 model Asset {

@@ -5,11 +5,14 @@ import { withApiErrorHandling } from "@/lib/api-handler"
 import { createAuditLog } from "@/lib/audit"
 import { parseAlertQuery } from "@/lib/alerts/query-params"
 import { allListAlertIds } from "@/lib/alerts/query"
+import { readJsonBody } from "@/lib/request-body"
 
 // Ignoring needs a reason per alert (see PATCH /api/alerts/[id]), which a bulk
 // change does not carry.
 const BULK_STATUSES = ["open", "in_progress", "resolved"]
 const MAX_IDS = 50_000
+// MAX_IDS alert ids come to about 1.4 MB, over the usual 1 MB body limit.
+const BULK_BODY_MAX_BYTES = 4 * 1024 * 1024
 // Rows per statement: well inside PostgreSQL's limit on bind parameters.
 const CHUNK = 5_000
 
@@ -28,7 +31,7 @@ export const POST = withApiErrorHandling("alerts.bulk", async (req: NextRequest)
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const body = await req.json()
+  const body = await readJsonBody(req, BULK_BODY_MAX_BYTES)
   const { status } = body
   if (!BULK_STATUSES.includes(status)) {
     return NextResponse.json({ error: `status must be one of ${BULK_STATUSES.join(", ")}` }, { status: 400 })

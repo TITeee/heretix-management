@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import type { Alert } from "@prisma/client"
 import { getAIConfig, callAnthropic, AIError, type ChatMessage } from "@/lib/ai"
+import { withApiErrorHandling } from "@/lib/api-handler"
+import { BodyTooLargeError, readJsonBody } from "@/lib/request-body"
 
 async function buildSystemPrompt(alert: Alert): Promise<string> {
   const asset = await prisma.asset.findUnique({
@@ -49,10 +51,10 @@ ${historyText}
 When asked for your initial analysis, give a short plain-language explanation of why this matters for this specific asset (considering its tags and the vulnerability's severity/exploitability), then summarize the past-handling history above if any exists. For follow-up questions, answer helpfully using the context above. Do not invent facts that aren't in the context provided; say so if you don't know something.`
 }
 
-export async function GET(
+export const GET = withApiErrorHandling("alerts.chat.list", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -62,17 +64,20 @@ export async function GET(
     orderBy: { createdAt: "asc" },
   })
   return NextResponse.json(messages)
-}
+})
 
-export async function POST(
+export const POST = withApiErrorHandling("alerts.chat.send", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
-  const body = await req.json().catch(() => ({}))
+  const body = await readJsonBody(req).catch((err) => {
+    if (err instanceof BodyTooLargeError) throw err
+    return {}
+  })
   const userMessage: string | undefined = body.message
 
   const config = await getAIConfig()
@@ -120,4 +125,4 @@ export async function POST(
     const message = err instanceof Error ? err.message : "AI request failed"
     return NextResponse.json({ error: message }, { status })
   }
-}
+})

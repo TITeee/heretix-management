@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { isIgnoreReason, IGNORE_REASONS, REASON_REQUIRES_JUSTIFICATION } from "@/lib/vex"
 import { withApiErrorHandling } from "@/lib/api-handler"
+import { readJsonBody } from "@/lib/request-body"
 
 export const GET = withApiErrorHandling("alerts.get", async (
   _req: NextRequest,
@@ -25,7 +26,7 @@ export const PATCH = withApiErrorHandling("alerts.update", async (
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
-  const body = await req.json()
+  const body = await readJsonBody(req)
   const { status, notes, vexJustification, ignoreReason } = body
 
   const current = await prisma.alert.findUnique({
