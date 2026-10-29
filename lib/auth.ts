@@ -1,4 +1,4 @@
-import NextAuth from "next-auth"
+import NextAuth, { CredentialsSignin } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { prisma } from "@/lib/db"
 import bcrypt from "bcryptjs"
@@ -23,6 +23,13 @@ declare module "next-auth" {
       role: string
     }
   }
+}
+
+// Told apart from a wrong password on the sign-in page (the code reaches the
+// client). Safe to show: the limit counts attempts per email and address, so it
+// says nothing about whether the email has an account.
+class RateLimitedSignin extends CredentialsSignin {
+  code = "rate_limited"
 }
 
 // Compared against when the email is unknown, so that a sign-in takes as long
@@ -52,7 +59,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (isLoginRateLimited(email, ip)) {
           logger.warn("login failed", { email, reason: "rate_limited", ip })
           await createAuditLog({ userEmail: email, action: "login_failed", detail: `rate limited (IP: ${ip})` })
-          return null
+          throw new RateLimitedSignin()
         }
 
         const user = await prisma.user.findUnique({ where: { email } })
