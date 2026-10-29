@@ -44,7 +44,8 @@ services:
       # Docker Desktop provides host.docker.internal; on Linux this maps it too.
       - "host.docker.internal:host-gateway"
     ports:
-      - "${PORT:-3000}:3000"
+      # BIND_ADDRESS=127.0.0.1 leaves the port to a reverse proxy on this host (docs/tls-proxy.md).
+      - "${BIND_ADDRESS:-0.0.0.0}:${PORT:-3000}:3000"
     logging:
       driver: json-file
       options:

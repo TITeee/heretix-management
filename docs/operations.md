@@ -53,7 +53,8 @@ Needs Node.js 22 (as in the Docker image), pnpm, PostgreSQL 15+ with a `heretix_
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
 | `AUTH_SECRET` | yes | | Session signing key (`openssl rand -base64 32`) |
-| `AUTH_URL` | yes | `http://localhost:3000` | The URL users open |
+| `AUTH_URL` | yes | `http://localhost:3000` | The URL users open. Behind a TLS proxy, its `https://` address ([tls-proxy.md](tls-proxy.md)) |
+| `BIND_ADDRESS` | | `0.0.0.0` | With Docker, the address the app port is published on. `127.0.0.1` leaves it to a reverse proxy on the same host |
 | `DATABASE_URL` | without Docker | (set by Compose) | PostgreSQL connection string |
 | `POSTGRES_PASSWORD` | with Docker | `changeme` | Password of the Compose database |
 | `HERETIX_API_URL` | | `http://host.docker.internal:5000` with Compose, `http://localhost:5000` without | heretix-api URL. The defaults reach a heretix-api on the same host; set it for one elsewhere. With Docker it is resolved inside the container, where `localhost` is the container itself. **Settings → Vulnerability API** overrides it |

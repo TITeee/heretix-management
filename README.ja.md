@@ -130,6 +130,7 @@ git pull && docker compose up --build -d   # 最新版に更新
 | [docs/importing-assets.md](docs/importing-assets.md) | SBOM の取り込み、照合と再取り込み、ネットワーク機器と CSV、手動パッケージ、CI からのアップロード |
 | [docs/alerts.md](docs/alerts.md) | スキャン、アラートのライフサイクル、重要度と SLA、VEX、詳細パネル、通知 |
 | [docs/operations.md](docs/operations.md) | 手動セットアップ、環境変数、アップグレード、定期ジョブ、設定、ログ |
+| [docs/tls-proxy.md](docs/tls-proxy.md) | HTTPS で公開する手順: リバースプロキシ、HSTS、クライアントのアドレス、DB のパスワード |
 | [docs/api.md](docs/api.md) | `/api/*` のエンドポイント一覧 |
 | [docs/architecture.md](docs/architecture.md) | コードの構成と、主な処理の置き場所 |
 

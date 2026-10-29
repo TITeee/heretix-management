@@ -128,6 +128,7 @@ On start, the container applies any new database migrations before the console a
 | [docs/importing-assets.md](docs/importing-assets.md) | Importing SBOMs, matching and re-import, appliances and CSV, manual packages, CI uploads |
 | [docs/alerts.md](docs/alerts.md) | Scanning, alert lifecycle, severity and SLA, VEX, the detail panel, notifications |
 | [docs/operations.md](docs/operations.md) | Manual setup, environment variables, upgrading, scheduled jobs, settings, logging |
+| [docs/tls-proxy.md](docs/tls-proxy.md) | Serving the console over HTTPS: reverse proxy, HSTS, client address, database password |
 | [docs/api.md](docs/api.md) | `/api/*` endpoint reference |
 | [docs/architecture.md](docs/architecture.md) | Code layout and where the main logic lives |
 
