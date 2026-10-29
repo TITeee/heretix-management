@@ -92,6 +92,20 @@ docker compose exec app node_modules/.bin/tsx prisma/seed.ts
 
 This creates the admin user `admin@example.com` with a generated password, printed once in the command's output, and the default tags. Set `SEED_EMAIL` and `SEED_PASSWORD` (at least 12 characters) to choose your own. Sign in at your `AUTH_URL`, then change the password on the **Users** page.
 
+The output looks like this. Copy the `Generated password` line before you close the terminal: only a hash is stored, so the password cannot be shown again.
+
+```text
+Created user: admin@example.com
+Generated password (shown only now; change it on the Users page): <24 characters>
+```
+
+If you lost it, delete the admin user and run the seed again (this removes only that user):
+
+```bash
+docker compose exec db psql -U postgres heretix_management -c "DELETE FROM \"User\" WHERE email = 'admin@example.com';"
+docker compose exec app node_modules/.bin/tsx prisma/seed.ts
+```
+
 ### 4. Connect to heretix-api
 
 Open **Settings → Vulnerability API**, check the URL and key, and press **Test Connection**. If it fails: check that heretix-api answers (`curl http://localhost:5000/health` on its server), that the key matches its `API_KEY`, and, with heretix-api on another server, that `HERETIX_API_URL` points there and port 5000 is reachable. A URL with `localhost` never works from inside the container.

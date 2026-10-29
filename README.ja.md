@@ -92,6 +92,20 @@ docker compose exec app node_modules/.bin/tsx prisma/seed.ts
 
 管理者ユーザー `admin@example.com` と既定のタグが作成されます。パスワードは自動で生成され、コマンドの出力に一度だけ表示されます。`SEED_EMAIL` と `SEED_PASSWORD`（12 文字以上）で、自分で指定することもできます。`AUTH_URL` でサインインしたら、**Users** の画面でパスワードを変更してください。
 
+出力は次のようになります。ターミナルを閉じる前に、`Generated password` の行をコピーしてください。保存されるのはハッシュだけなので、パスワードを後から表示することはできません。
+
+```text
+Created user: admin@example.com
+Generated password (shown only now; change it on the Users page): <24 文字>
+```
+
+控えそこねた場合は、管理者ユーザーを削除してから、もう一度 seed を実行してください(削除されるのはそのユーザーだけです)。
+
+```bash
+docker compose exec db psql -U postgres heretix_management -c "DELETE FROM \"User\" WHERE email = 'admin@example.com';"
+docker compose exec app node_modules/.bin/tsx prisma/seed.ts
+```
+
 ### 4. heretix-api に接続する
 
 **Settings → Vulnerability API** で URL とキーを確認し、**Test Connection** を押します。失敗する場合は、次を確認してください。heretix-api が応答しているか（heretix-api のサーバーで `curl http://localhost:5000/health`）、キーが heretix-api の `API_KEY` と一致しているか、heretix-api が別のサーバーにある場合は `HERETIX_API_URL` がそこを指していてポート 5000 に届くか。`localhost` を含む URL は、コンテナの中からは届きません。
