@@ -399,11 +399,15 @@ export function RemediationTab({ assetId }: { assetId: string }) {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-base">
         {openCount === 0
           ? "No open alerts."
-          : <>{openCount} open alerts: {actionCount} fixable through {plan.actions.length}{" "}
-            {plan.actions.length === 1 ? "change" : "changes"}, {noFixCount} with no fix available.</>}
+          : <>
+            <strong className="text-lg font-semibold">{openCount}</strong> open alerts:{" "}
+            <strong className="text-lg font-semibold text-green-700 dark:text-green-400">{actionCount}</strong> fixable through{" "}
+            <strong className="text-lg font-semibold text-green-700 dark:text-green-400">{plan.actions.length}</strong>{" "}
+            {plan.actions.length === 1 ? "change" : "changes"},{" "}
+            <strong className="text-lg font-semibold text-amber-700 dark:text-amber-400">{noFixCount}</strong> with no fix available.</>}
       </p>
 
       {openCount > 0 && (

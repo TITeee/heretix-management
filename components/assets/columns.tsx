@@ -69,7 +69,12 @@ export const assetColumns: ColumnDef<AssetRow>[] = [
         Hostname <ArrowUpDown className="ml-1 h-3 w-3" />
       </Button>
     ),
-    cell: ({ row }) => <span className="text-xs">{row.original.hostname}</span>,
+    // Capped, so one long FQDN does not set the column's width; the full name is the tooltip.
+    cell: ({ row }) => (
+      <span className="block truncate max-w-40 text-xs" title={row.original.hostname}>
+        {row.original.hostname}
+      </span>
+    ),
   },
   {
     accessorKey: "osName",

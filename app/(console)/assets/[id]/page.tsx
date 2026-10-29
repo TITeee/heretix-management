@@ -316,14 +316,15 @@ export default async function AssetDetailPage({
             <AddPackageDialog assetId={id} />
           </div>
         </div>
+        {/* The tab content sits in a card, as on Settings, so it reads apart from the page. */}
         <TabsContent value="remediation">
-          <RemediationTab assetId={id} />
+          <Card><CardContent><RemediationTab assetId={id} /></CardContent></Card>
         </TabsContent>
         <TabsContent value="packages">
-          <PackagesTable data={packagesWithAlerts} assetId={id} />
+          <Card><CardContent><PackagesTable data={packagesWithAlerts} assetId={id} /></CardContent></Card>
         </TabsContent>
         <TabsContent value="graph">
-          <DependencyGraphLoader assetId={id} />
+          <Card><CardContent><DependencyGraphLoader assetId={id} /></CardContent></Card>
         </TabsContent>
       </Tabs>
     </div>
