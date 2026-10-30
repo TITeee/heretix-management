@@ -204,7 +204,8 @@ async function getDashboardData() {
     prisma.alert.findMany({
       where: { isKev: true, status: { in: ["open", "in_progress"] } },
       include: { asset: { select: { id: true, name: true, hostname: true } } },
-      orderBy: { cvssScore: "desc" },
+      // Newest first; the more severe one first among alerts found together.
+      orderBy: [{ detectedAt: "desc" }, { cvssScore: "desc" }],
       take: 10,
     }),
     // C1 Internet Facing tag severity
@@ -665,7 +666,7 @@ export default async function DashboardPage() {
             <CardTitle className="text-sm font-medium">KEV Alerts (Known Exploited)</CardTitle>
           </CardHeader>
           <CardContent>
-            <KevHighlights alerts={kevAlerts} />
+            <KevHighlights alerts={kevAlerts} total={kevCount} />
           </CardContent>
         </Card>
 

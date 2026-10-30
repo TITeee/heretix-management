@@ -3,10 +3,11 @@
 import { useState } from "react"
 import { FaTriangleExclamation } from "react-icons/fa6"
 import Link from "next/link"
-import { SeverityBadge } from "@/components/ui/severity-badge"
+import { SeverityBadge, StatusBadge } from "@/components/ui/severity-badge"
 import { AlertDetailSheet, type SheetAlert } from "@/components/alerts/alert-detail-sheet"
 
-export function KevHighlights({ alerts: initialAlerts }: { alerts: SheetAlert[] }) {
+/** `alerts` are the newest open KEV alerts; `total` counts all of them, for the link to the rest. */
+export function KevHighlights({ alerts: initialAlerts, total }: { alerts: SheetAlert[]; total: number }) {
   const [alerts, setAlerts] = useState<SheetAlert[]>(initialAlerts)
   const [selected, setSelected] = useState<SheetAlert | null>(null)
   const [open, setOpen] = useState(false)
@@ -34,11 +35,12 @@ export function KevHighlights({ alerts: initialAlerts }: { alerts: SheetAlert[] 
             <div
               key={alert.id}
               onClick={() => handleClick(alert)}
-              className="flex items-center justify-between rounded-md border p-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors"
+              className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors"
             >
-              <div className="space-y-0.5">
-                <div className="font-medium flex items-center gap-1.5">
+              <div className="space-y-0.5 min-w-0">
+                <div className="font-medium flex flex-wrap items-center gap-1.5">
                   <FaTriangleExclamation className="h-3.5 w-3.5 text-red-600 shrink-0" />
+                  <SeverityBadge score={alert.cvssScore} severity={alert.severity} />
                   <span className="font-mono text-xs">{alert.externalId}</span>
                   <span className="text-muted-foreground">·</span>
                   <span>{alert.packageName}</span>
@@ -51,15 +53,25 @@ export function KevHighlights({ alerts: initialAlerts }: { alerts: SheetAlert[] 
                   >
                     {assetLabel}
                   </Link>
+                  <span suppressHydrationWarning className="ml-2">
+                    Detected: {new Date(alert.detectedAt).toLocaleDateString()}
+                  </span>
                   {alert.epssScore != null && (
                     <span className="ml-2">EPSS: {alert.epssScore.toFixed(3)}</span>
                   )}
                 </div>
               </div>
-              <div><SeverityBadge score={alert.cvssScore} severity={alert.severity} /></div>
+              <div className="shrink-0"><StatusBadge status={alert.status} /></div>
             </div>
           )
         })}
+        {total > alerts.length && (
+          <div className="pt-1">
+            <Link href="/alerts?kev=1" className="text-xs text-muted-foreground hover:underline">
+              View all KEV alerts ({total}) →
+            </Link>
+          </div>
+        )}
       </div>
       <AlertDetailSheet
         key={selected?.id}
