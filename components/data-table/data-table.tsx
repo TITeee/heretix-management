@@ -87,21 +87,27 @@ export type ServerTableState = {
 
 const SEARCH_DEBOUNCE_MS = 300
 
-/** A search box's value, typed locally and handed on once typing pauses. */
-function useDebouncedSearch(value: string, onChange: ((v: string) => void) | undefined): [string, (v: string) => void] {
+/**
+ * A search box's value, typed locally and handed on once typing pauses. While the
+ * box has focus, what is typed wins: the parent's value is an answer to an earlier
+ * search and would drop the characters typed since. `focusProps` go on the input.
+ */
+function useDebouncedSearch(value: string, onChange: ((v: string) => void) | undefined) {
   const [text, setText] = useState(value)
   const [lastValue, setLastValue] = useState(value)
-  // A new value from the parent (Reset, a link) replaces what is typed.
+  const [focused, setFocused] = useState(false)
+  // A new value from the parent (Reset, a link) replaces what is typed, unless it is being typed.
   if (value !== lastValue) {
     setLastValue(value)
-    setText(value)
+    if (!focused) setText(value)
   }
   useEffect(() => {
     if (!onChange || text === value) return
     const timer = setTimeout(() => onChange(text), SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(timer)
   }, [text]) // eslint-disable-line react-hooks/exhaustive-deps
-  return [text, setText]
+  const focusProps = { onFocus: () => setFocused(true), onBlur: () => setFocused(false) }
+  return [text, setText, focusProps] as const
 }
 
 function CheckboxCell({
@@ -154,8 +160,8 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const [localSorting, setSorting] = useState<SortingState>(initialSorting)
   const sorting = server ? server.sorting : localSorting
-  const [firstSearch, setFirstSearch] = useDebouncedSearch(server?.search.first ?? "", server ? (v) => server.onSearchChange("first", v) : undefined)
-  const [secondSearch, setSecondSearch] = useDebouncedSearch(server?.search.second ?? "", server ? (v) => server.onSearchChange("second", v) : undefined)
+  const [firstSearch, setFirstSearch, firstFocus] = useDebouncedSearch(server?.search.first ?? "", server ? (v) => server.onSearchChange("first", v) : undefined)
+  const [secondSearch, setSecondSearch, secondFocus] = useDebouncedSearch(server?.search.second ?? "", server ? (v) => server.onSearchChange("second", v) : undefined)
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
     filterColumn && initialFilterValue ? [{ id: filterColumn, value: initialFilterValue }] : []
   )
@@ -269,6 +275,7 @@ export function DataTable<TData, TValue>({
               placeholder={filterPlaceholder}
               value={firstSearch}
               onChange={(e) => setFirstSearch(e.target.value)}
+              {...firstFocus}
               className="flex-1"
             />
             {firstSearch && (
@@ -292,6 +299,7 @@ export function DataTable<TData, TValue>({
               placeholder={secondFilterPlaceholder}
               value={secondSearch}
               onChange={(e) => setSecondSearch(e.target.value)}
+              {...secondFocus}
               className="w-40"
             />
             {secondSearch && (
