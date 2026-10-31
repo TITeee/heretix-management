@@ -303,7 +303,7 @@ export default async function AssetDetailPage({
       {/* Remediation / Packages / Dependency Graph tabs. Opens on Remediation:
           what to change comes before the package list. */}
       <Tabs defaultValue="remediation">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="remediation">Remediation</TabsTrigger>
             <TabsTrigger value="packages">Packages</TabsTrigger>
