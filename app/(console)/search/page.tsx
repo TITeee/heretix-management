@@ -22,7 +22,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Search, ShieldAlert } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { SEVERITY_COLORS, getAlertSeverityTier, type SeverityTier } from "@/lib/severity"
-import { VulnDetail, NvdTab, OsvTab, AdvisoryTab, CnaTab } from "@/components/alerts/vuln-detail-tabs"
+import { VulnDetail, NvdTab, OsvTab, AdvisoryTab, CnaTab, hasCnaData } from "@/components/alerts/vuln-detail-tabs"
 import { PackageNameInput } from "@/components/package-name-input"
 import { CatalogPairs, CatalogPicker } from "@/components/catalog-picker"
 import type { CatalogListing } from "@/lib/heretix-api"
@@ -487,7 +487,7 @@ export default function SearchPage() {
               {(detailData?.advisoryVulnerabilities?.length ?? 0) > 0 && (
                 <TabsTrigger value="advisory">Advisory</TabsTrigger>
               )}
-              {detailData?.cnaVulnerability && (
+              {hasCnaData(detailData) && (
                 <TabsTrigger value="cna">CNA</TabsTrigger>
               )}
             </TabsList>

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from "react"
-import { VulnDetail, DetailSkeleton, NvdTab, OsvTab, AdvisoryTab, CnaTab, AffectedModules, SeverityBadge } from "@/components/alerts/vuln-detail-tabs"
+import { VulnDetail, DetailSkeleton, NvdTab, OsvTab, AdvisoryTab, CnaTab, AffectedModules, SeverityBadge, Workarounds, hasCnaData } from "@/components/alerts/vuln-detail-tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -881,7 +881,7 @@ export function AlertDetailSheet({
             {(vulnDetail?.advisoryVulnerabilities?.length ?? 0) > 0 && (
               <TabsTrigger value="advisory">Advisory</TabsTrigger>
             )}
-            {vulnDetail?.cnaVulnerability && (
+            {hasCnaData(vulnDetail) && (
               <TabsTrigger value="cna">CNA</TabsTrigger>
             )}
             <TabsTrigger value="dependents">Dependents</TabsTrigger>
@@ -971,6 +971,11 @@ export function AlertDetailSheet({
                 )}
               </div>
             </section>
+
+            <Workarounds
+              detail={vulnDetail}
+              alert={{ ecosystem: alert.ecosystem, packageName: alert.packageName, sourcePackage: alert.sourcePackage ?? group?.sourcePackage }}
+            />
 
             {/* Affected Package */}
             <section className="space-y-3">

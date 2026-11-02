@@ -33,6 +33,9 @@ export async function GET(req: NextRequest) {
         osvVulnerabilities: data.osvVulnerabilities ?? [],
         advisoryVulnerabilities: data.advisoryVulnerabilities ?? [],
         cnaVulnerability: data.cnaVulnerability ?? null,
+        cnaWorkaround: data.cnaWorkaround ?? null,
+        cnaSolution: data.cnaSolution ?? null,
+        cnaProvider: data.cnaProvider ?? null,
       }
       return NextResponse.json({ results: [normalized] })
     } catch (err) {

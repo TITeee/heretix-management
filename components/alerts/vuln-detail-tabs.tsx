@@ -8,6 +8,7 @@ import { osvDistroRatings } from "@/lib/distro-priority"
 import { cnaModules } from "@/lib/cna-modules"
 import { fixStatusLabel } from "@/lib/fix-status"
 import { isOwnAdvisory, isOwnAdvisoryProduct, type AdvisoryAlert } from "@/lib/advisory-own"
+import { collectWorkarounds } from "@/lib/workarounds"
 import { ownVersions, osvRangeLabel } from "@/lib/osv-own-versions"
 
 export type NvdPackage = {
@@ -158,6 +159,13 @@ export type VulnDetail = {
     /** The CNA's own declaration, with the modules it scopes the CVE to; older heretix-api omits it. */
     rawAffected?: unknown
   } | null
+  /**
+   * The CNA's own workaround and solution from the CVE Record, verbatim, and the CNA that wrote
+   * them. Kept for every CVE, also one with no cnaVulnerability; older heretix-api omits them.
+   */
+  cnaWorkaround?: string | null
+  cnaSolution?: string | null
+  cnaProvider?: string | null
 }
 
 const TIER_WORD: Record<SeverityTier, string> = { critical: "Critical", high: "High", medium: "Medium", low: "Low", na: "n/a" }
@@ -882,34 +890,72 @@ export function AffectedModules({ detail }: { detail: VulnDetail | null }) {
   )
 }
 
+/** Whether the CNA tab has anything to show: affected products or the CNA's own text. */
+export function hasCnaData(detail: VulnDetail | null): boolean {
+  return !!(detail?.cnaVulnerability || detail?.cnaWorkaround || detail?.cnaSolution)
+}
+
+/**
+ * The Overview's Workarounds section (lib/workarounds.ts), with where each came from. Nothing is
+ * rendered when there is none.
+ */
+export function Workarounds({ detail, alert }: { detail: VulnDetail | null; alert: AdvisoryAlert | null }) {
+  const workarounds = collectWorkarounds(detail, alert)
+  if (workarounds.length === 0) return null
+
+  return (
+    <section className="space-y-3">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workarounds</h3>
+      <div className="space-y-4">
+        {workarounds.map((w) => (
+          <div key={w.text} className="space-y-1.5">
+            <div className="flex flex-wrap gap-1">
+              {w.sources.map((s) => <Badge key={s} variant="outline">{s}</Badge>)}
+            </div>
+            <p className="text-xs leading-relaxed whitespace-pre-wrap">{w.text}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export function CnaTab({ detail, loading }: { detail: VulnDetail | null; loading: boolean }) {
   if (loading) return <DetailSkeleton />
 
   const cna = detail?.cnaVulnerability
-  if (!cna) {
+  if (!detail || !hasCnaData(detail)) {
     return <p className="text-sm text-muted-foreground py-2">No CNA data available.</p>
   }
+
+  // A CVE with only the CNA's text has no cnaVulnerability: its CNA is the one that wrote the text.
+  const cnaName = cna?.cnaShortName ?? detail.cnaProvider
+  const cveId = cna?.cveId ?? detail.cveId
 
   return (
     <div className="space-y-6 text-sm">
       <section className="space-y-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Details</h3>
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="w-28 text-muted-foreground shrink-0">CNA</span>
-            <Badge variant="outline">{cna.cnaShortName}</Badge>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-28 text-muted-foreground shrink-0">CVE</span>
-            <span className="font-mono text-xs">{cna.cveId}</span>
-          </div>
-          {cna.datePublished && (
+          {cnaName && (
+            <div className="flex items-center gap-2">
+              <span className="w-28 text-muted-foreground shrink-0">CNA</span>
+              <Badge variant="outline">{cnaName}</Badge>
+            </div>
+          )}
+          {cveId && (
+            <div className="flex items-center gap-2">
+              <span className="w-28 text-muted-foreground shrink-0">CVE</span>
+              <span className="font-mono text-xs">{cveId}</span>
+            </div>
+          )}
+          {cna?.datePublished && (
             <div className="flex items-center gap-2">
               <span className="w-28 text-muted-foreground shrink-0">Published</span>
               <span>{new Date(cna.datePublished).toLocaleDateString("en-US")}</span>
             </div>
           )}
-          {cna.dateUpdated && (
+          {cna?.dateUpdated && (
             <div className="flex items-center gap-2">
               <span className="w-28 text-muted-foreground shrink-0">Updated</span>
               <span>{new Date(cna.dateUpdated).toLocaleDateString("en-US")}</span>
@@ -918,7 +964,21 @@ export function CnaTab({ detail, loading }: { detail: VulnDetail | null; loading
         </div>
       </section>
 
-      {cna.affectedProducts.length > 0 && (
+      {detail.cnaWorkaround && (
+        <section className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workaround</h3>
+          <p className="text-xs leading-relaxed whitespace-pre-wrap">{detail.cnaWorkaround}</p>
+        </section>
+      )}
+
+      {detail.cnaSolution && (
+        <section className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Solution</h3>
+          <p className="text-xs leading-relaxed whitespace-pre-wrap">{detail.cnaSolution}</p>
+        </section>
+      )}
+
+      {cna && cna.affectedProducts.length > 0 && (
         <section className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Affected Products ({cna.affectedProducts.length})
