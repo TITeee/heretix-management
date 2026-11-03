@@ -87,6 +87,8 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Screen only: paper is always printed in the light colors. */
+@media screen {
 .dark {
   --tag-fill: 30%;
   --tag-text-l: 0.86;
@@ -121,6 +123,23 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+}
+
+/* A printed page (the Reports pages) is the content alone: no sidebar or top bar. */
+@page {
+  size: A4;
+  margin: 14mm;
+}
+
+@media print {
+  [data-slot="sidebar"],
+  [data-slot="topbar"] {
+    display: none !important;
+  }
+  [data-slot="console-main"] {
+    padding: 0;
+  }
 }
 
 @layer base {

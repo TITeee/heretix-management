@@ -37,7 +37,7 @@ export function Topbar({ userName, userEmail }: Props) {
     : userEmail?.[0]?.toUpperCase() ?? "U"
 
   return (
-    <header className="flex h-14 items-center justify-between gap-2 border-b px-4">
+    <header data-slot="topbar" className="flex h-14 items-center justify-between gap-2 border-b px-4">
       <SidebarTrigger />
       <div className="flex items-center gap-2">
       <Button

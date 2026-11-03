@@ -45,6 +45,12 @@ function loadAlerts(assetId: string, where: object): Promise<PlanAlert[]> {
   return prisma.alert.findMany({ where: { assetId, ...where }, select: PLAN_COLUMNS })
 }
 
+/** The asset's open alerts grouped into changes and no-fix groups, without the accepted-with-fix ones. */
+export async function loadOpenPlan(assetId: string): Promise<RemediationPlan> {
+  const [alerts, packages] = await Promise.all([loadAlerts(assetId, OPEN_WHERE), loadPackages(assetId)])
+  return buildRemediationPlan(alerts, packages)
+}
+
 /** The asset's open alerts grouped into changes and no-fix groups, plus the accepted-with-fix changes. */
 export async function loadRemediation(assetId: string): Promise<{ plan: RemediationPlan; acceptedWithFix: RemediationPlan["actions"] }> {
   const [alerts, accepted, packages] = await Promise.all([
