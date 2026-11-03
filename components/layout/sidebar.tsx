@@ -12,6 +12,7 @@ import {
   Tag,
   Users,
   ClipboardList,
+  FileChartColumn,
 } from "lucide-react"
 import {
   Sidebar,
@@ -30,6 +31,7 @@ const navItems = [
   { href: "/tags",   label: "Tags",                 icon: Tag },
   { href: "/alerts", label: "Alerts",               icon: Bell },
   { href: "/search", label: "Vulnerability Search", icon: Search },
+  { href: "/reports", label: "Reports",             icon: FileChartColumn },
 ]
 
 export function AppSidebar({ userRole }: { userRole?: string }) {
