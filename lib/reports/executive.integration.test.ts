@@ -82,7 +82,7 @@ describe("executive report", () => {
     expect(p.mttrCriticalDays).toBe(7) // (4 + 10) / 2
   })
 
-  it("puts an asset under each of its tags, and lists the assets with none", async () => {
+  it("covers every asset with no tag chosen: a row per asset tag, an asset under each of its tags, and the assets with none", async () => {
     const prod = await prisma.tag.create({ data: { name: "Production", type: "asset" } })
     const sales = await prisma.tag.create({ data: { name: "Sales", type: "asset" } })
     const both = await asset("app1", [prod.id, sales.id])
@@ -90,7 +90,8 @@ describe("executive report", () => {
     await alert(both.id, { detectedAt: "2026-10-02", isKev: true })
     await alert(none.id, { detectedAt: "2026-10-02" })
 
-    const report = await buildExecutiveReport({ period, tagIds: [prod.id, sales.id], now })
+    const report = await buildExecutiveReport({ period, tagIds: [], now })
+    expect(report.tags).toEqual([])
     const byLabel = Object.fromEntries(report.scopes.map((s) => [s.label, s]))
     expect(Object.keys(byLabel)).toEqual(["All assets", "Production", "Sales", "No tag"])
     expect(byLabel["All assets"].open.alerts).toBe(2)
@@ -100,6 +101,27 @@ describe("executive report", () => {
     expect(byLabel["All assets"].period.detected).toBe(2)
     // One change per vulnerable package; the KEV one counted as fixing an exploited finding.
     expect(byLabel["All assets"].fixes).toEqual({ changes: 2, alerts: 2, kevChanges: 1, kevAlerts: 1 })
+  })
+
+  it("covers only the assets carrying a chosen tag, in every number and list", async () => {
+    const prod = await prisma.tag.create({ data: { name: "Production", type: "asset" } })
+    const sales = await prisma.tag.create({ data: { name: "Sales", type: "asset" } })
+    const app = await asset("app1", [prod.id])
+    const crm = await asset("crm1", [sales.id])
+    const lab = await asset("lab1")
+    await alert(app.id, { detectedAt: "2026-10-02", isKev: true })
+    await alert(crm.id, { detectedAt: "2026-10-02", severity: "CRITICAL", fixedVersion: null })
+    await alert(lab.id, { detectedAt: "2026-10-02", externalId: "MAL-2026-2" })
+
+    const report = await buildExecutiveReport({ period, tagIds: [prod.id], now })
+    expect(report.tags).toEqual([{ id: prod.id, name: "Production" }])
+    expect(report.scopes.map((s) => [s.label, s.assets, s.open.alerts])).toEqual([["Selected assets", 1, 1], ["Production", 1, 1]])
+    expect(report.scopes[0].period.detected).toBe(1)
+    expect(report.scopes[0].trend.at(-1)).toBe(1)
+    expect(report.decisions.noFix.total).toBe(0)
+    expect(report.decisions.malicious.total).toBe(0)
+    expect(report.decisions.scanGaps.rows.map((r) => r.assetName)).toEqual(["app1"])
+    expect(report.topAssets.map((r) => r.assetName)).toEqual(["app1"])
   })
 
   it("lists what needs a decision, the internet-facing exposure and the accepted risks with who accepted them", async () => {

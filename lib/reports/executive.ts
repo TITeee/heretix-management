@@ -71,7 +71,9 @@ export type ExecutiveReport = {
   trendPoints: Date[]
   /** When finding metadata (CVSS, EPSS, KEV) was last refreshed from heretix-api. */
   lastMetadataRefresh: Date | null
-  /** All assets first, then each chosen tag, then the assets with no tag. */
+  /** The tags whose assets the report covers; empty when it covers every asset. */
+  tags: { id: string; name: string }[]
+  /** The assets covered first, then each tag (and, covering every asset, the assets with none). */
   scopes: ScopeNumbers[]
   decisions: {
     noFix: { total: number; rows: (AssetRef & { target: string; fixStatus: string | null; alerts: number; kev: number; critical: number })[] }
@@ -141,13 +143,17 @@ async function loadPlans(assetIds: string[]): Promise<Map<string, RemediationPla
   return plans
 }
 
+/**
+ * tagIds: the asset tags whose assets the report covers, an asset carrying any of them; every
+ * asset when empty.
+ */
 export async function buildExecutiveReport(options: { period: ReportPeriod; tagIds: string[]; now?: Date }): Promise<ExecutiveReport> {
   const now = options.now ?? new Date()
   const period = options.period
   const previous = previousPeriod(period)
   const points = trendPoints(period, now)
 
-  const [assetRows, tags, open, periodFlows, previousFlows, openCounts, scanStatuses, refresh, noFix, malicious, accepted] = await Promise.all([
+  const [assetRows, tags, openRows, periodRows, previousRows, openCountRows, scanStatuses, refresh, noFixRead, maliciousRead, acceptedRead] = await Promise.all([
     prisma.asset.findMany({
       select: { id: true, name: true, scannedAt: true, sbomTool: true, assetTags: { select: { tagId: true } } },
       orderBy: { name: "asc" },
@@ -164,19 +170,38 @@ export async function buildExecutiveReport(options: { period: ReportPeriod; tagI
     acceptedRisks(),
   ])
 
-  const assets: AssetInfo[] = assetRows.map((a) => ({ id: a.id, name: a.name, scannedAt: a.scannedAt, sbomTool: a.sbomTool, tagIds: a.assetTags.map((t) => t.tagId) }))
+  const everyAsset: AssetInfo[] = assetRows.map((a) => ({ id: a.id, name: a.name, scannedAt: a.scannedAt, sbomTool: a.sbomTool, tagIds: a.assetTags.map((t) => t.tagId) }))
+
+  // The assets covered: those carrying any chosen tag, or all of them. The reads above are
+  // fleet-wide; every number and list below is taken from the covered assets' rows alone.
+  const chosen = tags.filter((t) => options.tagIds.includes(t.id))
+  const filtered = chosen.length > 0
+  const assets = filtered ? everyAsset.filter((a) => chosen.some((t) => a.tagIds.includes(t.id))) : everyAsset
+  const covered = new Set(assets.map((a) => a.id))
+  const only = <T extends { assetId: string }>(rows: T[]) => filtered ? rows.filter((r) => covered.has(r.assetId)) : rows
+  const open = only(openRows)
+  const periodFlows = only(periodRows)
+  const previousFlows = only(previousRows)
+  const openCounts = only(openCountRows)
+  const noFix = only(noFixRead)
+  const malicious = only(maliciousRead)
+  const accepted = only(acceptedRead)
   const nameOf = new Map(assets.map((a) => [a.id, a.name]))
   const ref = (assetId: string): AssetRef => ({ assetId, assetName: nameOf.get(assetId) ?? assetId })
   const openBy = new Map(open.map((o) => [o.assetId, o]))
   const plans = await loadPlans(open.map((o) => o.assetId))
 
-  // Scopes: all assets, each chosen asset tag, and the assets with none.
-  const chosen = tags.filter((t) => options.tagIds.includes(t.id))
-  const scopeDefs: { key: string; kind: ScopeKind; label: string; assetIds: Set<string> }[] = [
-    { key: "all", kind: "all", label: "All assets", assetIds: new Set(assets.map((a) => a.id)) },
-    ...chosen.map((t) => ({ key: `tag:${t.id}`, kind: "tag" as const, label: t.name, assetIds: new Set(assets.filter((a) => a.tagIds.includes(t.id)).map((a) => a.id)) })),
-    { key: "untagged", kind: "untagged", label: "No tag", assetIds: new Set(assets.filter((a) => a.tagIds.length === 0).map((a) => a.id)) },
-  ]
+  // Scopes: the assets covered, then each tag: the chosen ones, or every asset tag and the
+  // assets with none.
+  const tagScope = (t: { id: string; name: string }) =>
+    ({ key: `tag:${t.id}`, kind: "tag" as const, label: t.name, assetIds: new Set(assets.filter((a) => a.tagIds.includes(t.id)).map((a) => a.id)) })
+  const scopeDefs: { key: string; kind: ScopeKind; label: string; assetIds: Set<string> }[] = filtered
+    ? [{ key: "all", kind: "all", label: "Selected assets", assetIds: covered }, ...chosen.map(tagScope)]
+    : [
+        { key: "all", kind: "all", label: "All assets", assetIds: covered },
+        ...tags.map(tagScope),
+        { key: "untagged", kind: "untagged", label: "No tag", assetIds: new Set(assets.filter((a) => a.tagIds.length === 0).map((a) => a.id)) },
+      ]
 
   const scopes: ScopeNumbers[] = scopeDefs.map(({ key, kind, label, assetIds }) => {
     const inScope = <T extends { assetId: string }>(rows: T[]) => rows.filter((r) => assetIds.has(r.assetId))
@@ -271,6 +296,7 @@ export async function buildExecutiveReport(options: { period: ReportPeriod; tagI
     previousPeriod: previous,
     trendPoints: points,
     lastMetadataRefresh: refresh?.executedAt ?? null,
+    tags: chosen.map((t) => ({ id: t.id, name: t.name })),
     scopes,
     decisions: {
       noFix: { total: noFixRows.length, rows: noFixRows.slice(0, LIST_LIMIT) },
