@@ -112,6 +112,26 @@ describe("PATCH /api/alerts/[id]", () => {
     expect(events.map((e) => e.type)).toEqual(["ignore_reason_changed"])
   })
 
+  it("records a comment on the event of the change, as the bulk accept records its memo", async () => {
+    const alert = await createAlert()
+    await patch(alert.id, { status: "ignored", ignoreReason: "accepted_risk", comment: "  Isolated by ACL  " })
+    await patch(alert.id, { status: "ignored", ignoreReason: "not_affected", vexJustification: "code_not_present", comment: "Feature disabled" })
+    // Nothing changed: no event, so no comment.
+    await patch(alert.id, { status: "ignored", ignoreReason: "not_affected", comment: "Again" })
+    // Leaving ignored: a comment says why something is set aside, so none is recorded.
+    await patch(alert.id, { status: "open", comment: "Reopened" })
+
+    const events = await prisma.alertEvent.findMany({
+      where: { alertId: alert.id, type: { in: ["status_changed", "ignore_reason_changed"] } },
+      orderBy: { createdAt: "asc" },
+    })
+    expect(events.map((e) => [e.type, (e.data as { reason?: string }).reason ?? null])).toEqual([
+      ["status_changed", "Isolated by ACL"],
+      ["ignore_reason_changed", "Feature disabled"],
+      ["status_changed", null],
+    ])
+  })
+
   it("keeps reopenOnFix while the no-fix acceptance stands, and drops it on a new decision", async () => {
     const accepted = { status: "ignored", ignoreReason: "accepted_risk", reopenOnFix: true }
 

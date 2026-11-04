@@ -635,6 +635,12 @@ export function AlertDetailSheet({
   const [notes, setNotes] = useState(alert?.notes ?? "")
   const [vexJustification, setVexJustification] = useState(alert?.vexJustification ?? "")
   const [ignoreReason, setIgnoreReason] = useState(alert?.ignoreReason ?? "")
+  // The reason as stored, to tell whether saving records a change (and so the comment with it).
+  const [savedIgnoreReason, setSavedIgnoreReason] = useState(alert?.ignoreReason ?? "")
+  // Why the alert is set aside, recorded on the timeline with the change, as the Remediation tab's memo is.
+  // The box shows the comment recorded with the ignore decision that stands, until it is edited.
+  const [ignoreComment, setIgnoreComment] = useState("")
+  const [savedComment, setSavedComment] = useState("")
   const [pendingIgnore, setPendingIgnore] = useState(false)
   const [savingNotes, setSavingNotes] = useState(false)
   const [savingStatus, setSavingStatus] = useState(false)
@@ -662,6 +668,9 @@ export function AlertDetailSheet({
       setNotes(alert.notes ?? "")
       setVexJustification(alert.vexJustification ?? "")
       setIgnoreReason(alert.ignoreReason ?? "")
+      setSavedIgnoreReason(alert.ignoreReason ?? "")
+      setIgnoreComment("")
+      setSavedComment("")
       // Anything already stored as ignored was saved with a reason.
       setPendingIgnore(false)
     }
@@ -759,8 +768,33 @@ export function AlertDetailSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, alert?.id])
 
+  // The comment recorded with the ignore decision that stands: the reason on the latest event that
+  // set the alert aside or changed why (none when that event carries none).
+  useEffect(() => {
+    if (!open || !alert || alert.status !== "ignored") return
+    let cancelled = false
+    const alertId = alert.id
+    fetch(`/api/alerts/${alertId}/events`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((events: { type: string; data: { to?: string; reason?: unknown } | null }[]) => {
+        if (cancelled || !Array.isArray(events)) return
+        const decision = events.findLast((e) =>
+          e.type === "ignore_reason_changed" ||
+          ((e.type === "status_changed" || e.type === "vex_imported") && e.data?.to === "ignored"))
+        const comment = typeof decision?.data?.reason === "string" ? decision.data.reason : ""
+        setSavedComment(comment)
+        // Left alone when something has been typed meanwhile.
+        setIgnoreComment((typed) => (typed === "" ? comment : typed))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, alert?.id])
+
   const ignoreComplete =
     isIgnoreReason(ignoreReason) && (ignoreReason !== "not_affected" || !!vexJustification)
+  // A comment is recorded with a change of status or reason; an edited one with neither has nothing to attach it to.
+  const commentUnrecorded = ignoreComment.trim() !== savedComment.trim() && !pendingIgnore && ignoreReason === savedIgnoreReason
 
   async function onStatusChange(value: string | null) {
     if (!alert || !value) return
@@ -775,6 +809,9 @@ export function AlertDetailSheet({
 
     setPendingIgnore(false)
     setIgnoreReason("")
+    setSavedIgnoreReason("")
+    setIgnoreComment("")
+    setSavedComment("")
     setVexJustification("")
     notifyStatusChange(alert.id, value)
     setSavingStatus(true)
@@ -794,7 +831,7 @@ export function AlertDetailSheet({
   }
 
   async function onSaveIgnore() {
-    if (!alert || !ignoreComplete) return
+    if (!alert || !ignoreComplete || commentUnrecorded) return
     setSavingStatus(true)
     await fetch(`/api/alerts/${alert.id}`, {
       method: "PATCH",
@@ -803,10 +840,15 @@ export function AlertDetailSheet({
         status: "ignored",
         ignoreReason,
         vexJustification: ignoreReason === "not_affected" ? vexJustification : null,
+        comment: ignoreComment,
       }),
     })
     setSavingStatus(false)
     setPendingIgnore(false)
+    setSavedIgnoreReason(ignoreReason)
+    // Kept in the box: it is now the comment of the decision that stands.
+    setIgnoreComment(ignoreComment.trim())
+    setSavedComment(ignoreComment.trim())
     notifyStatusChange(alert.id, "ignored")
     setTimelineKey((k) => k + 1)
     router.refresh()
@@ -820,6 +862,10 @@ export function AlertDetailSheet({
     if (!alert) return
     setStatus("ignored")
     setIgnoreReason(reason)
+    setSavedIgnoreReason(reason)
+    // Adopted without a comment: the event records none.
+    setIgnoreComment("")
+    setSavedComment("")
     setVexJustification(justification ?? "")
     setPendingIgnore(false)
     notifyStatusChange(alert.id, "ignored")
@@ -1230,11 +1276,24 @@ export function AlertDetailSheet({
                         </Select>
                       </div>
                     )}
+                    <div className="flex gap-2">
+                      <span className="w-28 pt-1.5 text-sm text-muted-foreground shrink-0">Comment</span>
+                      <Textarea
+                        value={ignoreComment}
+                        onChange={(e) => setIgnoreComment(e.target.value)}
+                        placeholder="Optional: why, recorded on the timeline with the change"
+                        className="min-h-16 resize-none text-sm"
+                      />
+                    </div>
                     <div className="flex items-center gap-3">
-                      <Button size="sm" onClick={onSaveIgnore} disabled={!ignoreComplete || savingStatus}>
+                      <Button size="sm" onClick={onSaveIgnore} disabled={!ignoreComplete || savingStatus || commentUnrecorded}>
                         {savingStatus ? "Saving..." : "Save"}
                       </Button>
-                      {pendingIgnore && (
+                      {commentUnrecorded ? (
+                        <span className="text-xs text-amber-700 dark:text-amber-500">
+                          A comment is recorded when the status or the reason changes; use Notes for anything else.
+                        </span>
+                      ) : pendingIgnore && (
                         <span className="text-xs text-amber-700 dark:text-amber-500">
                           {ignoreComplete
                             ? "Not saved yet."

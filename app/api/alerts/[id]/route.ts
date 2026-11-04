@@ -28,6 +28,9 @@ export const PATCH = withApiErrorHandling("alerts.update", async (
   const { id } = await params
   const body = await readJsonBody(req)
   const { status, notes, vexJustification, ignoreReason } = body
+  // Why the alert is set aside, recorded on the event of the change as the Remediation tab's
+  // bulk accept records its memo, so the timeline and the reports show it.
+  const comment = typeof body?.comment === "string" ? body.comment.trim() : ""
 
   const current = await prisma.alert.findUnique({
     where: { id },
@@ -106,6 +109,7 @@ export const PATCH = withApiErrorHandling("alerts.update", async (
           from: current.status,
           to: status,
           ...(alert.ignoreReason ? { ignoreReason: alert.ignoreReason } : {}),
+          ...(comment && status === "ignored" ? { reason: comment } : {}),
           userName,
         },
       },
@@ -125,6 +129,7 @@ export const PATCH = withApiErrorHandling("alerts.update", async (
         data: {
           from: current.ignoreReason ? IGNORE_REASONS[current.ignoreReason as keyof typeof IGNORE_REASONS] ?? current.ignoreReason : null,
           to: alert.ignoreReason ? IGNORE_REASONS[alert.ignoreReason as keyof typeof IGNORE_REASONS] ?? alert.ignoreReason : null,
+          ...(comment ? { reason: comment } : {}),
           userName,
         },
       },
