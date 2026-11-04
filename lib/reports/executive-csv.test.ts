@@ -7,24 +7,27 @@ const period = (resolved: number, onTimeRate: number | null, mttrCriticalDays: n
   mttrCriticalDays, mttrHighDays: null, accepted: 1, ignoredOther: 0,
 })
 
-const scope = (label: string, previous: PeriodNumbers): ScopeNumbers => ({
+const scope = (label: string, previous: PeriodNumbers, trendOverdue: number[] = []): ScopeNumbers => ({
   key: label, kind: "tag", label, assets: 2,
   open: { alerts: 10, kev: 1, critical: 3, malicious: 0, overdue: 2, overdueLong: 1 },
   fixes: { changes: 4, alerts: 7, kevChanges: 1, kevAlerts: 1 },
   noFix: { alerts: 3, kev: 0, critical: 1 },
-  period: period(5, 2 / 3, 6.25), previous, trend: [],
+  period: period(5, 2 / 3, 6.25), previous, trend: [], trendOverdue, trendAged: trendOverdue.map((v) => v * 10),
 })
 
 const report = {
   period: { from: new Date("2026-10-01T00:00:00Z"), to: new Date("2026-11-01T00:00:00Z") },
-  scopes: [scope("All assets", period(0, null, null)), scope("=Sales", period(1, 1, 2))],
+  scopes: [scope("All assets", period(0, null, null), [4, 5, 3]), scope("=Sales", period(1, 1, 2))],
 } as unknown as ExecutiveReport
 
 describe("executiveCsv", () => {
   it("writes one row per scope, this period then the previous one, rates rounded", () => {
     const [header, all, sales] = executiveCsv(report).split("\r\n")
     const columns = header.split(",")
-    expect(columns).toHaveLength(32)
+    expect(columns).toHaveLength(36)
+    expect(columns.slice(32)).toEqual([
+      '"Open Past Due At End"', '"Open Over 90 Days At End"', '"Previous Open Past Due At End"', '"Previous Open Over 90 Days At End"',
+    ])
     expect(columns.slice(0, 3)).toEqual(['"Scope"', '"Assets"', '"Changes To Make"'])
     expect(columns[23]).toBe('"Previous Detected"')
     const cells = all.split(",")
@@ -32,6 +35,8 @@ describe("executiveCsv", () => {
     expect(cells[18]).toBe('"0.667"') // on-time rate
     expect(cells[19]).toBe('"6.3"') // MTTR Critical
     expect(cells[27]).toBe('""') // no previous on-time rate
+    expect(cells.slice(32)).toEqual(['"3"', '"30"', '"4"', '"40"']) // the last point, then the first
+    expect(sales.split(",").slice(32)).toEqual(['""', '""', '""', '""']) // no history
     // A tag name that would start a formula is written as text.
     expect(sales.startsWith(`"'=Sales"`)).toBe(true)
   })

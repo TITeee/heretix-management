@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 import { FaTriangleExclamation } from "react-icons/fa6"
 import { fixStatusLabel } from "@/lib/fix-status"
 import {
-  INTERNET_FACING_TAG, MISSION_CRITICAL_TAG, OVERDUE_LONG_DAYS, SCAN_STALE_DAYS,
+  AGED_DAYS, INTERNET_FACING_TAG, MISSION_CRITICAL_TAG, OVERDUE_LONG_DAYS, SCAN_STALE_DAYS,
   type ChangeToMake, type ExecutiveReport, type PeriodNumbers, type TaggedAssets,
 } from "@/lib/reports/executive"
 import { TagKindIcon } from "@/components/tags/tag-badge"
@@ -260,8 +260,17 @@ function KeyNumbers({ report }: { report: ExecutiveReport }) {
   const onTime = (x: PeriodNumbers) => x.resolvedWithDue > 0 ? `${pct(x.onTimeRate)} (${n(x.resolvedOnTime)} of ${n(x.resolvedWithDue)})` : "–"
   const row = (label: string, pick: (x: PeriodNumbers) => number | null, format: (v: number | null) => string, higherIsBetter: boolean | null, diff: (v: number) => string = n) =>
     [label, format(pick(p)), format(pick(b)), <Change key="d" now={pick(p)} before={pick(b)} format={diff} higherIsBetter={higherIsBetter} />]
+  // Counted at the end of each period: the end of the previous one is where this one starts.
+  const atEnd = (label: string, series: number[]) => {
+    const end = series.length >= 2 ? series[series.length - 1] : null
+    const start = series.length >= 2 ? series[0] : null
+    return [label, count(end), count(start), <Change key="d" now={end} before={start} higherIsBetter={false} />]
+  }
   return (
-    <Section title="Key numbers" note={`This period (${span(report.period)}) against the one before it (${span(report.previousPeriod)}).`}>
+    <Section
+      title="Key numbers"
+      note={`This period (${span(report.period)}) against the one before it (${span(report.previousPeriod)}). Open findings are counted at the end of each period, or now for a period still running.`}
+    >
       <Table
         head={["", "This period", "Previous period", "Change"]}
         numeric={[1, 2, 3]}
@@ -270,6 +279,8 @@ function KeyNumbers({ report }: { report: ExecutiveReport }) {
           row("Findings resolved", (x) => x.resolved, count, true),
           ["Resolved by the due date", onTime(p), onTime(b),
             <Change key="d" now={p.onTimeRate} before={b.onTimeRate} format={(v) => `${Math.round(v * 100)} pts`} higherIsBetter />],
+          atEnd("Open and past the due date", all.trendOverdue),
+          atEnd(`Open over ${AGED_DAYS} days`, all.trendAged),
           row("Mean time to resolve, Critical", (x) => x.mttrCriticalDays, days, false, (v) => v.toFixed(1)),
           row("Mean time to resolve, High", (x) => x.mttrHighDays, days, false, (v) => v.toFixed(1)),
           row("Accepted as a risk, any severity", (x) => x.accepted, count, null),

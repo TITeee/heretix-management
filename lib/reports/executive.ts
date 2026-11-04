@@ -20,6 +20,8 @@ import { previousPeriod, trendPoints, type ReportPeriod } from "./period"
 
 /** A finding this far past its due date is listed as needing a decision. */
 export const OVERDUE_LONG_DAYS = 30
+/** A finding open this long is counted as aged. */
+export const AGED_DAYS = 90
 /** An asset not scanned for this long is listed as having a gap. */
 export const SCAN_STALE_DAYS = 7
 /** The default tag marking assets exposed to the internet (prisma/seed.ts). */
@@ -62,6 +64,9 @@ export type ScopeNumbers = {
   previous: PeriodNumbers
   /** Open findings at each of ExecutiveReport.trendPoints. */
   trend: number[]
+  /** Of those, the ones past their due date, and the ones open over AGED_DAYS, at each point. */
+  trendOverdue: number[]
+  trendAged: number[]
 }
 
 export type ChangeToMake = { kind: RemediationKind; target: string; version: string | null; alerts: number; kev: number }
@@ -174,7 +179,7 @@ export async function buildExecutiveReport(options: { period: ReportPeriod; tagI
     openNow(now, OVERDUE_LONG_DAYS),
     flows(period),
     flows(previous),
-    openAt(points),
+    openAt(points, AGED_DAYS),
     getScanStatuses(),
     prisma.metadataRefreshRun.findFirst({ orderBy: { executedAt: "desc" }, select: { executedAt: true } }),
     noFixRisks(),
@@ -238,7 +243,13 @@ export async function buildExecutiveReport(options: { period: ReportPeriod; tagI
       }
     }
     const trend = points.map(() => 0)
-    for (const c of inScope(openCounts)) trend[c.point] += c.open
+    const trendOverdue = points.map(() => 0)
+    const trendAged = points.map(() => 0)
+    for (const c of inScope(openCounts)) {
+      trend[c.point] += c.open
+      trendOverdue[c.point] += c.overdue
+      trendAged[c.point] += c.aged
+    }
     return {
       key, kind, label,
       assets: assetIds.size,
@@ -250,7 +261,7 @@ export async function buildExecutiveReport(options: { period: ReportPeriod; tagI
       noFix: { alerts: sum((r) => r.noFix), kev: sum((r) => r.noFixKev), critical: sum((r) => r.noFixCritical) },
       period: sumFlows(inScope(periodFlows)),
       previous: sumFlows(inScope(previousFlows)),
-      trend,
+      trend, trendOverdue, trendAged,
     }
   })
 

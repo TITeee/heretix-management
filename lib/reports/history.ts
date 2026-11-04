@@ -203,6 +203,16 @@ export async function flows(period: ReportPeriod): Promise<Flows[]> {
   return [...byAsset.values()]
 }
 
+export type OpenAt = {
+  assetId: string
+  point: number
+  open: number
+  /** Of those, the ones past their due date at the point (the due date as it is now). */
+  overdue: number
+  /** Of those, the ones detected over `agedDays` before the point. */
+  aged: number
+}
+
 /**
  * How many findings of each asset were open (open or in progress) at each of `points`.
  *
@@ -211,11 +221,11 @@ export async function flows(period: ReportPeriod): Promise<Flows[]> {
  * is open until resolvedAt, or updatedAt when it is set aside without one, which is the closest
  * the columns can say.
  */
-export async function openAt(points: Date[]): Promise<{ assetId: string; point: number; open: number }[]> {
+export async function openAt(points: Date[], agedDays: number): Promise<OpenAt[]> {
   if (points.length === 0) return []
   // Columns hold UTC without a zone; a zone in the text is ignored by the cast, leaving UTC.
   const isoPoints = points.map((p) => p.toISOString())
-  const rows = await prisma.$queryRaw<{ assetId: string; i: bigint; open: bigint }[]>`
+  const rows = await prisma.$queryRaw<{ assetId: string; i: bigint; open: bigint; overdue: bigint; aged: bigint }[]>`
     WITH pts AS (
       SELECT t, i FROM unnest(${isoPoints}::timestamp[]) WITH ORDINALITY AS x(t, i)
     ),
@@ -231,18 +241,20 @@ export async function openAt(points: Date[]): Promise<{ assetId: string; point: 
     segs AS (
       SELECT a."assetId", a."detectedAt" AS since,
         coalesce(f.at, CASE WHEN a.status IN ('open', 'in_progress') THEN NULL ELSE coalesce(a."resolvedAt", a."updatedAt") END) AS until,
-        'open' AS st
+        'open' AS st, a."dueDate" AS due, a."detectedAt" AS detected
       FROM "Alert" a LEFT JOIN first_ev f ON f."alertId" = a.id
       UNION ALL
-      SELECT a."assetId", ev.since, ev.until, ev.st
+      SELECT a."assetId", ev.since, ev.until, ev.st, a."dueDate", a."detectedAt"
       FROM ev JOIN "Alert" a ON a.id = ev."alertId"
     )
-    SELECT s."assetId", p.i, count(*) AS open
+    SELECT s."assetId", p.i, count(*) AS open,
+      count(*) FILTER (WHERE s.due < p.t) AS overdue,
+      count(*) FILTER (WHERE s.detected < p.t - make_interval(days => ${agedDays}::int)) AS aged
     FROM segs s JOIN pts p ON s.since <= p.t AND (s.until IS NULL OR s.until > p.t)
     WHERE s.st IN ('open', 'in_progress')
     GROUP BY s."assetId", p.i
   `
-  return rows.map((r) => ({ assetId: r.assetId, point: Number(r.i) - 1, open: Number(r.open) }))
+  return rows.map((r) => ({ assetId: r.assetId, point: Number(r.i) - 1, open: Number(r.open), overdue: Number(r.overdue), aged: Number(r.aged) }))
 }
 
 export type AcceptedRisk = {

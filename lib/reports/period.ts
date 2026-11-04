@@ -72,7 +72,7 @@ export function formatDay(date: Date): string {
 /**
  * The moments the trend counts open findings at: the start of the period, then every week (up to
  * WEEKLY_MAX_DAYS) or the first of every month, and the end of the period. A moment after `now`
- * is left out, since nothing is known about it yet.
+ * is left out, since nothing is known about it yet; a period still running ends at `now` instead.
  */
 export function trendPoints(period: ReportPeriod, now: Date = new Date()): Date[] {
   const points: Date[] = [period.from]
@@ -86,5 +86,7 @@ export function trendPoints(period: ReportPeriod, now: Date = new Date()): Date[
     }
   }
   points.push(period.to)
-  return points.filter((p) => p <= now)
+  const known = points.filter((p) => p <= now)
+  if (period.to > now && now > period.from && known.at(-1)?.getTime() !== now.getTime()) known.push(now)
+  return known
 }

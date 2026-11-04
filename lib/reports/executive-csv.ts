@@ -1,5 +1,5 @@
 import { escapeCSV } from "@/lib/alerts/export-format"
-import type { ExecutiveReport, PeriodNumbers, ScopeNumbers } from "./executive"
+import { AGED_DAYS, type ExecutiveReport, type PeriodNumbers, type ScopeNumbers } from "./executive"
 import { formatDay, lastDay } from "./period"
 
 /**
@@ -40,6 +40,11 @@ const COLUMNS: [string, (s: ScopeNumbers) => string | number | null][] = [
   ["No Fix Yet (Critical)", (s) => s.noFix.critical],
   ...PERIOD_COLUMNS.map(([name, pick]): [string, (s: ScopeNumbers) => number | null] => [name, (s) => pick(s.period)]),
   ...PERIOD_COLUMNS.map(([name, pick]): [string, (s: ScopeNumbers) => number | null] => [`Previous ${name}`, (s) => pick(s.previous)]),
+  // At the end of the period and of the previous one (where this one starts); empty with no history.
+  ["Open Past Due At End", (s) => s.trendOverdue.length >= 2 ? s.trendOverdue[s.trendOverdue.length - 1] : null],
+  [`Open Over ${AGED_DAYS} Days At End`, (s) => s.trendAged.length >= 2 ? s.trendAged[s.trendAged.length - 1] : null],
+  ["Previous Open Past Due At End", (s) => s.trendOverdue.length >= 2 ? s.trendOverdue[0] : null],
+  [`Previous Open Over ${AGED_DAYS} Days At End`, (s) => s.trendAged.length >= 2 ? s.trendAged[0] : null],
 ]
 
 export function executiveCsv(report: ExecutiveReport): string {

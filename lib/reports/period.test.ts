@@ -53,9 +53,11 @@ describe("trendPoints", () => {
     ])
   })
 
-  it("leaves out moments after now", () => {
-    expect(trendPoints({ from: day("2026-11-01"), to: day("2026-12-01") }, new Date("2026-11-10T12:00:00Z")).map(formatDay))
-      .toEqual(["2026-11-01", "2026-11-08"])
+  it("ends a period still running at now, leaving out the moments after it", () => {
+    const now = new Date("2026-11-10T12:00:00Z")
+    expect(trendPoints({ from: day("2026-11-01"), to: day("2026-12-01") }, now))
+      .toEqual([day("2026-11-01"), day("2026-11-08"), now])
+    expect(trendPoints({ from: day("2026-12-01"), to: day("2027-01-01") }, now)).toEqual([])
   })
 })
 

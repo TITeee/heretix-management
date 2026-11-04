@@ -56,7 +56,7 @@ describe("executive report", () => {
     await event(reopened.id, "2026-09-10", "status_changed", { from: "open", to: "resolved" })
     await event(reopened.id, "2026-10-10", "status_changed", { from: "resolved", to: "open" })
 
-    const counts = await openAt([at("2026-09-01"), at("2026-09-20"), at("2026-10-20")])
+    const counts = await openAt([at("2026-09-01"), at("2026-09-20"), at("2026-10-20")], 90)
     expect(counts.map((c) => c.point)).toEqual(expect.arrayContaining([0, 2]))
     expect(counts.find((c) => c.point === 1)).toBeUndefined()
 
@@ -65,6 +65,21 @@ describe("executive report", () => {
     expect(all.period.resolved).toBe(0)
     expect(all.previous.resolved).toBe(1)
     expect(all.open.alerts).toBe(1)
+  })
+
+  it("counts the open findings past their due date and open over 90 days at the start and the end of the period", async () => {
+    const a = await asset("web1")
+    // Open all along, due before the period: past due at both ends, and over 90 days old by the end.
+    await alert(a.id, { detectedAt: "2026-07-15", dueDate: "2026-08-01" })
+    // Due within the period: past due only at its end.
+    await alert(a.id, { detectedAt: "2026-09-20", dueDate: "2026-10-10" })
+    // Past due at the start, resolved within the period.
+    const fixed = await alert(a.id, { detectedAt: "2026-09-01", dueDate: "2026-09-10", status: "resolved" })
+    await event(fixed.id, "2026-10-05", "status_changed", { from: "open", to: "resolved" })
+
+    const all = (await buildExecutiveReport({ period, tagIds: [], now })).scopes[0]
+    expect([all.trendOverdue[0], all.trendOverdue.at(-1)]).toEqual([2, 2])
+    expect([all.trendAged[0], all.trendAged.at(-1)]).toEqual([0, 1])
   })
 
   it("reads a VEX import as a status change, and works out on-time resolution and the mean time to resolve", async () => {
