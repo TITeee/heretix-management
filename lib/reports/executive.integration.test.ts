@@ -143,6 +143,24 @@ describe("executive report", () => {
     ])
   })
 
+  it("lists a package with no fix once, with how many assets carry it and the most important of them first", async () => {
+    const internet = await prisma.tag.create({ data: { name: "Internet Facing", type: "asset", isDefault: true } })
+    const mission = await prisma.tag.create({ data: { name: "Mission Critical", type: "asset", isDefault: true } })
+    for (const [name, tags] of [["a1", []], ["a2", []], ["web1", [internet.id]], ["core1", [mission.id]]] as const) {
+      const a = await asset(name, [...tags])
+      await alert(a.id, { detectedAt: "2026-10-02", severity: "CRITICAL", fixedVersion: null, packageName: "openssl" })
+    }
+    const other = await asset("b1")
+    await alert(other.id, { detectedAt: "2026-10-02", isKev: true, fixedVersion: null, packageName: "bash" })
+
+    const { noFix } = (await buildExecutiveReport({ period, tagIds: [], now })).decisions
+    expect(noFix.total).toBe(2)
+    expect(noFix.rows.map((r) => [r.target, r.assetCount, r.alerts, r.assets.map((a) => a.assetName)])).toEqual([
+      ["bash", 1, 1, ["b1"]],
+      ["openssl", 4, 4, ["core1", "web1", "a1"]],
+    ])
+  })
+
   it("lists what needs a decision, the internet-facing exposure and the accepted risks with who accepted them", async () => {
     const internet = await prisma.tag.create({ data: { name: "Internet Facing", type: "asset", isDefault: true } })
     const edge = await asset("edge1", [internet.id])
@@ -152,7 +170,7 @@ describe("executive report", () => {
     await event(accepted.id, "2026-10-12", "status_changed", { from: "open", to: "ignored", ignoreReason: "accepted_risk", reason: "Isolated by ACL", userName: "Alice" })
 
     const report = await buildExecutiveReport({ period, tagIds: [], now })
-    expect(report.decisions.noFix.rows).toMatchObject([{ assetName: "edge1", target: "openssl", critical: 1 }])
+    expect(report.decisions.noFix.rows).toMatchObject([{ target: "openssl", assetCount: 1, assets: [{ assetName: "edge1" }], critical: 1 }])
     expect(report.decisions.longOverdue.rows).toMatchObject([{ assetName: "edge1", alerts: 1 }])
     expect(report.decisions.malicious.rows).toMatchObject([{ assetName: "edge1", externalId: "MAL-2026-1" }])
     // edge1 has never had a vulnerability scan job.

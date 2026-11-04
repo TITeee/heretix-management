@@ -30,6 +30,8 @@ export const MISSION_CRITICAL_TAG = "Mission Critical"
 const DAY_MS = 24 * 60 * 60 * 1000
 const LIST_LIMIT = 10
 const TOP_ASSETS = 5
+/** Assets named in a row of the no-fix list; the rest are counted. */
+const NO_FIX_ASSETS = 3
 const PLAN_CONCURRENCY = 4
 
 export type ScopeKind = "all" | "tag" | "untagged"
@@ -90,7 +92,8 @@ export type ExecutiveReport = {
   /** The assets covered first, then each tag (and, covering every asset, the assets with none). */
   scopes: ScopeNumbers[]
   decisions: {
-    noFix: { total: number; rows: (AssetRef & { target: string; fixStatus: string | null; alerts: number; kev: number; critical: number })[] }
+    /** One row per package and vendor status; assets holds the first few, the most important first. */
+    noFix: { total: number; rows: { target: string; fixStatus: string | null; assetCount: number; assets: AssetRef[]; alerts: number; kev: number; critical: number }[] }
     longOverdue: { total: number; rows: (AssetRef & { alerts: number; oldestDue: Date | null })[] }
     scanGaps: { total: number; rows: (AssetRef & { inventoryAt: Date | null; lastScanAt: Date | null; lastScanFailed: boolean })[] }
     malicious: { total: number; rows: (AssetRef & { packageName: string; packageVersion: string; ecosystem: string; externalId: string })[] }
@@ -254,7 +257,30 @@ export async function buildExecutiveReport(options: { period: ReportPeriod; tagI
   // Decisions: no fix for something exploited or Critical, long overdue, scan gaps, malware.
   const byRisk = <T extends { kev: number; critical: number; alerts: number }>(a: T, b: T) =>
     b.kev - a.kev || b.critical - a.critical || b.alerts - a.alerts
-  const noFixRows = noFix.map((r) => ({ ...ref(r.assetId), target: r.target, fixStatus: r.fixStatus, alerts: r.alerts, kev: r.kev, critical: r.critical })).sort(byRisk)
+  // No fix: one row per package and vendor status, since what to do about it (isolate, mitigate,
+  // accept) is decided once for the package, however many assets carry it.
+  const noFixGroups = new Map<string, { target: string; fixStatus: string | null; assets: AssetRef[]; alerts: number; kev: number; critical: number }>()
+  for (const r of noFix) {
+    const key = `${r.target}\u0000${r.fixStatus ?? ""}`
+    let g = noFixGroups.get(key)
+    if (!g) {
+      g = { target: r.target, fixStatus: r.fixStatus, assets: [], alerts: 0, kev: 0, critical: 0 }
+      noFixGroups.set(key, g)
+    }
+    // noFixRisks gives one row per asset, package and vendor status.
+    g.assets.push(ref(r.assetId))
+    g.alerts += r.alerts
+    g.kev += r.kev
+    g.critical += r.critical
+  }
+  const importance = (a: AssetRef) => (a.missionCritical ? 0 : a.internetFacing ? 1 : 2)
+  const noFixRows = [...noFixGroups.values()]
+    .map(({ assets: carriers, ...g }) => ({
+      ...g,
+      assetCount: carriers.length,
+      assets: carriers.sort((a, b) => importance(a) - importance(b) || a.assetName.localeCompare(b.assetName)).slice(0, NO_FIX_ASSETS),
+    }))
+    .sort(byRisk)
   const overdueRows = open
     .filter((o) => o.overdueLong > 0)
     .map((o) => ({ ...ref(o.assetId), alerts: o.overdueLong, oldestDue: o.oldestDue }))

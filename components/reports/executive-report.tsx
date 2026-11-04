@@ -158,10 +158,16 @@ function Decisions({ report }: { report: ExecutiveReport }) {
           {d.noFix.total === 0 ? none : (
             <>
               <Table
-                head={["Asset", "Package", "Vendor status", "Findings", "Known exploited", "Critical"]}
+                head={["Package", "Vendor status", "Assets", "Findings", "Known exploited", "Critical"]}
                 numeric={[3, 4, 5]}
                 rows={d.noFix.rows.map((r) => [
-                  <AssetLink key="a" asset={r} />, r.target, fixStatusLabel(r.fixStatus) ?? "–", n(r.alerts),
+                  r.target, fixStatusLabel(r.fixStatus) ?? "–",
+                  <span key="a">
+                    {n(r.assetCount)}:{" "}
+                    {r.assets.map((a, i) => <span key={a.assetId}>{i > 0 && ", "}<AssetLink asset={a} /></span>)}
+                    {r.assetCount > r.assets.length && ` +${n(r.assetCount - r.assets.length)} more`}
+                  </span>,
+                  n(r.alerts),
                   <Num key="k" value={r.kev} tone="exploited" />, <Num key="c" value={r.critical} tone="critical" />,
                 ])}
               />
