@@ -281,8 +281,8 @@ function KeyNumbers({ report }: { report: ExecutiveReport }) {
             <Change key="d" now={p.onTimeRate} before={b.onTimeRate} format={(v) => `${Math.round(v * 100)} pts`} higherIsBetter />],
           atEnd("Open and past the due date", all.trendOverdue),
           atEnd(`Open over ${AGED_DAYS} days`, all.trendAged),
-          row("Mean time to resolve, Critical", (x) => x.mttrCriticalDays, days, false, (v) => v.toFixed(1)),
-          row("Mean time to resolve, High", (x) => x.mttrHighDays, days, false, (v) => v.toFixed(1)),
+          row("Median time to resolve, Critical", (x) => x.medianCriticalDays, days, false, (v) => v.toFixed(1)),
+          row("Median time to resolve, High", (x) => x.medianHighDays, days, false, (v) => v.toFixed(1)),
           row("Accepted as a risk, any severity", (x) => x.accepted, count, null),
         ]}
       />

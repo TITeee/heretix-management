@@ -113,6 +113,9 @@ export type Flows = {
   resolvedCritical: number
   daysToResolveHigh: number
   resolvedHigh: number
+  /** How many took each time to resolve, in tenths of a day, for Critical and High: [tenths, count]. */
+  spreadCritical: [number, number][]
+  spreadHigh: [number, number][]
   /** Findings set to accepted risk in the period, and set aside for any other reason. */
   accepted: number
   ignoredOther: number
@@ -123,7 +126,7 @@ const acceptedLabel = IGNORE_REASONS.accepted_risk
 /** What happened in [from, to) to the findings of each asset. */
 export async function flows(period: ReportPeriod): Promise<Flows[]> {
   const { from, to } = period
-  const [detected, resolved, ignored] = await Promise.all([
+  const [detected, resolved, spread, ignored] = await Promise.all([
     prisma.$queryRaw<{ assetId: string; n: bigint }[]>`
       SELECT "assetId", count(*) AS n FROM "Alert"
       WHERE "detectedAt" >= ${from} AND "detectedAt" < ${to}
@@ -148,6 +151,22 @@ export async function flows(period: ReportPeriod): Promise<Flows[]> {
         count(*) FILTER (WHERE a."severityTier" = 'high') AS "nHigh"
       FROM r JOIN "Alert" a ON a.id = r."alertId"
       GROUP BY a."assetId"
+    `,
+    // The same resolutions counted by time to resolve, for the median: a mean cannot be added
+    // up across assets into a median, but these counts can.
+    prisma.$queryRaw<{ assetId: string; tier: string; tenths: number; n: bigint }[]>`
+      WITH r AS (
+        SELECT DISTINCT ON (e."alertId") e."alertId", e."createdAt" AS at
+        FROM "AlertEvent" e
+        WHERE e.type = ANY(${STATUS_EVENTS}) AND e.data->>'to' = 'resolved'
+          AND e."createdAt" >= ${from} AND e."createdAt" < ${to}
+        ORDER BY e."alertId", e."createdAt" DESC
+      )
+      SELECT a."assetId", a."severityTier" AS tier,
+        round(extract(epoch FROM r.at - a."detectedAt") / 8640)::int AS tenths, count(*) AS n
+      FROM r JOIN "Alert" a ON a.id = r."alertId"
+      WHERE a."severityTier" IN ('critical', 'high')
+      GROUP BY 1, 2, 3
     `,
     // Set aside in the period: accepted risk by the status change that set it, or by a later
     // change of reason (that event stores the reason's label, not its key).
@@ -178,6 +197,7 @@ export async function flows(period: ReportPeriod): Promise<Flows[]> {
       f = {
         assetId, detected: 0, resolved: 0, resolvedWithDue: 0, resolvedOnTime: 0,
         daysToResolveCritical: 0, resolvedCritical: 0, daysToResolveHigh: 0, resolvedHigh: 0,
+        spreadCritical: [], spreadHigh: [],
         accepted: 0, ignoredOther: 0,
       }
       byAsset.set(assetId, f)
@@ -194,6 +214,11 @@ export async function flows(period: ReportPeriod): Promise<Flows[]> {
     f.resolvedCritical = Number(r.nCritical)
     f.daysToResolveHigh = Number(r.secHigh) / 86400
     f.resolvedHigh = Number(r.nHigh)
+  }
+  for (const s of spread) {
+    const f = row(s.assetId)
+    const counts = s.tier === "critical" ? f.spreadCritical : f.spreadHigh
+    counts.push([Number(s.tenths), Number(s.n)])
   }
   for (const i of ignored) {
     const f = row(i.assetId)

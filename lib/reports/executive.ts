@@ -48,6 +48,9 @@ export type PeriodNumbers = {
   /** Mean days from detection to resolution; null when none was resolved. */
   mttrCriticalDays: number | null
   mttrHighDays: number | null
+  /** Median days from detection to resolution, to a tenth of a day; null when none was resolved. */
+  medianCriticalDays: number | null
+  medianHighDays: number | null
   accepted: number
   ignoredOther: number
 }
@@ -115,14 +118,38 @@ export type ExecutiveReport = {
 type AssetInfo = { id: string; name: string; scannedAt: Date | null; sbomTool: string | null; tagIds: string[] }
 
 function emptyPeriod(): PeriodNumbers {
-  return { detected: 0, resolved: 0, resolvedWithDue: 0, resolvedOnTime: 0, onTimeRate: null, mttrCriticalDays: null, mttrHighDays: null, accepted: 0, ignoredOther: 0 }
+  return {
+    detected: 0, resolved: 0, resolvedWithDue: 0, resolvedOnTime: 0, onTimeRate: null,
+    mttrCriticalDays: null, mttrHighDays: null, medianCriticalDays: null, medianHighDays: null, accepted: 0, ignoredOther: 0,
+  }
+}
+
+/** The median of counts of values ([value, count], in any order), or null with none. */
+export function medianOf(counts: [number, number][]): number | null {
+  const sorted = [...counts].sort((a, b) => a[0] - b[0])
+  const total = sorted.reduce((n, [, c]) => n + c, 0)
+  if (total === 0) return null
+  // The values at positions lower and upper (0-based) of the sorted list; the same one for an odd total.
+  const valueAt = (position: number) => {
+    let seen = 0
+    for (const [value, c] of sorted) {
+      seen += c
+      if (position < seen) return value
+    }
+    return sorted[sorted.length - 1][0]
+  }
+  return (valueAt(Math.floor((total - 1) / 2)) + valueAt(Math.floor(total / 2))) / 2
 }
 
 /** Adds the flows of the scope's assets up; rates and means are taken over the sums. */
 export function sumFlows(rows: Flows[]): PeriodNumbers {
   const p = emptyPeriod()
   let daysCritical = 0, nCritical = 0, daysHigh = 0, nHigh = 0
+  const spreadCritical: [number, number][] = []
+  const spreadHigh: [number, number][] = []
   for (const f of rows) {
+    spreadCritical.push(...f.spreadCritical)
+    spreadHigh.push(...f.spreadHigh)
     p.detected += f.detected
     p.resolved += f.resolved
     p.resolvedWithDue += f.resolvedWithDue
@@ -137,6 +164,9 @@ export function sumFlows(rows: Flows[]): PeriodNumbers {
   p.onTimeRate = p.resolvedWithDue > 0 ? p.resolvedOnTime / p.resolvedWithDue : null
   p.mttrCriticalDays = nCritical > 0 ? daysCritical / nCritical : null
   p.mttrHighDays = nHigh > 0 ? daysHigh / nHigh : null
+  const tenthsToDays = (tenths: number | null) => tenths == null ? null : tenths / 10
+  p.medianCriticalDays = tenthsToDays(medianOf(spreadCritical))
+  p.medianHighDays = tenthsToDays(medianOf(spreadHigh))
   return p
 }
 

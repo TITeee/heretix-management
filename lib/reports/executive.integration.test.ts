@@ -95,6 +95,8 @@ describe("executive report", () => {
     expect(p.resolvedOnTime).toBe(1)
     expect(p.onTimeRate).toBe(0.5)
     expect(p.mttrCriticalDays).toBe(7) // (4 + 10) / 2
+    expect(p.medianCriticalDays).toBe(7)
+    expect(p.medianHighDays).toBeNull()
   })
 
   it("covers every asset with no tag chosen: a row per asset tag, an asset under each of its tags, and the assets with none", async () => {

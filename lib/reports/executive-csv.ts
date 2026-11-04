@@ -45,6 +45,11 @@ const COLUMNS: [string, (s: ScopeNumbers) => string | number | null][] = [
   [`Open Over ${AGED_DAYS} Days At End`, (s) => s.trendAged.length >= 2 ? s.trendAged[s.trendAged.length - 1] : null],
   ["Previous Open Past Due At End", (s) => s.trendOverdue.length >= 2 ? s.trendOverdue[0] : null],
   [`Previous Open Over ${AGED_DAYS} Days At End`, (s) => s.trendAged.length >= 2 ? s.trendAged[0] : null],
+  // Added after the means, at the end, so the earlier columns keep their places.
+  ["Median Time To Resolve Critical (days)", (s) => round(s.period.medianCriticalDays, 1)],
+  ["Median Time To Resolve High (days)", (s) => round(s.period.medianHighDays, 1)],
+  ["Previous Median Time To Resolve Critical (days)", (s) => round(s.previous.medianCriticalDays, 1)],
+  ["Previous Median Time To Resolve High (days)", (s) => round(s.previous.medianHighDays, 1)],
 ]
 
 export function executiveCsv(report: ExecutiveReport): string {

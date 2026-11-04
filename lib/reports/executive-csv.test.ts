@@ -4,7 +4,7 @@ import type { ExecutiveReport, PeriodNumbers, ScopeNumbers } from "./executive"
 
 const period = (resolved: number, onTimeRate: number | null, mttrCriticalDays: number | null): PeriodNumbers => ({
   detected: 4, resolved, resolvedWithDue: 3, resolvedOnTime: 2, onTimeRate,
-  mttrCriticalDays, mttrHighDays: null, accepted: 1, ignoredOther: 0,
+  mttrCriticalDays, mttrHighDays: null, medianCriticalDays: mttrCriticalDays == null ? null : 4.5, medianHighDays: null, accepted: 1, ignoredOther: 0,
 })
 
 const scope = (label: string, previous: PeriodNumbers, trendOverdue: number[] = []): ScopeNumbers => ({
@@ -24,8 +24,9 @@ describe("executiveCsv", () => {
   it("writes one row per scope, this period then the previous one, rates rounded", () => {
     const [header, all, sales] = executiveCsv(report).split("\r\n")
     const columns = header.split(",")
-    expect(columns).toHaveLength(36)
-    expect(columns.slice(32)).toEqual([
+    expect(columns).toHaveLength(40)
+    expect(columns[36]).toBe('"Median Time To Resolve Critical (days)"')
+    expect(columns.slice(32, 36)).toEqual([
       '"Open Past Due At End"', '"Open Over 90 Days At End"', '"Previous Open Past Due At End"', '"Previous Open Over 90 Days At End"',
     ])
     expect(columns.slice(0, 3)).toEqual(['"Scope"', '"Assets"', '"Changes To Make"'])
@@ -35,8 +36,9 @@ describe("executiveCsv", () => {
     expect(cells[18]).toBe('"0.667"') // on-time rate
     expect(cells[19]).toBe('"6.3"') // MTTR Critical
     expect(cells[27]).toBe('""') // no previous on-time rate
-    expect(cells.slice(32)).toEqual(['"3"', '"30"', '"4"', '"40"']) // the last point, then the first
-    expect(sales.split(",").slice(32)).toEqual(['""', '""', '""', '""']) // no history
+    expect(cells.slice(32, 36)).toEqual(['"3"', '"30"', '"4"', '"40"']) // the last point, then the first
+    expect(cells.slice(36)).toEqual(['"4.5"', '""', '""', '""']) // medians: this period's Critical only
+    expect(sales.split(",").slice(32, 36)).toEqual(['""', '""', '""', '""']) // no history
     // A tag name that would start a formula is written as text.
     expect(sales.startsWith(`"'=Sales"`)).toBe(true)
   })

@@ -4,7 +4,7 @@ import type { ExecutiveReport, PeriodNumbers, ScopeNumbers } from "./executive"
 
 const flows = (detected: number, resolved: number, onTimeRate: number | null = null): PeriodNumbers => ({
   detected, resolved, resolvedWithDue: 0, resolvedOnTime: 0, onTimeRate,
-  mttrCriticalDays: null, mttrHighDays: null, accepted: 0, ignoredOther: 0,
+  mttrCriticalDays: null, mttrHighDays: null, medianCriticalDays: null, medianHighDays: null, accepted: 0, ignoredOther: 0,
 })
 
 function report(all: Partial<ScopeNumbers>, decisions: Partial<Record<keyof ExecutiveReport["decisions"], number>> = {}, missionKev = 0): ExecutiveReport {
