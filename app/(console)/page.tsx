@@ -161,6 +161,7 @@ async function getDashboardData() {
     topPkgGroups,
     kevAlerts,
     internetFacingAlertRaw,
+    missionCriticalAlertRaw,
     totalPackages,
     kevCount,
     allTags,
@@ -212,6 +213,11 @@ async function getDashboardData() {
     prisma.alert.findMany({
       select: { severity: true, cvssScore: true },
       where: { status: { in: ["open", "in_progress"] }, asset: { assetTags: { some: { tag: { name: "Internet Facing" } } } } },
+    }),
+    // C2 Mission Critical tag severity
+    prisma.alert.findMany({
+      select: { severity: true, cvssScore: true },
+      where: { status: { in: ["open", "in_progress"] }, asset: { assetTags: { some: { tag: { name: "Mission Critical" } } } } },
     }),
     // stats
     prisma.package.count(),
@@ -283,15 +289,6 @@ async function getDashboardData() {
 
   const allTaggedAssetIds = [...new Set(assetTagRecords.map((r) => r.asset.id))]
   const allTaggedPkgNames = [...new Set(packageTagRecords.map((r) => r.packageName))]
-
-  const publicEndpointTag = allTags.find((t) => t.name === "Public Endpoint")
-  const publicEndpointPkgNames = publicEndpointTag
-    ? packageTagRecords.filter((r) => r.tagId === publicEndpointTag.id).map((r) => r.packageName)
-    : []
-  const publicEndpointAlertRaw = await prisma.alert.findMany({
-    select: { severity: true, cvssScore: true },
-    where: { status: { in: ["open", "in_progress"] }, packageName: { in: publicEndpointPkgNames } },
-  })
 
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
   const activeStatus = ["open", "in_progress"]
@@ -409,7 +406,7 @@ async function getDashboardData() {
     topPackagesData,
     kevAlerts,
     internetFacingSeverity: countSeverity(internetFacingAlertRaw),
-    publicEndpointSeverity: countSeverity(publicEndpointAlertRaw),
+    missionCriticalSeverity: countSeverity(missionCriticalAlertRaw),
     totalPackages,
     kevCount,
     tagData,
@@ -434,7 +431,7 @@ export default async function DashboardPage() {
     topPackagesData,
     kevAlerts,
     internetFacingSeverity,
-    publicEndpointSeverity,
+    missionCriticalSeverity,
     totalPackages,
     kevCount,
     tagData,
@@ -629,14 +626,14 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
-              <span className="shrink-0 [&>svg]:size-4" style={{ color: "#ea580c" }}>
-                <TagKindIcon name="Public Endpoint" isDefault />
+              <span className="shrink-0 [&>svg]:size-4" style={{ color: "#ca8a04" }}>
+                <TagKindIcon name="Mission Critical" isDefault />
               </span>
-              Public Endpoint Severity
+              Mission Critical Severity
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <TagSeverityDonut {...publicEndpointSeverity} />
+            <TagSeverityDonut {...missionCriticalSeverity} />
           </CardContent>
         </Card>
         <Card>
