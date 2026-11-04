@@ -124,6 +124,25 @@ describe("executive report", () => {
     expect(report.topAssets.map((r) => r.assetName)).toEqual(["app1"])
   })
 
+  it("lists the mission critical assets, the internet-facing ones first, and marks them in every list", async () => {
+    const internet = await prisma.tag.create({ data: { name: "Internet Facing", type: "asset", isDefault: true } })
+    const mission = await prisma.tag.create({ data: { name: "Mission Critical", type: "asset", isDefault: true } })
+    const core = await asset("core1", [mission.id])
+    const portal = await asset("portal1", [mission.id, internet.id])
+    const lab = await asset("lab1")
+    await alert(core.id, { detectedAt: "2026-10-02", isKev: true })
+    await alert(core.id, { detectedAt: "2026-10-02", isKev: true })
+    await alert(portal.id, { detectedAt: "2026-10-02", severity: "CRITICAL" })
+    await alert(lab.id, { detectedAt: "2026-10-02", isKev: true })
+
+    const report = await buildExecutiveReport({ period, tagIds: [], now })
+    expect(report.missionCritical).toMatchObject({ tagFound: true, assets: 2, kev: 2, critical: 1 })
+    expect(report.missionCritical.rows.map((r) => r.assetName)).toEqual(["portal1", "core1"])
+    expect(report.topAssets.map((r) => [r.assetName, r.missionCritical, r.internetFacing])).toEqual([
+      ["core1", true, false], ["lab1", false, false], ["portal1", true, true],
+    ])
+  })
+
   it("lists what needs a decision, the internet-facing exposure and the accepted risks with who accepted them", async () => {
     const internet = await prisma.tag.create({ data: { name: "Internet Facing", type: "asset", isDefault: true } })
     const edge = await asset("edge1", [internet.id])
@@ -139,6 +158,7 @@ describe("executive report", () => {
     // edge1 has never had a vulnerability scan job.
     expect(report.decisions.scanGaps.rows).toMatchObject([{ assetName: "edge1", lastScanAt: null }])
     expect(report.internetFacing).toMatchObject({ tagFound: true, assets: 1, critical: 1 })
+    expect(report.missionCritical).toMatchObject({ tagFound: false, assets: 0 })
     expect(report.acceptedRisks.rows).toMatchObject([{ assetName: "edge1", target: "bash", kev: 1, acceptedBy: "Alice", reason: "Isolated by ACL" }])
     expect(report.scopes[0].period.accepted).toBe(1)
   })

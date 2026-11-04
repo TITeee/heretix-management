@@ -3,9 +3,10 @@ import type { ReactNode } from "react"
 import { FaTriangleExclamation } from "react-icons/fa6"
 import { fixStatusLabel } from "@/lib/fix-status"
 import {
-  INTERNET_FACING_TAG, OVERDUE_LONG_DAYS, SCAN_STALE_DAYS,
-  type ChangeToMake, type ExecutiveReport, type PeriodNumbers,
+  INTERNET_FACING_TAG, MISSION_CRITICAL_TAG, OVERDUE_LONG_DAYS, SCAN_STALE_DAYS,
+  type ChangeToMake, type ExecutiveReport, type PeriodNumbers, type TaggedAssets,
 } from "@/lib/reports/executive"
+import { TagKindIcon } from "@/components/tags/tag-badge"
 import { formatDay, lastDay, periodDays, type ReportPeriod } from "@/lib/reports/period"
 import { summaryLines } from "@/lib/reports/summary"
 import { CommentBox, OpenTrendChart } from "./report-client"
@@ -75,8 +76,15 @@ function changeTitle(c: ChangeToMake): string {
   }
 }
 
-function AssetLink({ id, name }: { id: string; name: string }) {
-  return <Link href={`/assets/${id}`} className="hover:underline">{name}</Link>
+/** An asset's name, linked, with a crown when it is mission critical and a globe when it is internet facing. */
+function AssetLink({ asset }: { asset: { assetId: string; assetName: string; internetFacing: boolean; missionCritical: boolean } }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Link href={`/assets/${asset.assetId}`} className="hover:underline">{asset.assetName}</Link>
+      {asset.missionCritical && <span title={MISSION_CRITICAL_TAG} className="text-yellow-600 [&>svg]:size-3.5"><TagKindIcon name={MISSION_CRITICAL_TAG} isDefault /></span>}
+      {asset.internetFacing && <span title={INTERNET_FACING_TAG} className="text-red-600 [&>svg]:size-3.5"><TagKindIcon name={INTERNET_FACING_TAG} isDefault /></span>}
+    </span>
+  )
 }
 
 function Section({ title, note, children, className = "" }: { title: string; note?: ReactNode; children: ReactNode; className?: string }) {
@@ -153,7 +161,7 @@ function Decisions({ report }: { report: ExecutiveReport }) {
                 head={["Asset", "Package", "Vendor status", "Findings", "Known exploited", "Critical"]}
                 numeric={[3, 4, 5]}
                 rows={d.noFix.rows.map((r) => [
-                  <AssetLink key="a" id={r.assetId} name={r.assetName} />, r.target, fixStatusLabel(r.fixStatus) ?? "–", n(r.alerts),
+                  <AssetLink key="a" asset={r} />, r.target, fixStatusLabel(r.fixStatus) ?? "–", n(r.alerts),
                   <Num key="k" value={r.kev} tone="exploited" />, <Num key="c" value={r.critical} tone="critical" />,
                 ])}
               />
@@ -168,7 +176,7 @@ function Decisions({ report }: { report: ExecutiveReport }) {
               <Table
                 head={["Asset", "Findings", "Oldest due date"]}
                 numeric={[1]}
-                rows={d.longOverdue.rows.map((r) => [<AssetLink key="a" id={r.assetId} name={r.assetName} />, <Num key="o" value={r.alerts} tone="overdue" />, day(r.oldestDue)])}
+                rows={d.longOverdue.rows.map((r) => [<AssetLink key="a" asset={r} />, <Num key="o" value={r.alerts} tone="overdue" />, day(r.oldestDue)])}
               />
               <Shown total={d.longOverdue.total} shown={d.longOverdue.rows.length} />
             </>
@@ -182,7 +190,7 @@ function Decisions({ report }: { report: ExecutiveReport }) {
               <Table
                 head={["Asset", "Package list collected", "Last vulnerability check", "Last check failed"]}
                 rows={d.scanGaps.rows.map((r) => [
-                  <AssetLink key="a" id={r.assetId} name={r.assetName} />, day(r.inventoryAt), day(r.lastScanAt),
+                  <AssetLink key="a" asset={r} />, day(r.inventoryAt), day(r.lastScanAt),
                   r.lastScanFailed ? <span key="f" className={TONE_TEXT.overdue}>Yes</span> : "–",
                 ])}
               />
@@ -197,7 +205,7 @@ function Decisions({ report }: { report: ExecutiveReport }) {
               <Table
                 head={["Asset", "Package", "Version", "Ecosystem", "ID"]}
                 rows={d.malicious.rows.map((r) => [
-                  <AssetLink key="a" id={r.assetId} name={r.assetName} />, <span key="p" className={TONE_TEXT.exploited}>{r.packageName}</span>,
+                  <AssetLink key="a" asset={r} />, <span key="p" className={TONE_TEXT.exploited}>{r.packageName}</span>,
                   r.packageVersion, r.ecosystem, r.externalId,
                 ])}
               />
@@ -210,26 +218,26 @@ function Decisions({ report }: { report: ExecutiveReport }) {
   )
 }
 
-function InternetFacing({ report }: { report: ExecutiveReport }) {
-  const x = report.internetFacing
+/** The assets carrying a default tag: internet facing, or mission critical. */
+function TaggedAssetsSection({ title, tag, x }: { title: string; tag: string; x: TaggedAssets }) {
   if (!x.tagFound) {
     return (
-      <Section title="Exposed to the internet">
-        <p className="text-sm text-muted-foreground">The {INTERNET_FACING_TAG} tag is missing, so exposure cannot be shown.</p>
+      <Section title={title}>
+        <p className="text-sm text-muted-foreground">The {tag} tag is missing, so these assets cannot be shown.</p>
       </Section>
     )
   }
   return (
     <Section
-      title="Exposed to the internet"
-      note={<>{n(x.assets)} assets carry the {INTERNET_FACING_TAG} tag; <Num value={x.kev} tone="exploited" /> known exploited and <Num value={x.critical} tone="critical" /> Critical findings are open on them.</>}
+      title={title}
+      note={<>{n(x.assets)} assets carry the {tag} tag; <Num value={x.kev} tone="exploited" /> known exploited and <Num value={x.critical} tone="critical" /> Critical findings are open on them.</>}
     >
       {x.rows.length > 0 && (
         <Table
           head={["Asset", "Known exploited", "Critical", "Open", "First change to make"]}
           numeric={[1, 2, 3]}
           rows={x.rows.map((r) => [
-            <AssetLink key="a" id={r.assetId} name={r.assetName} />, <Num key="k" value={r.kev} tone="exploited" />, <Num key="c" value={r.critical} tone="critical" />,
+            <AssetLink key="a" asset={r} />, <Num key="k" value={r.kev} tone="exploited" />, <Num key="c" value={r.critical} tone="critical" />,
             n(r.alerts), r.firstChange ? changeTitle(r.firstChange) : "No fix yet",
           ])}
         />
@@ -293,7 +301,7 @@ function AcceptedRisks({ report }: { report: ExecutiveReport }) {
             head={["Asset", "Package", "Findings", "Known exploited", "Critical", "Accepted on", "By", "Reason"]}
             numeric={[2, 3, 4]}
             rows={a.rows.map((r) => [
-              <AssetLink key="a" id={r.assetId} name={r.assetName} />, r.target, n(r.alerts),
+              <AssetLink key="a" asset={r} />, r.target, n(r.alerts),
               <Num key="k" value={r.kev} tone="exploited" />, <Num key="c" value={r.critical} tone="critical" />,
               day(r.acceptedAt), r.acceptedBy ?? "–", r.reason ?? "–",
             ])}
@@ -313,7 +321,7 @@ function TopAssets({ report }: { report: ExecutiveReport }) {
           head={["Asset", "Known exploited", "Critical", "Open", "Changes to make", "First change to make"]}
           numeric={[1, 2, 3, 4]}
           rows={report.topAssets.map((r) => [
-            <AssetLink key="a" id={r.assetId} name={r.assetName} />,
+            <AssetLink key="a" asset={r} />,
             <Num key="k" value={r.kev} tone="exploited" />, <Num key="c" value={r.critical} tone="critical" />, n(r.alerts), n(r.changes),
             r.firstChange ? `${changeTitle(r.firstChange)} (${n(r.firstChange.alerts)} findings)` : "No fix yet",
           ])}
@@ -330,6 +338,7 @@ function Notes({ report }: { report: ExecutiveReport }) {
         <li>A finding is one vulnerability in one package on one asset. Open means open or in progress.</li>
         <li>A change to make is one update or upgrade that resolves a group of findings, as on an asset&apos;s Remediation tab. Changes are worked out from the findings as they are now, so they are not compared with the previous period.</li>
         <li>Known exploited means listed in CISA&apos;s Known Exploited Vulnerabilities catalog.</li>
+        <li>A crown marks an asset tagged {MISSION_CRITICAL_TAG}, a globe one tagged {INTERNET_FACING_TAG}.</li>
         <li>Past counts are rebuilt from each finding&apos;s history of status changes, VEX imports included.</li>
         <li>Long overdue means over {OVERDUE_LONG_DAYS} days past the due date; not checked means no package list or vulnerability check in the last {SCAN_STALE_DAYS} days.</li>
         <li>Finding data (severity, exploitation) was last refreshed {report.lastMetadataRefresh ? moment(report.lastMetadataRefresh) : "never"}.</li>
@@ -366,7 +375,8 @@ export function ExecutiveReportView({ report }: { report: ExecutiveReport }) {
       </div>
 
       <Decisions report={report} />
-      <InternetFacing report={report} />
+      <TaggedAssetsSection title="Exposed to the internet" tag={INTERNET_FACING_TAG} x={report.internetFacing} />
+      <TaggedAssetsSection title="Mission critical assets" tag={MISSION_CRITICAL_TAG} x={report.missionCritical} />
       <KeyNumbers report={report} />
 
       <div className="space-y-6 print:break-before-page">

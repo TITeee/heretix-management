@@ -2,14 +2,15 @@ import type { ExecutiveReport, ScopeNumbers } from "./executive"
 
 /**
  * The three sentences that open the executive summary, made from the all-assets numbers by
- * fixed wording, so that the same numbers always read the same way: where things stand, what
- * changed in the period, and what needs a decision.
+ * fixed wording, so that the same numbers always read the same way: where things stand (and
+ * how much of what is exploited sits on mission critical assets), what changed in the period,
+ * and what needs a decision.
  */
 
 const n = (value: number) => value.toLocaleString("en-US")
 const plural = (count: number, one: string, many = `${one}s`) => `${n(count)} ${count === 1 ? one : many}`
 
-function standing(all: ScopeNumbers): string {
+function standing(all: ScopeNumbers, missionKev: number): string {
   if (all.open.alerts === 0) return `No findings are open on the ${plural(all.assets, "asset")}.`
   const fixed = `${plural(all.fixes.changes, "change")} would resolve ${n(all.fixes.alerts)} of the ${plural(all.open.alerts, "open finding")} on ${plural(all.assets, "asset")}`
   // What no change resolves has to be said too, or most of a fleet's findings go unexplained.
@@ -17,7 +18,10 @@ function standing(all: ScopeNumbers): string {
   const exploited = all.open.kev === 0
     ? "none is known to be exploited"
     : `${n(all.open.kev)} ${all.open.kev === 1 ? "is" : "are"} known to be exploited`
-  return `${fixed}; ${noFix}${exploited}.`
+  const onMission = missionKev === 0 ? ""
+    : all.open.kev === 1 ? ", on a mission critical asset"
+    : `, ${n(missionKev)} of them on mission critical assets`
+  return `${fixed}; ${noFix}${exploited}${onMission}.`
 }
 
 function change(all: ScopeNumbers, trend: number[]): string {
@@ -46,5 +50,5 @@ function attention(report: ExecutiveReport): string {
 
 export function summaryLines(report: ExecutiveReport): string[] {
   const all = report.scopes[0]
-  return [standing(all), change(all, all.trend), attention(report)]
+  return [standing(all, report.missionCritical.kev), change(all, all.trend), attention(report)]
 }

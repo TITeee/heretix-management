@@ -7,7 +7,7 @@ const flows = (detected: number, resolved: number, onTimeRate: number | null = n
   mttrCriticalDays: null, mttrHighDays: null, accepted: 0, ignoredOther: 0,
 })
 
-function report(all: Partial<ScopeNumbers>, decisions: Partial<Record<keyof ExecutiveReport["decisions"], number>> = {}): ExecutiveReport {
+function report(all: Partial<ScopeNumbers>, decisions: Partial<Record<keyof ExecutiveReport["decisions"], number>> = {}, missionKev = 0): ExecutiveReport {
   const list = (total = 0) => ({ total, rows: [] })
   return {
     scopes: [{
@@ -22,6 +22,7 @@ function report(all: Partial<ScopeNumbers>, decisions: Partial<Record<keyof Exec
       noFix: list(decisions.noFix), longOverdue: list(decisions.longOverdue),
       scanGaps: list(decisions.scanGaps), malicious: list(decisions.malicious),
     },
+    missionCritical: { tagFound: true, assets: 1, kev: missionKev, critical: 0, rows: [] },
   } as unknown as ExecutiveReport
 }
 
@@ -37,9 +38,10 @@ describe("summaryLines", () => {
         trend: [8256, 8100, 8036],
       },
       { noFix: 4, longOverdue: 1 },
+      2,
     ))
     expect(lines).toEqual([
-      "37 changes would resolve 6,247 of the 8,036 open findings on 3 assets; 1,789 have no fix yet and 5 are known to be exploited.",
+      "37 changes would resolve 6,247 of the 8,036 open findings on 3 assets; 1,789 have no fix yet and 5 are known to be exploited, 2 of them on mission critical assets.",
       "In the period 120 findings were detected and 340 resolved (previous period: 90 and 100); open findings went from 8,256 to 8,036.",
       "82% of the findings resolved in the period met their due date. Needs a decision: 4 exploited or Critical packages with no fix, 1 asset with findings over 30 days overdue.",
     ])

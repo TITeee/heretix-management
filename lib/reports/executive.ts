@@ -24,6 +24,8 @@ export const OVERDUE_LONG_DAYS = 30
 export const SCAN_STALE_DAYS = 7
 /** The default tag marking assets exposed to the internet (prisma/seed.ts). */
 export const INTERNET_FACING_TAG = "Internet Facing"
+/** The default tag marking the assets the business cannot do without (prisma/seed.ts). */
+export const MISSION_CRITICAL_TAG = "Mission Critical"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const LIST_LIMIT = 10
@@ -62,7 +64,19 @@ export type ScopeNumbers = {
 
 export type ChangeToMake = { kind: RemediationKind; target: string; version: string | null; alerts: number; kev: number }
 
-type AssetRef = { assetId: string; assetName: string }
+/** An asset in a list, with the default tags that mark it. */
+type AssetRef = { assetId: string; assetName: string; internetFacing: boolean; missionCritical: boolean }
+
+type AssetSummary = AssetRef & { kev: number; critical: number; alerts: number; changes: number; firstChange: ChangeToMake | null }
+
+/** The assets carrying a default tag, with the known exploited or Critical findings open on them. */
+export type TaggedAssets = {
+  tagFound: boolean
+  assets: number
+  kev: number
+  critical: number
+  rows: AssetSummary[]
+}
 
 export type ExecutiveReport = {
   generatedAt: Date
@@ -81,18 +95,13 @@ export type ExecutiveReport = {
     scanGaps: { total: number; rows: (AssetRef & { inventoryAt: Date | null; lastScanAt: Date | null; lastScanFailed: boolean })[] }
     malicious: { total: number; rows: (AssetRef & { packageName: string; packageVersion: string; ecosystem: string; externalId: string })[] }
   }
-  internetFacing: {
-    tagFound: boolean
-    assets: number
-    kev: number
-    critical: number
-    rows: (AssetRef & { kev: number; critical: number; alerts: number; changes: number; firstChange: ChangeToMake | null })[]
-  }
+  internetFacing: TaggedAssets
+  missionCritical: TaggedAssets
   acceptedRisks: {
     total: number
     rows: (AssetRef & { target: string; alerts: number; kev: number; critical: number; acceptedAt: Date | null; acceptedBy: string | null; reason: string | null })[]
   }
-  topAssets: (AssetRef & { kev: number; critical: number; alerts: number; changes: number; firstChange: ChangeToMake | null })[]
+  topAssets: AssetSummary[]
 }
 
 type AssetInfo = { id: string; name: string; scannedAt: Date | null; sbomTool: string | null; tagIds: string[] }
@@ -187,7 +196,16 @@ export async function buildExecutiveReport(options: { period: ReportPeriod; tagI
   const malicious = only(maliciousRead)
   const accepted = only(acceptedRead)
   const nameOf = new Map(assets.map((a) => [a.id, a.name]))
-  const ref = (assetId: string): AssetRef => ({ assetId, assetName: nameOf.get(assetId) ?? assetId })
+  // The default tags that mark an asset in the lists, found by name: default tags cannot be renamed.
+  const defaultTag = (name: string) => tags.find((t) => t.isDefault && t.name === name)
+  const carrying = (tag: { id: string } | undefined) => new Set(tag ? assets.filter((a) => a.tagIds.includes(tag.id)).map((a) => a.id) : [])
+  const internetTag = defaultTag(INTERNET_FACING_TAG)
+  const missionTag = defaultTag(MISSION_CRITICAL_TAG)
+  const internetIds = carrying(internetTag)
+  const missionIds = carrying(missionTag)
+  const ref = (assetId: string): AssetRef => ({
+    assetId, assetName: nameOf.get(assetId) ?? assetId, internetFacing: internetIds.has(assetId), missionCritical: missionIds.has(assetId),
+  })
   const openBy = new Map(open.map((o) => [o.assetId, o]))
   const plans = await loadPlans(open.map((o) => o.assetId))
 
@@ -254,15 +272,23 @@ export async function buildExecutiveReport(options: { period: ReportPeriod; tagI
       : []
   })
 
-  // Internet facing: the assets carrying the default tag.
-  const internetTag = tags.find((t) => t.isDefault && t.name === INTERNET_FACING_TAG)
-  const exposed = internetTag ? assets.filter((a) => a.tagIds.includes(internetTag.id)) : []
-  const assetSummary = (assetId: string) => {
+  const assetSummary = (assetId: string): AssetSummary => {
     const o = openBy.get(assetId)
     const plan = plans.get(assetId)
     return { ...ref(assetId), kev: o?.kev ?? 0, critical: o?.critical ?? 0, alerts: o?.alerts ?? 0, changes: plan?.actions.length ?? 0, firstChange: firstChange(plan) }
   }
-  const exposedRows = exposed.map((a) => assetSummary(a.id)).filter((r) => r.kev > 0 || r.critical > 0).sort(byRisk)
+  // Internet facing and mission critical: the assets carrying each default tag. A mission
+  // critical asset that is also internet facing comes first in its list.
+  const taggedAssets = (tag: { id: string } | undefined, ids: Set<string>, order: (a: AssetSummary, b: AssetSummary) => number): TaggedAssets => {
+    const rows = [...ids].map(assetSummary).filter((r) => r.kev > 0 || r.critical > 0).sort(order)
+    return {
+      tagFound: tag != null,
+      assets: ids.size,
+      kev: rows.reduce((n, r) => n + r.kev, 0),
+      critical: rows.reduce((n, r) => n + r.critical, 0),
+      rows: rows.slice(0, LIST_LIMIT),
+    }
+  }
 
   // Accepted risks, one row per asset and package.
   const acceptedGroups = new Map<string, ExecutiveReport["acceptedRisks"]["rows"][number]>()
@@ -304,13 +330,8 @@ export async function buildExecutiveReport(options: { period: ReportPeriod; tagI
       scanGaps: { total: gapRows.length, rows: gapRows.slice(0, LIST_LIMIT) },
       malicious: { total: malicious.length, rows: malicious.slice(0, LIST_LIMIT).map((m) => ({ ...ref(m.assetId), ...m })) },
     },
-    internetFacing: {
-      tagFound: internetTag != null,
-      assets: exposed.length,
-      kev: exposedRows.reduce((n, r) => n + r.kev, 0),
-      critical: exposedRows.reduce((n, r) => n + r.critical, 0),
-      rows: exposedRows.slice(0, LIST_LIMIT),
-    },
+    internetFacing: taggedAssets(internetTag, internetIds, byRisk),
+    missionCritical: taggedAssets(missionTag, missionIds, (a, b) => Number(b.internetFacing) - Number(a.internetFacing) || byRisk(a, b)),
     acceptedRisks: { total: acceptedRows.length, rows: acceptedRows.slice(0, LIST_LIMIT) },
     topAssets,
   }
