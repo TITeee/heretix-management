@@ -1,6 +1,6 @@
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { FaTriangleExclamation } from "react-icons/fa6"
+import { FaCircleCheck, FaCircleExclamation, FaTriangleExclamation } from "react-icons/fa6"
 import { fixStatusLabel } from "@/lib/fix-status"
 import {
   AGED_DAYS, INTERNET_FACING_TAG, MISSION_CRITICAL_TAG, OVERDUE_LONG_DAYS, SCAN_STALE_DAYS,
@@ -8,6 +8,7 @@ import {
 } from "@/lib/reports/executive"
 import { TagKindIcon } from "@/components/tags/tag-badge"
 import { formatDay, periodDays, type ReportPeriod } from "@/lib/reports/period"
+import { STATUS_LABELS, type StatusLevel } from "@/lib/reports/status"
 import { summaryLines } from "@/lib/reports/summary"
 import { CommentBox, OpenTrendChart } from "./report-client"
 
@@ -97,24 +98,29 @@ function Section({ title, note, children, className = "" }: { title: string; not
   )
 }
 
-/** A plain table: the shadcn one scrolls inside its own box, which cuts it off on paper. */
+/**
+ * A plain table: the shadcn one scrolls inside its own box, which cuts it off on paper. This one
+ * scrolls only on screen, where the page is narrower than the paper it prints on.
+ */
 function Table({ head, rows, numeric = [] }: { head: string[]; rows: ReactNode[][]; numeric?: number[] }) {
   const align = (i: number) => numeric.includes(i) ? "text-right tabular-nums" : "text-left"
   return (
-    <table className="w-full border-collapse text-sm">
-      <thead>
-        <tr className="border-b">
-          {head.map((h, i) => <th key={h} className={`px-2 py-1 font-medium text-muted-foreground ${align(i)}`}>{h}</th>)}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((cells, r) => (
-          <tr key={r} className="border-b last:border-0 break-inside-avoid">
-            {cells.map((c, i) => <td key={i} className={`px-2 py-1 align-top ${align(i)}`}>{c}</td>)}
+    <div className="overflow-x-auto print:overflow-visible">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b">
+            {head.map((h, i) => <th key={h} className={`px-2 py-1 font-medium text-muted-foreground ${align(i)}`}>{h}</th>)}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((cells, r) => (
+            <tr key={r} className="border-b last:border-0 break-inside-avoid">
+              {cells.map((c, i) => <td key={i} className={`px-2 py-1 align-top ${align(i)}`}>{c}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -135,6 +141,57 @@ function Tile({ label, value, sub, tone }: { label: string; value: number; sub?:
       {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
     </div>
   )
+}
+
+const STATUS_TEXT: Record<StatusLevel, string> = {
+  action: "font-semibold text-red-600 dark:text-red-500",
+  behind: "font-semibold text-amber-700 dark:text-amber-500",
+  on_track: "font-semibold text-green-700 dark:text-green-500",
+}
+
+const STATUS_ICON: Record<StatusLevel, typeof FaTriangleExclamation> = {
+  action: FaTriangleExclamation,
+  behind: FaCircleExclamation,
+  on_track: FaCircleCheck,
+}
+
+/**
+ * A judgement as its label, colored and with an icon, so it reads on black-and-white paper too;
+ * iconOnly in a table, where the label would not fit (its title still names it).
+ */
+function StatusLabel({ level, iconOnly = false }: { level: StatusLevel; iconOnly?: boolean }) {
+  const Icon = STATUS_ICON[level]
+  return (
+    <span title={STATUS_LABELS[level]} className={`inline-flex items-center gap-1 ${STATUS_TEXT[level]}`}>
+      <Icon className="size-3.5" />{!iconOnly && STATUS_LABELS[level]}
+    </span>
+  )
+}
+
+/** The judgement of the assets covered, with every reason for it. */
+function Verdict({ report }: { report: ExecutiveReport }) {
+  const all = report.scopes[0]
+  const { level, reasons } = all.status
+  const rate = all.period.onTimeRate
+  const met = rate == null
+    ? "no finding with a due date was resolved in the period"
+    : `${pct(rate)} were resolved by the due date against a ${pct(report.onTimeTarget)} target`
+  return (
+    <div className={`space-y-1 rounded-lg border p-3 break-inside-avoid ${STATUS_BORDER[level]}`}>
+      <div className="text-lg"><StatusLabel level={level} /></div>
+      <p className="text-sm">
+        {reasons.length > 0
+          ? `${reasons.map((r) => r[0].toUpperCase() + r.slice(1)).join("; ")}.`
+          : `No known exploited finding is past its due date and no malicious package is open; ${met}; open findings past the due date did not rise.`}
+      </p>
+    </div>
+  )
+}
+
+const STATUS_BORDER: Record<StatusLevel, string> = {
+  action: "border-red-300 dark:border-red-900",
+  behind: "border-amber-300 dark:border-amber-900",
+  on_track: "border-green-300 dark:border-green-900",
 }
 
 function DecisionHeading({ title, total, tone }: { title: string; total: number; tone: Tone }) {
@@ -292,12 +349,21 @@ function KeyNumbers({ report }: { report: ExecutiveReport }) {
 
 function ByTag({ report }: { report: ExecutiveReport }) {
   return (
-    <Section title="By asset tag" note="An asset with several tags is counted under each of them.">
+    <Section
+      title="By asset tag"
+      note={
+        <>
+          An asset with several tags is counted under each of them. Each row is judged by the same rules as the whole report:{" "}
+          <StatusLabel level="action" />, <StatusLabel level="behind" />, <StatusLabel level="on_track" />.
+        </>
+      }
+    >
       <Table
-        head={["", "Assets", "Changes to make", "Open", "Known exploited", "Critical", "Overdue", "No fix yet", "Detected", "Resolved", "On time"]}
-        numeric={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
+        head={["", "Status", "Assets", "Changes to make", "Open", "Known exploited", "Critical", "Overdue", "No fix yet", "Detected", "Resolved", "On time"]}
+        numeric={[2, 3, 4, 5, 6, 7, 8, 9, 10, 11]}
         rows={report.scopes.map((s) => [
           <span key="l" className={s.kind === "all" ? "font-semibold" : ""}>{s.label}</span>,
+          <StatusLabel key="s" level={s.status.level} iconOnly />,
           n(s.assets), n(s.fixes.changes), n(s.open.alerts),
           <Num key="k" value={s.open.kev} tone="exploited" />, <Num key="c" value={s.open.critical} tone="critical" />,
           <Num key="o" value={s.open.overdue} tone="overdue" />, n(s.noFix.alerts),
@@ -355,6 +421,11 @@ function Notes({ report }: { report: ExecutiveReport }) {
         <li>A finding is one vulnerability in one package on one asset. Open means open or in progress.</li>
         <li>A change to make is one update or upgrade that resolves a group of findings, as on an asset&apos;s Remediation tab. Changes are worked out from the findings as they are now, so they are not compared with the previous period.</li>
         <li>Known exploited means listed in CISA&apos;s Known Exploited Vulnerabilities catalog.</li>
+        <li>
+          Action needed: a known exploited finding past its due date, or a malicious package, is open. Behind target: under {pct(report.onTimeTarget)} were
+          resolved by the due date (the target in the SLA settings), or more open findings are past the due date than when the period started.
+          On track: neither.
+        </li>
         <li>A crown marks an asset tagged {MISSION_CRITICAL_TAG}, a globe one tagged {INTERNET_FACING_TAG}.</li>
         <li>Past counts are rebuilt from each finding&apos;s history of status changes, VEX imports included.</li>
         <li>Long overdue means over {OVERDUE_LONG_DAYS} days past the due date; not checked means no package list or vulnerability check in the last {SCAN_STALE_DAYS} days.</li>
@@ -377,6 +448,7 @@ export function ExecutiveReportView({ report }: { report: ExecutiveReport }) {
         </p>
       </header>
 
+      <Verdict report={report} />
       <Section title="Summary">
         <div className="space-y-1 text-sm">
           {summaryLines(report).map((line) => <p key={line}>{line}</p>)}

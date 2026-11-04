@@ -21,6 +21,8 @@ export type OpenNow = {
   critical: number
   malicious: number
   overdue: number
+  /** Known exploited and past the due date. */
+  kevOverdue: number
   overdueLong: number
   noFix: number
   noFixKev: number
@@ -39,6 +41,7 @@ export async function openNow(now: Date, overdueLongDays: number): Promise<OpenN
       count(*) FILTER (WHERE "severityTier" = 'critical') AS critical,
       count(*) FILTER (WHERE "externalId" LIKE 'MAL-%') AS malicious,
       count(*) FILTER (WHERE "dueDate" < ${now}) AS overdue,
+      count(*) FILTER (WHERE "isKev" AND "dueDate" < ${now}) AS "kevOverdue",
       count(*) FILTER (WHERE "dueDate" < ${longAgo}) AS "overdueLong",
       count(*) FILTER (WHERE "fixedVersion" IS NULL) AS "noFix",
       count(*) FILTER (WHERE "fixedVersion" IS NULL AND "isKev") AS "noFixKev",
@@ -56,6 +59,7 @@ export async function openNow(now: Date, overdueLongDays: number): Promise<OpenN
     critical: Number(r.critical),
     malicious: Number(r.malicious),
     overdue: Number(r.overdue),
+    kevOverdue: Number(r.kevOverdue),
     overdueLong: Number(r.overdueLong),
     noFix: Number(r.noFix),
     noFixKev: Number(r.noFixKev),

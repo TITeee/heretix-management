@@ -42,6 +42,7 @@ export const POST = withApiErrorHandling("settings.sla.update", async (req: Next
     slaMediumDays: Math.max(1, config.slaMediumDays ?? DEFAULT_SLA_CONFIG.slaMediumDays),
     slaLowDays: Math.max(1, config.slaLowDays ?? DEFAULT_SLA_CONFIG.slaLowDays),
     kevSlaHours: Math.max(1, config.kevSlaHours ?? DEFAULT_SLA_CONFIG.kevSlaHours),
+    onTimeTargetPercent: Math.min(100, Math.max(1, config.onTimeTargetPercent ?? DEFAULT_SLA_CONFIG.onTimeTargetPercent)),
   }
 
   await prisma.setting.upsert({

@@ -196,5 +196,8 @@ describe("executive report", () => {
     expect(report.missionCritical).toMatchObject({ tagFound: false, assets: 0 })
     expect(report.acceptedRisks.rows).toMatchObject([{ assetName: "edge1", target: "bash", kev: 1, acceptedBy: "Alice", reason: "Isolated by ACL" }])
     expect(report.scopes[0].period.accepted).toBe(1)
+    // A malicious package is open: action needed, whatever the target.
+    expect(report.onTimeTarget).toBe(0.9)
+    expect(report.scopes[0].status.level).toBe("action")
   })
 })

@@ -30,7 +30,7 @@ describe("summaryLines", () => {
   it("leads with the changes to make, then the period, then what needs a decision", () => {
     const lines = summaryLines(report(
       {
-        open: { alerts: 8036, kev: 5, critical: 511, malicious: 0, overdue: 10, overdueLong: 2 },
+        open: { alerts: 8036, kev: 5, critical: 511, malicious: 0, overdue: 10, kevOverdue: 0, overdueLong: 2 },
         fixes: { changes: 37, alerts: 6247, kevChanges: 3, kevAlerts: 5 },
         noFix: { alerts: 1789, kev: 0, critical: 12 },
         period: flows(120, 340, 0.82),

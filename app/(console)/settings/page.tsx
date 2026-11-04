@@ -619,6 +619,20 @@ export default function SettingsPage() {
                     <span className="text-sm text-muted-foreground">hours (override for any severity)</span>
                   </div>
                 </div>
+                <div className="space-y-2 pt-2">
+                  <label className="text-sm font-medium">Target: resolved by the due date</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={slaConfig.onTimeTargetPercent}
+                      onChange={(e) => setSlaConfig({ ...slaConfig, onTimeTargetPercent: Math.min(100, Math.max(1, parseInt(e.target.value) || 1)) })}
+                      className="w-20"
+                    />
+                    <span className="text-sm text-muted-foreground">% of findings (the executive report judges against it)</span>
+                  </div>
+                </div>
               </div>
             )}
 

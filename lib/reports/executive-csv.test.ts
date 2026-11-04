@@ -9,10 +9,11 @@ const period = (resolved: number, onTimeRate: number | null, mttrCriticalDays: n
 
 const scope = (label: string, previous: PeriodNumbers, trendOverdue: number[] = []): ScopeNumbers => ({
   key: label, kind: "tag", label, assets: 2,
-  open: { alerts: 10, kev: 1, critical: 3, malicious: 0, overdue: 2, overdueLong: 1 },
+  open: { alerts: 10, kev: 1, critical: 3, malicious: 0, overdue: 2, kevOverdue: 0, overdueLong: 1 },
   fixes: { changes: 4, alerts: 7, kevChanges: 1, kevAlerts: 1 },
   noFix: { alerts: 3, kev: 0, critical: 1 },
   period: period(5, 2 / 3, 6.25), previous, trend: [], trendOverdue, trendAged: trendOverdue.map((v) => v * 10),
+  status: { level: "behind", reasons: [] },
 })
 
 const report = {
@@ -24,7 +25,8 @@ describe("executiveCsv", () => {
   it("writes one row per scope, this period then the previous one, rates rounded", () => {
     const [header, all, sales] = executiveCsv(report).split("\r\n")
     const columns = header.split(",")
-    expect(columns).toHaveLength(40)
+    expect(columns).toHaveLength(41)
+    expect(columns[40]).toBe('"Status"')
     expect(columns[36]).toBe('"Median Time To Resolve Critical (days)"')
     expect(columns.slice(32, 36)).toEqual([
       '"Open Past Due At End"', '"Open Over 90 Days At End"', '"Previous Open Past Due At End"', '"Previous Open Over 90 Days At End"',
@@ -37,7 +39,8 @@ describe("executiveCsv", () => {
     expect(cells[19]).toBe('"6.3"') // MTTR Critical
     expect(cells[27]).toBe('""') // no previous on-time rate
     expect(cells.slice(32, 36)).toEqual(['"3"', '"30"', '"4"', '"40"']) // the last point, then the first
-    expect(cells.slice(36)).toEqual(['"4.5"', '""', '""', '""']) // medians: this period's Critical only
+    expect(cells.slice(36, 40)).toEqual(['"4.5"', '""', '""', '""']) // medians: this period's Critical only
+    expect(cells[40]).toBe('"Behind target"')
     expect(sales.split(",").slice(32, 36)).toEqual(['""', '""', '""', '""']) // no history
     // A tag name that would start a formula is written as text.
     expect(sales.startsWith(`"'=Sales"`)).toBe(true)

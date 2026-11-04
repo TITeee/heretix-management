@@ -13,6 +13,7 @@ export interface SlaConfig {
   slaMediumDays: number     // Medium (CVSS 4.0-6.9)
   slaLowDays: number        // Low (CVSS 0.1-3.9)
   kevSlaHours: number       // KEV (any severity)
+  onTimeTargetPercent: number // the share of findings to resolve by their due date, judged in reports
 }
 
 export const DEFAULT_SLA_CONFIG: SlaConfig = {
@@ -22,6 +23,7 @@ export const DEFAULT_SLA_CONFIG: SlaConfig = {
   slaMediumDays: 30,
   slaLowDays: 90,
   kevSlaHours: 6,
+  onTimeTargetPercent: 90,
 }
 
 const HOUR_MS = 60 * 60 * 1000

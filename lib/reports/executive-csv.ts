@@ -1,6 +1,7 @@
 import { escapeCSV } from "@/lib/alerts/export-format"
 import { AGED_DAYS, type ExecutiveReport, type PeriodNumbers, type ScopeNumbers } from "./executive"
 import { formatDay } from "./period"
+import { STATUS_LABELS } from "./status"
 
 /**
  * The executive report's per-tag table as CSV: one row for all assets, one per chosen tag and
@@ -50,6 +51,7 @@ const COLUMNS: [string, (s: ScopeNumbers) => string | number | null][] = [
   ["Median Time To Resolve High (days)", (s) => round(s.period.medianHighDays, 1)],
   ["Previous Median Time To Resolve Critical (days)", (s) => round(s.previous.medianCriticalDays, 1)],
   ["Previous Median Time To Resolve High (days)", (s) => round(s.previous.medianHighDays, 1)],
+  ["Status", (s) => STATUS_LABELS[s.status.level]],
 ]
 
 export function executiveCsv(report: ExecutiveReport): string {

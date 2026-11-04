@@ -2,11 +2,13 @@ import { prisma } from "@/lib/db"
 import { loadOpenPlan } from "@/lib/remediation-data"
 import type { RemediationAction, RemediationKind, RemediationPlan } from "@/lib/remediation"
 import { getScanStatuses } from "@/lib/scan-status"
+import { DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
 import {
   acceptedRisks, flows, maliciousOpen, noFixRisks, openAt, openNow,
   type Flows, type OpenNow,
 } from "./history"
 import { previousPeriod, trendPoints, type ReportPeriod } from "./period"
+import { judge, type Status } from "./status"
 
 /**
  * The executive summary: where the fleet stands now, what happened in the period and the one
@@ -60,7 +62,7 @@ export type ScopeNumbers = {
   kind: ScopeKind
   label: string
   assets: number
-  open: { alerts: number; kev: number; critical: number; malicious: number; overdue: number; overdueLong: number }
+  open: { alerts: number; kev: number; critical: number; malicious: number; overdue: number; kevOverdue: number; overdueLong: number }
   fixes: { changes: number; alerts: number; kevChanges: number; kevAlerts: number }
   noFix: { alerts: number; kev: number; critical: number }
   period: PeriodNumbers
@@ -70,6 +72,8 @@ export type ScopeNumbers = {
   /** Of those, the ones past their due date, and the ones open over AGED_DAYS, at each point. */
   trendOverdue: number[]
   trendAged: number[]
+  /** Action needed, behind target or on track, and why (status.ts). */
+  status: Status
 }
 
 export type ChangeToMake = { kind: RemediationKind; target: string; version: string | null; alerts: number; kev: number }
@@ -95,6 +99,8 @@ export type ExecutiveReport = {
   trendPoints: Date[]
   /** When finding metadata (CVSS, EPSS, KEV) was last refreshed from heretix-api. */
   lastMetadataRefresh: Date | null
+  /** The share of findings to resolve by their due date (the SLA settings), 0 to 1. */
+  onTimeTarget: number
   /** The tags whose assets the report covers; empty when it covers every asset. */
   tags: { id: string; name: string }[]
   /** The assets covered first, then each tag (and, covering every asset, the assets with none). */
@@ -200,7 +206,7 @@ export async function buildExecutiveReport(options: { period: ReportPeriod; tagI
   const previous = previousPeriod(period)
   const points = trendPoints(period, now)
 
-  const [assetRows, tags, openRows, periodRows, previousRows, openCountRows, scanStatuses, refresh, noFixRead, maliciousRead, acceptedRead] = await Promise.all([
+  const [assetRows, tags, openRows, periodRows, previousRows, openCountRows, scanStatuses, refresh, noFixRead, maliciousRead, acceptedRead, slaSetting] = await Promise.all([
     prisma.asset.findMany({
       select: { id: true, name: true, scannedAt: true, sbomTool: true, assetTags: { select: { tagId: true } } },
       orderBy: { name: "asc" },
@@ -215,7 +221,18 @@ export async function buildExecutiveReport(options: { period: ReportPeriod; tagI
     noFixRisks(),
     maliciousOpen(),
     acceptedRisks(),
+    prisma.setting.findUnique({ where: { key: "sla_config" } }),
   ])
+
+  let slaConfig = DEFAULT_SLA_CONFIG
+  if (slaSetting) {
+    try {
+      slaConfig = { ...DEFAULT_SLA_CONFIG, ...(JSON.parse(slaSetting.value) as Partial<SlaConfig>) }
+    } catch {
+      // Unreadable: the defaults, as everywhere else the SLA settings are read.
+    }
+  }
+  const onTimeTarget = slaConfig.onTimeTargetPercent / 100
 
   const everyAsset: AssetInfo[] = assetRows.map((a) => ({ id: a.id, name: a.name, scannedAt: a.scannedAt, sbomTool: a.sbomTool, tagIds: a.assetTags.map((t) => t.tagId) }))
 
@@ -280,12 +297,13 @@ export async function buildExecutiveReport(options: { period: ReportPeriod; tagI
       trendOverdue[c.point] += c.overdue
       trendAged[c.point] += c.aged
     }
-    return {
+    const numbers: Omit<ScopeNumbers, "status"> = {
       key, kind, label,
       assets: assetIds.size,
       open: {
         alerts: sum((r) => r.alerts), kev: sum((r) => r.kev), critical: sum((r) => r.critical),
-        malicious: sum((r) => r.malicious), overdue: sum((r) => r.overdue), overdueLong: sum((r) => r.overdueLong),
+        malicious: sum((r) => r.malicious), overdue: sum((r) => r.overdue), kevOverdue: sum((r) => r.kevOverdue),
+        overdueLong: sum((r) => r.overdueLong),
       },
       fixes,
       noFix: { alerts: sum((r) => r.noFix), kev: sum((r) => r.noFixKev), critical: sum((r) => r.noFixCritical) },
@@ -293,6 +311,7 @@ export async function buildExecutiveReport(options: { period: ReportPeriod; tagI
       previous: sumFlows(inScope(previousFlows)),
       trend, trendOverdue, trendAged,
     }
+    return { ...numbers, status: judge(numbers, onTimeTarget) }
   })
 
   // Decisions: no fix for something exploited or Critical, long overdue, scan gaps, malware.
@@ -389,6 +408,7 @@ export async function buildExecutiveReport(options: { period: ReportPeriod; tagI
     previousPeriod: previous,
     trendPoints: points,
     lastMetadataRefresh: refresh?.executedAt ?? null,
+    onTimeTarget,
     tags: chosen.map((t) => ({ id: t.id, name: t.name })),
     scopes,
     decisions: {
