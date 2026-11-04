@@ -38,6 +38,7 @@ async function main() {
 
   const defaultTags = [
     { name: "Internet Facing", type: "asset",   color: "#dc2626", description: "Assets directly exposed to the internet. (Default tag)" },
+    { name: "Mission Critical", type: "asset",  color: "#ca8a04", description: "Assets whose compromise or outage would stop the business, e.g. core systems, systems holding personal data. (Default tag)" },
     { name: "Public Endpoint", type: "package", color: "#ea580c", description: "Packages directly accessible from the internet, e.g. Apache, Tomcat, Nginx. (Default tag)" },
   ]
   for (const tag of defaultTags) {

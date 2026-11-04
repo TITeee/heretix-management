@@ -1,4 +1,4 @@
-import { DoorOpen, Globe, Lock, Tag as TagIcon } from "lucide-react"
+import { Crown, DoorOpen, Globe, Lock, Tag as TagIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 export function TagKindIcon({ name, isDefault }: { name: string; isDefault?: boolean }) {
   if (!isDefault) return <TagIcon />
   if (name === "Internet Facing") return <Globe />
+  if (name === "Mission Critical") return <Crown />
   if (name === "Public Endpoint") return <DoorOpen />
   return <Lock />
 }
