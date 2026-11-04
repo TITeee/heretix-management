@@ -8,7 +8,7 @@ import { ReportControls } from "@/components/reports/report-controls"
 import { ExecutiveReportView } from "@/components/reports/executive-report"
 import { ReportActions } from "@/components/reports/report-client"
 import { buildExecutiveReport } from "@/lib/reports/executive"
-import { formatDay, lastDay, presetPeriod } from "@/lib/reports/period"
+import { formatDay, presetPeriod } from "@/lib/reports/period"
 import { parseReportRequest, reportSearchParams, type ReportRequest } from "@/lib/reports/request"
 
 type SearchParams = Record<string, string | string[] | undefined>
@@ -16,7 +16,7 @@ type SearchParams = Record<string, string | string[] | undefined>
 /**
  * The executive summary's conditions, and the report once they are chosen. Opening the page
  * only shows the conditions, since a report on a large fleet takes a while; Generate puts them
- * in the URL, so a report's URL opens the same report again.
+ * in the URL, so a report's URL opens the same report again, up to the moment it is opened.
  */
 export default async function ExecutiveReportPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams
@@ -27,12 +27,10 @@ export default async function ExecutiveReportPage({ searchParams }: { searchPara
   const request = generated ? parseReportRequest({ get }) : null
   const valid = request && !("error" in request) ? request : null
 
-  const defaults = presetPeriod("last_month")
-  const shown = valid?.period ?? defaults
+  const shown = valid?.period ?? presetPeriod("last_30_days")
   const initial = {
-    choice: valid?.choice ?? "last_month" as const,
-    firstDay: formatDay(shown.from),
-    lastDay: formatDay(lastDay(shown)),
+    choice: valid?.choice ?? "last_30_days" as const,
+    since: formatDay(shown.from),
     tagIds: valid?.tagIds ?? [],
   }
   const query = valid ? reportSearchParams(valid).toString() : ""

@@ -43,7 +43,7 @@ describe("executiveCsv", () => {
     expect(sales.startsWith(`"'=Sales"`)).toBe(true)
   })
 
-  it("names the file after the period, its last day included", () => {
-    expect(executiveCsvFilename(report)).toBe("executive-summary-2026-10-01-to-2026-10-31.csv")
+  it("names the file after the period", () => {
+    expect(executiveCsvFilename(report)).toBe("executive-summary-2026-10-01-to-2026-11-01.csv")
   })
 })

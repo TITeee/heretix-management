@@ -1,31 +1,29 @@
 import { describe, it, expect } from "vitest"
-import { formatDay, lastDay, parsePeriod, periodDays, presetPeriod, previousPeriod, trendPoints } from "./period"
+import { parseSince, periodDays, presetPeriod, previousPeriod, trendPoints, formatDay } from "./period"
 
 const day = (s: string) => new Date(`${s}T00:00:00Z`)
 
 describe("presetPeriod", () => {
-  it("gives the last whole month, and the last three, before the current one", () => {
+  it("gives the last 30 or 90 days, up to now", () => {
     const now = new Date("2026-11-03T05:00:00Z")
-    expect(presetPeriod("last_month", now)).toEqual({ from: day("2026-10-01"), to: day("2026-11-01") })
-    expect(presetPeriod("last_3_months", now)).toEqual({ from: day("2026-08-01"), to: day("2026-11-01") })
-  })
-
-  it("crosses the year in January", () => {
-    expect(presetPeriod("last_month", new Date("2027-01-15T00:00:00Z"))).toEqual({ from: day("2026-12-01"), to: day("2027-01-01") })
+    expect(presetPeriod("last_30_days", now)).toEqual({ from: new Date("2026-10-04T05:00:00Z"), to: now })
+    expect(periodDays(presetPeriod("last_90_days", now))).toBe(90)
   })
 })
 
-describe("parsePeriod", () => {
-  it("includes the last day", () => {
-    expect(parsePeriod("2026-10-01", "2026-10-31")).toEqual({ from: day("2026-10-01"), to: day("2026-11-01") })
-    expect(parsePeriod("2026-10-05", "2026-10-05")).toEqual({ from: day("2026-10-05"), to: day("2026-10-06") })
+describe("parseSince", () => {
+  const now = new Date("2026-11-03T05:00:00Z")
+
+  it("runs from the start of the day up to now", () => {
+    expect(parseSince("2026-10-01", now)).toEqual({ from: day("2026-10-01"), to: now })
+    expect(parseSince("2026-11-02", now)).toEqual({ from: day("2026-11-02"), to: now })
   })
 
-  it("refuses what is not a real date, a reversed period and one that is too long", () => {
-    expect(parsePeriod("2026-02-30", "2026-03-01")).toHaveProperty("error")
-    expect(parsePeriod("2026/10/01", "2026-10-31")).toHaveProperty("error")
-    expect(parsePeriod("2026-10-31", "2026-10-01")).toHaveProperty("error")
-    expect(parsePeriod("2024-01-01", "2026-10-31")).toHaveProperty("error")
+  it("refuses what is not a real date, today or later, and a period that is too long", () => {
+    expect(parseSince("2026-02-30", now)).toHaveProperty("error")
+    expect(parseSince("2026/10/01", now)).toHaveProperty("error")
+    expect(parseSince("2026-11-03", now)).toHaveProperty("error")
+    expect(parseSince("2024-01-01", now)).toHaveProperty("error")
   })
 })
 
@@ -58,11 +56,5 @@ describe("trendPoints", () => {
     expect(trendPoints({ from: day("2026-11-01"), to: day("2026-12-01") }, now))
       .toEqual([day("2026-11-01"), day("2026-11-08"), now])
     expect(trendPoints({ from: day("2026-12-01"), to: day("2027-01-01") }, now)).toEqual([])
-  })
-})
-
-describe("lastDay", () => {
-  it("is the day before the end", () => {
-    expect(formatDay(lastDay({ from: day("2026-10-01"), to: day("2026-11-01") }))).toBe("2026-10-31")
   })
 })

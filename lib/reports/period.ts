@@ -1,11 +1,13 @@
 /**
- * The period a report covers, as [from, to): from is the first day included, to the first day
- * after the last. Days are UTC days, written YYYY-MM-DD, so the same dates give the same report
- * whatever the server's time zone.
+ * The period a report covers, as [from, to). A report's period always ends now: what stands now
+ * (the decisions, the changes to make) and what happened in the period then meet at one moment,
+ * where a past period would end weeks before the state the report shows. A past report is kept
+ * by saving it, not by making it again. Days are UTC days, written YYYY-MM-DD, so the same date
+ * gives the same report whatever the server's time zone.
  */
 export type ReportPeriod = { from: Date; to: Date }
 
-export type PeriodPreset = "last_month" | "last_3_months"
+export type PeriodPreset = "last_30_days" | "last_90_days"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 /** Weekly points up to this length, monthly beyond it (about three months). */
@@ -13,15 +15,13 @@ const WEEKLY_MAX_DAYS = 92
 /** A longer period is refused: the trend and the history reads grow with it. */
 export const MAX_PERIOD_DAYS = 731
 
+const PRESET_DAYS: Record<PeriodPreset, number> = { last_30_days: 30, last_90_days: 90 }
+
 const utcDay = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d))
 
-/** The last whole calendar month, or the last three, before the month of `now`. */
+/** The last 30 or 90 days, up to now. */
 export function presetPeriod(preset: PeriodPreset, now: Date = new Date()): ReportPeriod {
-  const y = now.getUTCFullYear()
-  const m = now.getUTCMonth()
-  const to = utcDay(y, m, 1)
-  const from = utcDay(y, m - (preset === "last_month" ? 1 : 3), 1)
-  return { from, to }
+  return { from: new Date(now.getTime() - PRESET_DAYS[preset] * DAY_MS), to: now }
 }
 
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
@@ -36,17 +36,16 @@ function parseDay(value: string): Date | null {
 }
 
 /**
- * The period from a first and a last day, both included. An error message instead when either is
- * not a date, the last is before the first, or the period is longer than MAX_PERIOD_DAYS.
+ * The period from the start of a day up to now. An error message instead when the day is not a
+ * date, is not before today, or starts a period longer than MAX_PERIOD_DAYS.
  */
-export function parsePeriod(firstDay: string, lastDay: string): ReportPeriod | { error: string } {
+export function parseSince(firstDay: string, now: Date = new Date()): ReportPeriod | { error: string } {
   const from = parseDay(firstDay)
-  const last = parseDay(lastDay)
-  if (!from || !last) return { error: "Dates must be written YYYY-MM-DD" }
-  if (last < from) return { error: "The last day is before the first" }
-  const to = new Date(last.getTime() + DAY_MS)
-  if (periodDays({ from, to }) > MAX_PERIOD_DAYS) return { error: `A report covers at most ${MAX_PERIOD_DAYS} days` }
-  return { from, to }
+  if (!from) return { error: "The first day must be written YYYY-MM-DD" }
+  const today = utcDay(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  if (from >= today) return { error: "The first day must be before today" }
+  if (periodDays({ from, to: now }) > MAX_PERIOD_DAYS) return { error: `A report covers at most ${MAX_PERIOD_DAYS} days` }
+  return { from, to: now }
 }
 
 export function periodDays(period: ReportPeriod): number {
@@ -57,11 +56,6 @@ export function periodDays(period: ReportPeriod): number {
 export function previousPeriod(period: ReportPeriod): ReportPeriod {
   const length = period.to.getTime() - period.from.getTime()
   return { from: new Date(period.from.getTime() - length), to: period.from }
-}
-
-/** The last day included, for display: the day before `to`. */
-export function lastDay(period: ReportPeriod): Date {
-  return new Date(period.to.getTime() - DAY_MS)
 }
 
 /** YYYY-MM-DD of a UTC day. */

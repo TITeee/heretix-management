@@ -1,6 +1,6 @@
 import { escapeCSV } from "@/lib/alerts/export-format"
 import { AGED_DAYS, type ExecutiveReport, type PeriodNumbers, type ScopeNumbers } from "./executive"
-import { formatDay, lastDay } from "./period"
+import { formatDay } from "./period"
 
 /**
  * The executive report's per-tag table as CSV: one row for all assets, one per chosen tag and
@@ -59,5 +59,5 @@ export function executiveCsv(report: ExecutiveReport): string {
 }
 
 export function executiveCsvFilename(report: ExecutiveReport): string {
-  return `executive-summary-${formatDay(report.period.from)}-to-${formatDay(lastDay(report.period))}.csv`
+  return `executive-summary-${formatDay(report.period.from)}-to-${formatDay(report.period.to)}.csv`
 }

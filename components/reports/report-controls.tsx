@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { CalendarIcon, Loader2 } from "lucide-react"
-import type { DateRange } from "react-day-picker"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -12,9 +11,9 @@ import { DataTableFacetedFilter } from "@/components/data-table/data-table-facet
 import type { PeriodChoice } from "@/lib/reports/request"
 
 const CHOICES: { value: PeriodChoice; label: string }[] = [
-  { value: "last_month", label: "Last month" },
-  { value: "last_3_months", label: "Last 3 months" },
-  { value: "custom", label: "Custom" },
+  { value: "last_30_days", label: "Last 30 days" },
+  { value: "last_90_days", label: "Last 90 days" },
+  { value: "since", label: "Since a day" },
 ]
 
 // The calendar works in local dates; the report's days are written YYYY-MM-DD.
@@ -25,41 +24,28 @@ const toDate = (day: string) => {
 const toDay = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
 
-/**
- * The first and the last day on one calendar: the first click picks the first day, the second
- * the last (or the first, when it is earlier), and the calendar closes.
- */
-function DaysPicker({ firstDay, lastDay, onChange }: { firstDay: string; lastDay: string; onChange: (first: string, last: string) => void }) {
+/** The first day of a period that runs up to now; today and later cannot be picked. */
+function DayPicker({ day, onChange }: { day: string; onChange: (day: string) => void }) {
   const [open, setOpen] = useState(false)
-  // The first day clicked, while the last is still to be clicked.
-  const [start, setStart] = useState<Date | null>(null)
-  const selected: DateRange = start ? { from: start, to: undefined } : { from: toDate(firstDay), to: toDate(lastDay) }
-
-  const pick = (day: Date) => {
-    if (!start) {
-      setStart(day)
-      return
-    }
-    const [a, b] = day < start ? [day, start] : [start, day]
-    onChange(toDay(a), toDay(b))
-    setStart(null)
-    setOpen(false)
-  }
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
 
   return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); setStart(null) }}>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger render={<Button variant="outline" className="w-60 justify-start font-normal" />}>
         <CalendarIcon className="size-4" />
-        {firstDay} – {lastDay}
+        {day} – now
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
-          mode="range"
-          numberOfMonths={2}
-          defaultMonth={toDate(firstDay)}
-          selected={selected}
-          onSelect={(_, day) => pick(day)}
-          disabled={{ after: new Date() }}
+          mode="single"
+          defaultMonth={toDate(day)}
+          selected={toDate(day)}
+          onSelect={(picked) => {
+            if (picked) onChange(toDay(picked))
+            setOpen(false)
+          }}
+          disabled={{ after: yesterday }}
         />
       </PopoverContent>
     </Popover>
@@ -68,8 +54,8 @@ function DaysPicker({ firstDay, lastDay, onChange }: { firstDay: string; lastDay
 
 type Props = {
   tags: { id: string; name: string }[]
-  /** The conditions shown at first: the report's own, or the defaults. Days are YYYY-MM-DD. */
-  initial: { choice: PeriodChoice; firstDay: string; lastDay: string; tagIds: string[] }
+  /** The conditions shown at first: the report's own, or the defaults. The day is YYYY-MM-DD. */
+  initial: { choice: PeriodChoice; since: string; tagIds: string[] }
 }
 
 /** The executive report's conditions; Generate puts them in the URL, which makes the report. */
@@ -77,16 +63,12 @@ export function ReportControls({ tags, initial }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [choice, setChoice] = useState(initial.choice)
-  const [firstDay, setFirstDay] = useState(initial.firstDay)
-  const [lastDay, setLastDay] = useState(initial.lastDay)
+  const [since, setSince] = useState(initial.since)
   const [tagIds, setTagIds] = useState(initial.tagIds)
 
   const generate = () => {
     const params = new URLSearchParams({ period: choice })
-    if (choice === "custom") {
-      params.set("from", firstDay)
-      params.set("to", lastDay)
-    }
+    if (choice === "since") params.set("since", since)
     // No tag chosen: the report covers every asset, as on the Alerts list.
     if (tagIds.length > 0) params.set("tags", tagIds.join(","))
     startTransition(() => router.push(`/reports/executive?${params}`))
@@ -105,10 +87,10 @@ export function ReportControls({ tags, initial }: Props) {
           </SelectContent>
         </Select>
       </label>
-      {choice === "custom" && (
+      {choice === "since" && (
         <div className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Days</span>
-          <DaysPicker firstDay={firstDay} lastDay={lastDay} onChange={(first, last) => { setFirstDay(first); setLastDay(last) }} />
+          <span className="font-medium">From</span>
+          <DayPicker day={since} onChange={setSince} />
         </div>
       )}
       <div className="flex flex-col gap-1 text-sm">

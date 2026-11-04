@@ -7,7 +7,7 @@ import {
   type ChangeToMake, type ExecutiveReport, type PeriodNumbers, type TaggedAssets,
 } from "@/lib/reports/executive"
 import { TagKindIcon } from "@/components/tags/tag-badge"
-import { formatDay, lastDay, periodDays, type ReportPeriod } from "@/lib/reports/period"
+import { formatDay, periodDays, type ReportPeriod } from "@/lib/reports/period"
 import { summaryLines } from "@/lib/reports/summary"
 import { CommentBox, OpenTrendChart } from "./report-client"
 
@@ -28,7 +28,7 @@ const pct = (rate: number | null) => rate == null ? "–" : `${Math.round(rate *
 const days = (value: number | null) => value == null ? "–" : `${value.toFixed(1)} days`
 const day = (date: Date | null) => date ? formatDay(date) : "–"
 const moment = (date: Date) => `${date.toISOString().slice(0, 16).replace("T", " ")} UTC`
-const span = (p: ReportPeriod) => `${formatDay(p.from)} to ${formatDay(lastDay(p))}`
+const span = (p: ReportPeriod) => `${formatDay(p.from)} to ${formatDay(p.to)}`
 
 type Tone = "exploited" | "critical" | "overdue"
 
@@ -269,7 +269,7 @@ function KeyNumbers({ report }: { report: ExecutiveReport }) {
   return (
     <Section
       title="Key numbers"
-      note={`This period (${span(report.period)}) against the one before it (${span(report.previousPeriod)}). Open findings are counted at the end of each period, or now for a period still running.`}
+      note={`This period (${span(report.period)}) against the one before it (${span(report.previousPeriod)}). Open findings are counted at the end of each period; this one ends now.`}
     >
       <Table
         head={["", "This period", "Previous period", "Change"]}
@@ -373,7 +373,7 @@ export function ExecutiveReportView({ report }: { report: ExecutiveReport }) {
         <h1 className="text-2xl font-bold">Executive summary</h1>
         <p className="text-sm text-muted-foreground">
           {report.tags.length === 0 ? "All assets" : `Assets tagged ${report.tags.map((t) => t.name).join(", ")}`}.
-          {" "}{span(report.period)} ({periodDays(report.period)} days), compared with {span(report.previousPeriod)}. Made {moment(report.generatedAt)}.
+          {" "}The {periodDays(report.period)} days up to {moment(report.generatedAt)} ({span(report.period)}), compared with the {periodDays(report.previousPeriod)} days before ({span(report.previousPeriod)}).
         </p>
       </header>
 
