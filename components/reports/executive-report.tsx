@@ -272,7 +272,7 @@ function KeyNumbers({ report }: { report: ExecutiveReport }) {
             <Change key="d" now={p.onTimeRate} before={b.onTimeRate} format={(v) => `${Math.round(v * 100)} pts`} higherIsBetter />],
           row("Mean time to resolve, Critical", (x) => x.mttrCriticalDays, days, false, (v) => v.toFixed(1)),
           row("Mean time to resolve, High", (x) => x.mttrHighDays, days, false, (v) => v.toFixed(1)),
-          row("Accepted as a risk", (x) => x.accepted, count, null),
+          row("Accepted as a risk, any severity", (x) => x.accepted, count, null),
         ]}
       />
     </Section>
@@ -375,9 +375,9 @@ export function ExecutiveReportView({ report }: { report: ExecutiveReport }) {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label="Changes to make" value={all.fixes.changes} sub={`would resolve ${n(all.fixes.alerts)} findings`} />
-        <Tile label="Open findings" value={all.open.alerts} sub={`on ${n(all.assets)} assets`} />
+        <Tile label="Open findings" value={all.open.alerts} sub={<>on {n(all.assets)} assets, <Num value={all.open.overdue} tone="overdue" /> overdue</>} />
         <Tile label="Known exploited" value={all.open.kev} tone="exploited" sub={<><Num value={all.open.critical} tone="critical" /> Critical</>} />
-        <Tile label="No fix yet" value={all.noFix.alerts} sub={<><Num value={all.open.overdue} tone="overdue" /> overdue</>} />
+        <Tile label="No fix yet" value={all.noFix.alerts} sub={<><Num value={all.noFix.kev} tone="exploited" /> known exploited</>} />
       </div>
 
       <Decisions report={report} />

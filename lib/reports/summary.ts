@@ -1,4 +1,4 @@
-import type { ExecutiveReport, ScopeNumbers } from "./executive"
+import { OVERDUE_LONG_DAYS, SCAN_STALE_DAYS, type ExecutiveReport, type ScopeNumbers } from "./executive"
 
 /**
  * The three sentences that open the executive summary, made from the all-assets numbers by
@@ -39,8 +39,8 @@ function attention(report: ExecutiveReport): string {
   const d = report.decisions
   const items = [
     d.noFix.total > 0 && `${plural(d.noFix.total, "exploited or Critical package", "exploited or Critical packages")} with no fix`,
-    d.longOverdue.total > 0 && `${plural(d.longOverdue.total, "asset")} with findings over 30 days overdue`,
-    d.scanGaps.total > 0 && `${plural(d.scanGaps.total, "asset")} not scanned recently`,
+    d.longOverdue.total > 0 && `${plural(d.longOverdue.total, "asset")} with findings over ${OVERDUE_LONG_DAYS} days overdue`,
+    d.scanGaps.total > 0 && `${plural(d.scanGaps.total, "asset")} not checked in the last ${SCAN_STALE_DAYS} days`,
     d.malicious.total > 0 && `${plural(d.malicious.total, "malicious package")}`,
   ].filter((s): s is string => typeof s === "string")
   const rate = report.scopes[0].period.onTimeRate
