@@ -65,6 +65,9 @@ export const GET = withApiErrorHandling("tags.get", async (
   let packageAlertSeverities: Record<string, SeverityCounts> = {}
   // Ecosystem per package name (first match)
   let packageEcosystems: Record<string, string> = {}
+  // Assets the package is installed on now, by package name; an asset with several
+  // versions of it counts once.
+  let packageAssets: Record<string, { id: string; name: string }[]> = {}
   if (tag.type === "package") {
     const packageNames = tag.packageTags.map(pt => pt.packageName)
     const openAlerts = await prisma.alert.findMany({
@@ -79,9 +82,25 @@ export const GET = withApiErrorHandling("tags.get", async (
       distinct: ["name"],
     })
     packageEcosystems = Object.fromEntries(pkgs.map(p => [p.name, p.ecosystem ?? ""]))
+
+    const installed = await prisma.package.findMany({
+      where: { name: { in: packageNames } },
+      select: { name: true, asset: { select: { id: true, name: true } } },
+    })
+    const byName = new Map<string, Map<string, { id: string; name: string }>>()
+    for (const p of installed) {
+      if (!byName.has(p.name)) byName.set(p.name, new Map())
+      byName.get(p.name)!.set(p.asset.id, p.asset)
+    }
+    packageAssets = Object.fromEntries(
+      [...byName].map(([name, assets]) => [
+        name,
+        [...assets.values()].sort((a, b) => a.name.localeCompare(b.name)),
+      ]),
+    )
   }
 
-  return NextResponse.json({ ...tag, alertSummary, kevCount, assetAlertSeverities, packageAlertSeverities, packageEcosystems })
+  return NextResponse.json({ ...tag, alertSummary, kevCount, assetAlertSeverities, packageAlertSeverities, packageEcosystems, packageAssets })
 })
 
 export const PATCH = withApiErrorHandling("tags.update", async (

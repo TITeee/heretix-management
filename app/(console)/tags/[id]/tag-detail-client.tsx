@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { TagKindIcon } from "@/components/tags/tag-badge"
 import { AlertSummaryBadges, type AlertSummary } from "@/components/alerts/alert-summary-badges"
 import {
@@ -45,6 +47,39 @@ type TagDetail = {
   assetAlertSeverities: Record<string, SeverityCounts>
   packageAlertSeverities: Record<string, SeverityCounts>
   packageEcosystems: Record<string, string>
+  packageAssets: Record<string, { id: string; name: string }[]>
+}
+
+// Asset names shown in a package row; the rest are behind "+N more".
+const SHOWN_ASSETS = 3
+
+function AssetLinks({ assets }: { assets: { id: string; name: string }[] }) {
+  const link = (a: { id: string; name: string }) => (
+    <Link key={a.id} href={`/assets/${a.id}`} className="hover:underline">{a.name}</Link>
+  )
+  const shown = assets.slice(0, SHOWN_ASSETS)
+  const more = assets.slice(SHOWN_ASSETS)
+  return (
+    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+      {shown.map((a, i) => (
+        <span key={a.id}>{link(a)}{i < shown.length - 1 || more.length > 0 ? "," : ""}</span>
+      ))}
+      {more.length > 0 && (
+        <Popover>
+          <PopoverTrigger
+            render={<button type="button" className="text-xs text-muted-foreground hover:text-foreground hover:underline" />}
+          >
+            +{more.length} more
+          </PopoverTrigger>
+          <PopoverContent className="w-72 max-h-72 overflow-y-auto p-2" sideOffset={4}>
+            <ul className="space-y-1 text-sm">
+              {assets.map(a => <li key={a.id}>{link(a)}</li>)}
+            </ul>
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
+  )
 }
 
 // Every asset, filtered in the popover: an install has at most a few thousand.
@@ -242,19 +277,25 @@ export function TagDetailClient({ id }: { id: string }) {
                 <tr className="border-b bg-muted/50">
                   <th className="px-4 py-3 text-left font-medium">Package Name</th>
                   <th className="px-4 py-3 text-left font-medium">Ecosystem</th>
+                  <th className="px-4 py-3 text-left font-medium">Assets</th>
                   <th className="px-4 py-3 text-left font-medium">Open Alerts</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
                 {tag.packageTags.length === 0 && (
-                  <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">No packages tagged</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No packages tagged</td></tr>
                 )}
                 {tag.packageTags.map(pt => (
                   <tr key={pt.packageName} className="border-b last:border-0">
                     <td className="px-4 py-3 font-medium">{pt.packageName}</td>
                     <td className="px-4 py-3 text-muted-foreground text-xs">
                       {tag.packageEcosystems[pt.packageName] || "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {(tag.packageAssets[pt.packageName] ?? []).length > 0
+                        ? <AssetLinks assets={tag.packageAssets[pt.packageName]} />
+                        : <span className="text-muted-foreground">—</span>}
                     </td>
                     <td className="px-4 py-3">
                       <SeverityCountBadges counts={tag.packageAlertSeverities[pt.packageName] ?? emptySeverityCounts()} />
