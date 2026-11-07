@@ -20,7 +20,7 @@ import { SeverityBadge, StatusBadge } from "@/components/ui/severity-badge"
 import { AlertDetailSheet, type SheetAlert } from "@/components/alerts/alert-detail-sheet"
 import { SEVERITY_COLORS, type SeverityCounts, type SeverityTier } from "@/lib/severity"
 import { fixStatusLabel } from "@/lib/fix-status"
-import type { NoFixGroupSummary, RemediationActionSummary, RemediationKind, RemediationPlanSummary, RemediationSection } from "@/lib/remediation"
+import { sourcePackageToShow, type NoFixGroupSummary, type RemediationActionSummary, type RemediationKind, type RemediationPlanSummary, type RemediationSection } from "@/lib/remediation"
 
 type ApiAlert = Omit<SheetAlert, "detectedAt" | "dueDate" | "resolvedAt"> & {
   detectedAt: string
@@ -170,6 +170,7 @@ function AlertTable({ alerts: sorted, onSelect }: { alerts: ApiAlert[]; onSelect
           <th className="py-1.5 text-left font-medium">Vulnerability</th>
           <th className="py-1.5 text-left font-medium">Component</th>
           <th className="py-1.5 text-left font-medium">Package</th>
+          <th className="py-1.5 text-left font-medium">Source Package</th>
           <th className="py-1.5 text-left font-medium">Severity</th>
           <th className="py-1.5 text-left font-medium">Fixed in</th>
           <th className="py-1.5 text-left font-medium">Status</th>
@@ -184,6 +185,7 @@ function AlertTable({ alerts: sorted, onSelect }: { alerts: ApiAlert[]; onSelect
               )}</span></td>
               <td className="py-1.5">{a.component ?? <span className="text-muted-foreground" title="No component was reported for this CVE: the source gives none, or the asset has not been scanned since heretix-api started reporting it.">Not reported</span>}</td>
               <td className="py-1.5">{a.packageName} <span className="text-muted-foreground">{a.packageVersion}</span></td>
+              <td className="py-1.5">{sourcePackageToShow({ name: a.packageName, ecosystem: a.ecosystem, sourcePackage: a.sourcePackage })}</td>
               <td className="py-1.5"><SeverityBadge severity={a.severity} score={a.cvssScore} /></td>
               <td className="py-1.5 font-mono">{a.fixedVersion ?? <span className="font-sans text-muted-foreground">None</span>}</td>
               <td className="py-1.5"><StatusBadge status={a.status} /></td>

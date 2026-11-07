@@ -26,7 +26,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { SEVERITY_COLORS } from "@/lib/severity"
 import { isWindowsServerOs, rolesNotInstalled, WINDOWS_FEATURE_ROLES } from "@/lib/windows-roles"
 import { cutExplanation, cutLabel } from "@/lib/findings-cut"
-import { isOsEcosystem } from "@/lib/remediation"
+import { sourcePackageToShow } from "@/lib/remediation"
 import { ArrowUpDown, ChevronDown, ChevronRight, ExternalLink, Pencil, Trash2, X } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -87,7 +87,7 @@ type PackageRow = {
  */
 function sourcePackageOf(p: Pick<PackageRow, "name" | "ecosystem" | "source" | "sourcePackage">): string | null {
   if (p.sourcePackage) return p.sourcePackage
-  return p.source !== "manual" && p.ecosystem !== "" && isOsEcosystem(p.ecosystem) ? p.name : null
+  return p.source !== "manual" ? sourcePackageToShow(p) : null
 }
 
 // scope=excluded covers three different reasons: an npm dev dependency (pruned

@@ -121,6 +121,16 @@ export function isOsEcosystem(ecosystem: string): boolean {
   return ecosystem === "" || ecosystem === "oracle-linux" || OS_ECOSYSTEM_PREFIXES.some((p) => ecosystem.startsWith(p))
 }
 
+/**
+ * The source package to show next to a package or an alert: the one recorded for it (libssl3:
+ * openssl), or, for a distro package that is its own source (bash, apt), its own name. A language
+ * package, or a product registered by hand (no ecosystem), has none.
+ */
+export function sourcePackageToShow(p: { name: string; ecosystem: string; sourcePackage?: string | null }): string | null {
+  if (p.sourcePackage) return p.sourcePackage
+  return p.ecosystem !== "" && isOsEcosystem(p.ecosystem) ? p.name : null
+}
+
 const TIER_RANK: Record<SeverityTier, number> = { critical: 0, high: 1, medium: 2, low: 3, na: 4 }
 
 function newStats(): GroupStats {

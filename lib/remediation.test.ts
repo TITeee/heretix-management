@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { buildRemediationPlan, compareAlertUrgency, isOsEcosystem, type RemediationAlertInput, type RemediationPackageInput } from "./remediation"
+import { buildRemediationPlan, compareAlertUrgency, isOsEcosystem, sourcePackageToShow, type RemediationAlertInput, type RemediationPackageInput } from "./remediation"
 
 let seq = 0
 function alert(overrides: Partial<RemediationAlertInput>): RemediationAlertInput {
@@ -31,6 +31,22 @@ describe("isOsEcosystem", () => {
     for (const e of ["npm", "PyPI", "Go", "Maven", "Packagist"]) {
       expect(isOsEcosystem(e)).toBe(false)
     }
+  })
+})
+
+describe("sourcePackageToShow", () => {
+  it("shows the recorded source of a distro package (libssl3 from openssl)", () => {
+    expect(sourcePackageToShow({ name: "libssl3", ecosystem: "Ubuntu:22.04:LTS", sourcePackage: "openssl" })).toBe("openssl")
+  })
+
+  it("shows a distro package with no recorded source as its own source", () => {
+    expect(sourcePackageToShow({ name: "bash", ecosystem: "Debian:12", sourcePackage: null })).toBe("bash")
+    expect(sourcePackageToShow({ name: "bash", ecosystem: "Red Hat:9" })).toBe("bash")
+  })
+
+  it("shows nothing for a language package or a product with no ecosystem", () => {
+    expect(sourcePackageToShow({ name: "lodash", ecosystem: "npm", sourcePackage: null })).toBeNull()
+    expect(sourcePackageToShow({ name: "FortiOS", ecosystem: "", sourcePackage: null })).toBeNull()
   })
 })
 
