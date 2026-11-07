@@ -11,6 +11,7 @@ import { TopPackagesChart } from "@/components/dashboard/top-packages-chart"
 import { KevHighlights } from "@/components/dashboard/kev-highlights"
 import { RecentAlertsClient } from "@/components/dashboard/recent-alerts-client"
 import { TagSeverityDonut } from "@/components/dashboard/tag-severity-donut"
+import { groupAssetsByPackageVersion, packageVersionKey } from "@/lib/package-assets"
 import { SeverityDonut } from "@/components/dashboard/severity-donut"
 import { StatusDonut } from "@/components/dashboard/status-donut"
 import { MttrChart, type MttrBarData } from "@/components/dashboard/mttr-chart"
@@ -295,7 +296,7 @@ async function getDashboardData() {
 
   const [
     assetMaxCvss, assetSevAll, assetSev24h, assetKev,
-    pkgRecords,
+    pkgInstalls,
     pkgMaxCvss, pkgSevAll, pkgSev24h, pkgKev,
   ] = await Promise.all([
     prisma.alert.groupBy({
@@ -314,10 +315,10 @@ async function getDashboardData() {
       by: ["assetId"], _count: { id: true },
       where: { assetId: { in: allTaggedAssetIds }, status: { in: activeStatus }, isKev: true },
     }),
+    // Every install of a tagged package, to list the versions and the assets each is on.
     prisma.package.findMany({
       where: { name: { in: allTaggedPkgNames } },
-      select: { name: true, version: true },
-      distinct: ["name", "version"],
+      select: { name: true, version: true, asset: { select: { id: true, name: true } } },
     }),
     prisma.alert.groupBy({
       by: ["packageName", "packageVersion"], _max: { cvssScore: true },
@@ -336,6 +337,10 @@ async function getDashboardData() {
       where: { packageName: { in: allTaggedPkgNames }, status: { in: activeStatus }, isKev: true },
     }),
   ])
+
+  const pkgAssetsMap = groupAssetsByPackageVersion(pkgInstalls)
+  // One row per package name and version, as the cards are.
+  const pkgRecords = [...new Map(pkgInstalls.map((p) => [packageVersionKey(p.name, p.version), p])).values()]
 
   type TagSeverityCounts = { critical: number; high: number; medium: number; low: number; unknown: number }
 
@@ -380,6 +385,7 @@ async function getDashboardData() {
           severityAll: buildSeverityCounts(pkgSevAll.filter((r) => r.packageName === pkg.name && r.packageVersion === pkg.version)),
           severity24h: buildSeverityCounts(pkgSev24h.filter((r) => r.packageName === pkg.name && r.packageVersion === pkg.version)),
           kevCount: pkgKevMap.get(key) ?? 0,
+          assets: pkgAssetsMap.get(packageVersionKey(pkg.name, pkg.version)) ?? [],
         }
       })
       .sort((a, b) => (b.maxCvss ?? -1) - (a.maxCvss ?? -1))

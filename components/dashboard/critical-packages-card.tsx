@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { Package } from "lucide-react"
+import { Package, Server } from "lucide-react"
 import { FaTriangleExclamation } from "react-icons/fa6"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 type SeverityCounts = { critical: number; high: number; medium: number; low: number; unknown: number }
 
@@ -13,6 +14,37 @@ type PackageItem = {
   severityAll: SeverityCounts
   severity24h: SeverityCounts
   kevCount: number
+  // The assets this name and version is installed on, in name order.
+  assets: { id: string; name: string }[]
+}
+
+// Asset names listed in the tooltip; the rest are counted.
+const SHOWN_ASSETS = 10
+
+function AssetsChip({ assets }: { assets: { id: string; name: string }[] }) {
+  if (assets.length === 0) return null
+  const shown = assets.slice(0, SHOWN_ASSETS)
+  const rest = assets.length - shown.length
+  // The card is a link, so the names are plain text and the chip is a span, not a button.
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <span className="flex items-center gap-1 text-[13px] text-muted-foreground">
+              <Server className="h-3.25 w-3.25 shrink-0" />
+              {assets.length} {assets.length === 1 ? "asset" : "assets"}
+            </span>
+          }
+        />
+        <TooltipContent side="top" className="flex flex-col items-start gap-0.5 text-left">
+          <p className="text-[11px] opacity-70">Installed on</p>
+          {shown.map((a) => <p key={a.id}>{a.name}</p>)}
+          {rest > 0 && <p className="opacity-70">+{rest} more</p>}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
 }
 
 const PILL_COLORS = {
@@ -70,9 +102,12 @@ export function CriticalPackagesCard({ packages }: { packages: PackageItem[] }) 
             <SeverityRow label="24h" counts={pkg.severity24h} />
             <SeverityRow label="All" counts={pkg.severityAll} />
           </div>
-          <div className={`flex items-center justify-center gap-1 text-[13px] mt-auto ${pkg.kevCount > 0 ? "text-red-600" : "text-muted-foreground"}`}>
-            <FaTriangleExclamation className="h-3.25 w-3.25 shrink-0" />
-            <span>{pkg.kevCount} KEV</span>
+          <div className="flex items-center justify-center gap-4 mt-auto">
+            <div className={`flex items-center gap-1 text-[13px] ${pkg.kevCount > 0 ? "text-red-600" : "text-muted-foreground"}`}>
+              <FaTriangleExclamation className="h-3.25 w-3.25 shrink-0" />
+              <span>{pkg.kevCount} KEV</span>
+            </div>
+            <AssetsChip assets={pkg.assets} />
           </div>
         </Link>
       ))}
