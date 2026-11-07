@@ -743,7 +743,7 @@ export function AdvisoryTab({ detail, loading, alert }: { detail: VulnDetail | n
           {adv.workaround && (
             <section className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workaround</h3>
-              <p className="text-xs leading-relaxed whitespace-pre-wrap">{adv.workaround}</p>
+              <BoxedText text={adv.workaround} />
             </section>
           )}
 
@@ -751,7 +751,7 @@ export function AdvisoryTab({ detail, loading, alert }: { detail: VulnDetail | n
           {adv.solution && (
             <section className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Solution</h3>
-              <p className="text-xs leading-relaxed whitespace-pre-wrap">{adv.solution}</p>
+              <BoxedText text={adv.solution} />
             </section>
           )}
 
@@ -896,6 +896,22 @@ export function hasCnaData(detail: VulnDetail | null): boolean {
 }
 
 /**
+ * A block of text from a vendor or a CNA (a workaround, a solution), in a light box so that where
+ * it starts and ends is clear when it is long, or when several follow each other.
+ */
+function TextBox({ children }: { children: React.ReactNode }) {
+  return <div className="space-y-1.5 rounded-md border bg-muted/30 p-3">{children}</div>
+}
+
+function BoxedText({ text }: { text: string }) {
+  return (
+    <TextBox>
+      <p className="text-xs leading-relaxed whitespace-pre-wrap">{text}</p>
+    </TextBox>
+  )
+}
+
+/**
  * The Overview's Workarounds section (lib/workarounds.ts), with where each came from. Nothing is
  * rendered when there is none.
  */
@@ -906,14 +922,14 @@ export function Workarounds({ detail, alert }: { detail: VulnDetail | null; aler
   return (
     <section className="space-y-3">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workarounds</h3>
-      <div className="space-y-4">
+      <div className="space-y-3">
         {workarounds.map((w) => (
-          <div key={w.text} className="space-y-1.5">
+          <TextBox key={w.text}>
             <div className="flex flex-wrap gap-1">
               {w.sources.map((s) => <Badge key={s} variant="outline">{s}</Badge>)}
             </div>
             <p className="text-xs leading-relaxed whitespace-pre-wrap">{w.text}</p>
-          </div>
+          </TextBox>
         ))}
       </div>
     </section>
@@ -967,14 +983,14 @@ export function CnaTab({ detail, loading }: { detail: VulnDetail | null; loading
       {detail.cnaWorkaround && (
         <section className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workaround</h3>
-          <p className="text-xs leading-relaxed whitespace-pre-wrap">{detail.cnaWorkaround}</p>
+          <BoxedText text={detail.cnaWorkaround} />
         </section>
       )}
 
       {detail.cnaSolution && (
         <section className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Solution</h3>
-          <p className="text-xs leading-relaxed whitespace-pre-wrap">{detail.cnaSolution}</p>
+          <BoxedText text={detail.cnaSolution} />
         </section>
       )}
 
