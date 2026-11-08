@@ -177,7 +177,7 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
   }
 
   const exportParams = alertQueryToSearchParams({ ...query, page: 1 })
-  const exportHref = (format: "csv" | "json") => {
+  const exportHref = (format: "xlsx" | "json") => {
     exportParams.set("format", format)
     return `/api/alerts/export?${exportParams}`
   }
@@ -284,7 +284,7 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
                 Export
               </button>
               <div className="absolute right-0 top-full z-10 mt-1 hidden group-focus-within:flex group-hover:flex flex-col rounded-md border bg-popover shadow-md min-w-30">
-                <a href={exportHref("csv")} className="px-3 py-2 text-sm text-left hover:bg-accent rounded-t-md">CSV</a>
+                <a href={exportHref("xlsx")} className="px-3 py-2 text-sm text-left hover:bg-accent rounded-t-md">Excel</a>
                 <a href={exportHref("json")} className="px-3 py-2 text-sm text-left hover:bg-accent rounded-b-md">JSON</a>
               </div>
             </div>

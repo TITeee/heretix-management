@@ -36,6 +36,10 @@ export type Alert = {
   distroPriority?: string | null
   fixStatus?: string | null
   fixStatusDetail?: string | null
+  /** The part of the product the CVE is in (Windows Server: "Role: DNS Server"). */
+  component?: string | null
+  /** Set aside by a scan because the server does not run the role the CVE is in. */
+  notApplicableByScan?: boolean
   detectedAt: Date
   dueDate: Date | null
   updatedAt: Date

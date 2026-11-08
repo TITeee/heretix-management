@@ -30,7 +30,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { type Alert, NONE_OPTION, groupBySourcePackage, matchesListFilters } from "@/lib/alerts/list-filters"
-import { alertCsvHeaderLine, alertCsvLine, alertJsonRecord, exportFilename } from "@/lib/alerts/export-format"
+import { alertJsonRecord, exportFilename } from "@/lib/alerts/export-format"
 
 export type { Alert }
 
@@ -637,12 +637,6 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
     URL.revokeObjectURL(url)
   }
 
-  function handleExportCSV() {
-    const rows = (exportRef.current?.() ?? filteredData).flatMap(a => a._groupMembers ?? [a])
-    const lines = [alertCsvHeaderLine(), ...rows.map(alertCsvLine)]
-    download(lines.join("\r\n"), exportFilename("csv"), "text/csv;charset=utf-8;")
-  }
-
   function handleExportJSON() {
     const rows = (exportRef.current?.() ?? filteredData).flatMap(a => a._groupMembers ?? [a])
     const out = rows.map(alertJsonRecord)
@@ -789,8 +783,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
                 Export
               </button>
               <div className="absolute right-0 top-full z-10 mt-1 hidden group-focus-within:flex group-hover:flex flex-col rounded-md border bg-popover shadow-md min-w-30">
-                <button type="button" onClick={handleExportCSV} className="px-3 py-2 text-sm text-left hover:bg-accent rounded-t-md">CSV</button>
-                <button type="button" onClick={handleExportJSON} className="px-3 py-2 text-sm text-left hover:bg-accent rounded-b-md">JSON</button>
+                <button type="button" onClick={handleExportJSON} className="px-3 py-2 text-sm text-left hover:bg-accent rounded-md">JSON</button>
               </div>
             </div>
             {selectedAlerts.length > 0 && (

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { alertCsvLine, alertJsonElement, alertJsonRecord, alertCsvHeaderLine, escapeCSV, exportFilename } from "./export-format"
+import { alertJsonElement, alertJsonRecord, exportFilename } from "./export-format"
 import type { Alert } from "./list-filters"
 
 const alert = (over: Partial<Alert> = {}): Alert => ({
@@ -13,14 +13,6 @@ const alert = (over: Partial<Alert> = {}): Alert => ({
 })
 
 describe("alert export format", () => {
-  it("quotes every CSV field and doubles quotes", () => {
-    const line = alertCsvLine(alert())
-    expect(line.startsWith('"CVE-2026-0001","HIGH","7.5","CVSS:3.1/AV:N","0.12","95.1","Yes","No","A ""quoted"" summary, with a comma"')).toBe(true)
-    expect(line).toContain('"red-hat;osv","host-1","host-1","prod","open",""')
-    expect(alertCsvHeaderLine().split(",")).toHaveLength(22)
-    expect(line.split('","')).toHaveLength(22)
-  })
-
   it("streams JSON that reads back as JSON.stringify(records, null, 2) would", () => {
     const alerts = [alert(), alert({ id: "a2", externalId: "MAL-2026-1", tags: [] })]
     const streamed = "[\n" + alerts.map(alertJsonElement).join(",\n") + "\n]"
@@ -28,26 +20,6 @@ describe("alert export format", () => {
   })
 
   it("names the file by date", () => {
-    expect(exportFilename("csv", new Date("2026-10-20T23:00:00Z"))).toBe("alerts-2026-10-20.csv")
-  })
-})
-
-describe("escapeCSV", () => {
-  // The summary is upstream text and notes are typed by users: a spreadsheet
-  // would run either as a formula if it started like one.
-  it("makes a value that would start a formula text", () => {
-    expect(escapeCSV('=HYPERLINK("http://evil","x")')).toBe(`"'=HYPERLINK(""http://evil"",""x"")"`)
-    for (const v of ["+1+1", "-1+1", "@SUM(A1)", "\tx", "\rx"]) expect(escapeCSV(v)).toBe(`"'${v}"`)
-  })
-
-  it("leaves other text and numbers as they are", () => {
-    expect(escapeCSV("openssl")).toBe('"openssl"')
-    expect(escapeCSV("a=b")).toBe('"a=b"')
-    expect(escapeCSV(-1.5)).toBe('"-1.5"')
-    expect(escapeCSV(null)).toBe('""')
-  })
-
-  it("carries the prefix into an exported row", () => {
-    expect(alertCsvLine(alert({ notes: "=cmd|' /C calc'!A0" }))).toContain(`"'=cmd|' /C calc'!A0"`)
+    expect(exportFilename("xlsx", new Date("2026-10-20T23:00:00Z"))).toBe("alerts-2026-10-20.xlsx")
   })
 })

@@ -1,4 +1,4 @@
-import { escapeCSV } from "@/lib/alerts/export-format"
+import { escapeCSV } from "@/lib/csv"
 import { AGED_DAYS, type ExecutiveReport, type PeriodNumbers, type ScopeNumbers } from "./executive"
 import { formatDay } from "./period"
 import { STATUS_LABELS } from "./status"
