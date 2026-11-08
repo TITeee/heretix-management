@@ -23,7 +23,7 @@ An alert is one vulnerability (CVE, GHSA, vendor advisory, or malicious-package 
 - Excluded packages (dev-only, kernel/build, OS-managed; see [importing-assets.md](importing-assets.md#reference-how-packages-are-classified)) are not sent, and their earlier alerts are resolved at once.
 - **A package with more findings than heretix-api sends** (it sends at most 5,000 per package, an RHEL kernel's 6,000 or a Windows Server months behind on updates) gets only its most severe ones, known exploited first and then by CVSS, as alerts; the rest are not in the console. The asset page says so: a warning lists the packages with how many were returned of how many matched (`5,000 of 6,122`), the Open Alerts count reads `N+`, the package carries a badge in the Packages tab, and the scan history shows how many packages each scan cut. The mark clears on the next scan that is not cut. Such a package is also never auto-resolved from, since an alert missing from a cut answer may still apply.
 
-**Refresh Metadata** on the Alerts page (and the daily refresh job) re-fetches CVSS, severity, EPSS, and KEV for every open and in-progress alert, without scanning:
+**Refresh Metadata** on the Alerts page (under More, after a confirmation; and the daily refresh job) re-fetches CVSS, severity, EPSS, and KEV for every open and in-progress alert, without scanning:
 
 | | Run Scan | Refresh Metadata |
 |---|---|---|

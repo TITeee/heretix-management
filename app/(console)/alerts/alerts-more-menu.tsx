@@ -6,15 +6,28 @@ import Link from "next/link"
 import { RefreshCw, Activity, FileDown, MoreHorizontal } from "lucide-react"
 import { toast } from "sonner"
 import { buttonVariants } from "@/components/ui/button-variants"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
 /**
- * The Alerts page's occasional, administrative actions: refresh metadata,
- * the activity log, export VEX. Shared by the list and the old list.
+ * The Alerts page's occasional, administrative actions: refresh metadata
+ * (after a confirmation), the activity log, export VEX. Shared by the list and
+ * the old list.
  */
 export function AlertsMoreMenu({ hasVex, vexAssetId }: { hasVex: boolean; vexAssetId?: string }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  // Refresh Metadata asks first, as Rescan All on the Assets page does.
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   async function handleRefresh() {
     setLoading(true)
@@ -62,7 +75,7 @@ export function AlertsMoreMenu({ hasVex, vexAssetId }: { hasVex: boolean; vexAss
         <div className="absolute left-0 top-full z-10 mt-1 hidden group-focus-within:flex group-hover:flex flex-col rounded-md border bg-popover shadow-md min-w-40">
           <button
             type="button"
-            onClick={handleRefresh}
+            onClick={() => setConfirmOpen(true)}
             disabled={loading}
             className="flex items-center gap-1.5 px-3 py-2 text-sm text-left hover:bg-accent rounded-t-md disabled:opacity-50 disabled:pointer-events-none"
           >
@@ -87,6 +100,22 @@ export function AlertsMoreMenu({ hasVex, vexAssetId }: { hasVex: boolean; vexAss
           </a>
         </div>
       </div>
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Refresh metadata?</DialogTitle>
+            <DialogDescription>
+              CVSS, severity, EPSS, and KEV are fetched again from heretix-api for every open and
+              in-progress alert. No alert is created or resolved; for that, scan the assets. With many
+              alerts this can take a while.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+            <Button onClick={() => { setConfirmOpen(false); void handleRefresh() }}>Refresh</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
