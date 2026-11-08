@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db"
 import { countSeverityByKey, emptySeverityCounts } from "@/lib/severity"
 import { getScanStatuses } from "@/lib/scan-status"
 import { AssetsTable } from "./assets-table"
+import { RescanAllButton } from "./rescan-all-button"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Plus, FileSpreadsheet, FileJson } from "lucide-react"
@@ -68,6 +69,7 @@ export default async function AssetsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Assets</h1>
         <div className="flex gap-2">
+          <RescanAllButton assetCount={assets.length} />
           <Link href="/assets/new-manual">
             <Button variant="outline" size="sm">
               <Plus className="mr-1 h-4 w-4" /> Add Manually

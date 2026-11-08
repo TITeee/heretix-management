@@ -32,6 +32,8 @@ An alert is one vulnerability (CVE, GHSA, vendor advisory, or malicious-package 
 | Creates or resolves alerts | Yes | No |
 | Updates | CVSS, severity, EPSS, KEV, fixed version, distro rating, fix status | CVSS, severity, EPSS, KEV |
 
+**Rescan All** on the Assets page scans every asset now, as the daily scan does, after a confirmation. It runs in the background, one asset after another; the button shows how far it is (`Rescanning 12/50...`), you can leave the page meanwhile, and a message says how it ended. Only one scan of every asset runs at a time: while one is going (started there or by the schedule), Rescan All waits, and the daily scan skips its turn if a Rescan All is still running. Each finished Rescan All is recorded in the audit log (`assets_rescanned`).
+
 The schedule (refresh 12:00 UTC, then scan 13:00 UTC by default) is in [operations.md](operations.md#scheduled-jobs).
 
 ## Lifecycle

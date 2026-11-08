@@ -726,13 +726,21 @@ export async function scanAsset(
 
 export type ScanAllResult = { total: number; failures: { assetId: string; assetName: string; error: string }[] }
 
-export async function scanAllAssets(): Promise<ScanAllResult> {
+export type ScanAllProgress = { done: number; total: number; failed: number }
+
+/**
+ * Scan every asset, one after another. `onProgress` hears how far it got: once
+ * the assets are counted, then after each one. Run it through runScanAll
+ * (lib/scan-all-run.ts), which keeps two runs from overlapping.
+ */
+export async function scanAllAssets(onProgress?: (p: ScanAllProgress) => void): Promise<ScanAllResult> {
   const assets = await prisma.asset.findMany({ select: { id: true, name: true, hostname: true } })
   const failures: ScanAllResult["failures"] = []
   const total = assets.length
   const startedAt = Date.now()
 
   logger.info("scan all assets started", { total })
+  onProgress?.({ done: 0, total, failed: 0 })
 
   for (let i = 0; i < assets.length; i++) {
     const asset = assets[i]
@@ -743,6 +751,7 @@ export async function scanAllAssets(): Promise<ScanAllResult> {
       // Continue scanning remaining assets even if one fails; the caller reports them together.
       failures.push({ assetId: asset.id, assetName: asset.name || asset.hostname, error: err instanceof Error ? err.message : String(err) })
     }
+    onProgress?.({ done: i + 1, total, failed: failures.length })
   }
 
   logger.info("scan all assets completed", { total, failed: failures.length, durationMs: Date.now() - startedAt })

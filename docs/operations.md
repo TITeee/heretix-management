@@ -112,7 +112,7 @@ On start, the server registers two daily jobs:
 | Job | Default (UTC) | What it does |
 |---|---|---|
 | Refresh Metadata | 12:00 | Re-fetches CVSS, severity, EPSS, and KEV for open and in-progress alerts |
-| Scan | 13:00 | Scans every asset ([alerts.md](alerts.md#scanning)) |
+| Scan | 13:00 | Scans every asset ([alerts.md](alerts.md#scanning)); skipped if a Rescan All from the Assets page is still running |
 
 The scheduler assumes a single server process. A scan interrupted by a restart is marked failed on the next start.
 

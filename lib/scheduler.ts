@@ -1,7 +1,8 @@
 import { schedule } from "node-cron"
 import { refreshMetadata } from "@/lib/refresh"
 import { recordRefreshStatus, refreshFailed } from "@/lib/refresh-status"
-import { scanAllAssets, failInterruptedScanJobs } from "@/lib/scan"
+import { failInterruptedScanJobs } from "@/lib/scan"
+import { runScanAll } from "@/lib/scan-all-run"
 import { logger } from "@/lib/logger"
 import { notifySlackRefreshFailed, notifySlackScanFailures, notifySlackScanNotRun } from "@/lib/slack"
 
@@ -31,9 +32,13 @@ export function startScheduler() {
   })
 
   schedule(scanSchedule, () => {
-    scanAllAssets()
+    runScanAll("schedule")
       // One Slack message for the whole run; a notification that itself fails must not become another failure.
-      .then((result) => notifySlackScanFailures(result))
+      .then((run) => {
+        // A run started from the Assets page is still going: it covers today.
+        if (!run) { logger.info("scheduler: a scan of all assets is already running, skipping"); return }
+        return notifySlackScanFailures({ total: run.total, failures: run.failures })
+      })
       .catch((err) => {
         const error = err instanceof Error ? err.message : String(err)
         logger.error("scheduler: scanAllAssets failed", { error })
