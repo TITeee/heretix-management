@@ -20,7 +20,7 @@ import type { AlertListFacets } from "@/lib/alerts/query"
 import {
   type AlertQuery, type SortColumn, DEFAULT_SORT, NONE, SORT_COLUMNS, alertQueryToSearchParams, parseAlertQuery,
 } from "@/lib/alerts/query-params"
-import { CVSS_OPTIONS, DUE_OPTIONS, KEV_OPTIONS, STATUS_OPTIONS, buildColumns } from "./alerts-table"
+import { CVSS_OPTIONS, DEFAULT_COLUMN_VISIBILITY, DUE_OPTIONS, GroupExpansionProvider, KEV_OPTIONS, STATUS_OPTIONS, buildColumns } from "./alerts-table"
 import { AlertsMoreMenu } from "./alerts-more-menu"
 
 // Links can ask for alerts with no rating at all (the asset page's N/A badge).
@@ -239,6 +239,7 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
         </div>
       )}
 
+      <GroupExpansionProvider>
       <DataTable
         columns={columns}
         data={shownRows}
@@ -254,7 +255,7 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
           setSelectedAlerts(selectedRows.flatMap((r) => r._groupMembers ?? [r]))
           if (selectedRows.length < rows.length) setAllMatching(false)
         }}
-        initialColumnVisibility={{ updatedAt: false, sources: false, dueDate: false, distroPriority: false, fixStatus: false }}
+        initialColumnVisibility={DEFAULT_COLUMN_VISIBILITY}
         server={{
           rowCount: total,
           pageIndex: query.page - 1,
@@ -328,6 +329,7 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
           </div>
         }
       />
+      </GroupExpansionProvider>
       <AlertDetailSheet
         key={selected?.id}
         alert={selected}

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { ColumnDef } from "@tanstack/react-table"
 import { DataTable } from "@/components/data-table/data-table"
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter"
@@ -97,17 +97,44 @@ function StatusSelect({ alertIds, currentStatus, onStatusChange }: {
 
 
 
-function GroupedPackageCell({ sourcePackage, version, members }: {
+// Which collapsed source-package rows are open (by the row's ID). The Package and Alert ID cells of a
+// row read it, so opening one lines the distro packages up with their IDs in the other.
+const GroupExpansionContext = createContext<{ expanded: Set<string>; toggle: (id: string) => void }>({
+  expanded: new Set(),
+  toggle: () => {},
+})
+
+// Holds that state for a table. Wrap the DataTable in it wherever buildColumns' columns are used.
+export function GroupExpansionProvider({ children }: { children: React.ReactNode }) {
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const value = useMemo(() => ({
+    expanded: expandedGroups,
+    toggle: (id: string) => setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    }),
+  }), [expandedGroups])
+  return <GroupExpansionContext.Provider value={value}>{children}</GroupExpansionContext.Provider>
+}
+
+// The columns that start hidden, for every table built from buildColumns (the Alerts list and its legacy page).
+export const DEFAULT_COLUMN_VISIBILITY = { updatedAt: false, sources: false, dueDate: false, distroPriority: false, fixStatus: false, alertId: false }
+
+function GroupedPackageCell({ groupId, sourcePackage, version, members }: {
+  groupId: string
   sourcePackage: string
   version: string
   members: Alert[]
 }) {
-  const [expanded, setExpanded] = useState(false)
+  const { expanded: open, toggle } = useContext(GroupExpansionContext)
+  const expanded = open.has(groupId)
   return (
     <div>
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); setExpanded(v => !v) }}
+        onClick={(e) => { e.stopPropagation(); toggle(groupId) }}
         className="flex items-center gap-1 font-medium hover:underline"
       >
         {expanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
@@ -123,8 +150,55 @@ function GroupedPackageCell({ sourcePackage, version, members }: {
   )
 }
 
+// The Alert ID of a collapsed source-package row. The group has no ID of its own (the alerts are
+// the distro packages), so it shows how many there are, and clicking it opens the row like the
+// Package cell does; opened, each distro package's ID sits on the line of its name in the Package
+// cell, which is laid out the same way.
+function GroupedAlertIdCell({ groupId, members }: { groupId: string; members: Alert[] }) {
+  const { expanded: open, toggle } = useContext(GroupExpansionContext)
+  const expanded = open.has(groupId)
+  return (
+    <div>
+      {/* Opens and closes the row like the Package cell's button does. */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); toggle(groupId) }}
+        className="flex items-center gap-1 text-muted-foreground hover:underline"
+      >
+        {expanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
+        {members.length} alerts
+      </button>
+      <div className="text-xs">&nbsp;</div>
+      {expanded && (
+        <ul className="mt-1 text-xs">
+          {members.map(m => (
+            <li key={m.id} className="font-mono select-all" onClick={(e) => e.stopPropagation()}>{m.id}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export function buildColumns(onStatusChange: (id: string, status: string) => void): ColumnDef<Alert>[] {
   return [
+  {
+    // The alert's own ID, for quoting it or looking it up. The first column; hidden by default (see
+    // initialColumnVisibility). A collapsed source-package row has no ID of its own.
+    id: "alertId",
+    accessorFn: (row) => row.id,
+    header: "Alert ID",
+    cell: ({ row }) => {
+      const members = row.original._groupMembers
+      if (members && members.length > 1) return <GroupedAlertIdCell groupId={row.original.id} members={members} />
+      // A click selects the ID to copy it, and does not open the alert's panel.
+      return (
+        <span className="font-mono text-xs select-all" onClick={(e) => e.stopPropagation()}>
+          {row.original.id}
+        </span>
+      )
+    },
+  },
   {
     accessorKey: "cvssScore",
     header: ({ column }) => (
@@ -215,6 +289,7 @@ export function buildColumns(onStatusChange: (id: string, status: string) => voi
       if (members && members.length > 1) {
         return (
           <GroupedPackageCell
+            groupId={row.original.id}
             sourcePackage={row.original.sourcePackage ?? row.original.packageName}
             version={row.original.packageVersion}
             members={members}
@@ -648,6 +723,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
         )}
       </div>
 
+      <GroupExpansionProvider>
       <DataTable
         columns={columns}
         data={groupedData}
@@ -663,7 +739,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
         getRowId={(row) => row.id}
         onRowSelectionChange={(rows) => setSelectedAlerts(rows.flatMap(r => r._groupMembers ?? [r]))}
         initialSorting={[{ id: "detectedAt", desc: true }]}
-        initialColumnVisibility={{ updatedAt: false, sources: false, dueDate: false, distroPriority: false, fixStatus: false }}
+        initialColumnVisibility={DEFAULT_COLUMN_VISIBILITY}
         exportRef={exportRef}
         headerActions={
           <div className="flex items-center gap-2">
@@ -720,6 +796,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
           </div>
         }
       />
+      </GroupExpansionProvider>
       <AlertDetailSheet
         key={selected?.id}
         alert={selected}
