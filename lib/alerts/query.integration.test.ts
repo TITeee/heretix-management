@@ -36,6 +36,8 @@ const SCORES = [null, 0, 2.5, 5.5, 7.5, 9.8]
 const ECOSYSTEMS = ["Red Hat:9", "Ubuntu:22.04:LTS", "npm", "advisory"]
 const SOURCES = ["osv", "nvd", "red-hat", "red-hat-vex"]
 const PRIORITIES = [null, "low", "moderate", "important", "medium", "high", "bogus"]
+// null, empty and a version: "no fix" covers the first two.
+const FIXED_VERSIONS = [null, "", "1.2.3", "2.0.1"]
 const FIX_STATUSES = [null, "", "affected", "deferred", "will_not_fix", "out_of_support", "under_investigation", "mystery"]
 // Binary packages of one source package, as a kernel ships them.
 const FAMILIES = [
@@ -68,7 +70,7 @@ async function seed() {
       const externalId = rand() < 0.08 ? `MAL-2026-${++cve}` : `CVE-2026-${String(++cve).padStart(5, "0")}`
       const shared = {
         severity: pick(SEVERITIES), cvssScore: pick(SCORES), isKev: rand() < 0.15, epssScore: rand() < 0.3 ? null : Math.round(rand() * 1000) / 1000,
-        ecosystem: pick(ECOSYSTEMS), sources: some(SOURCES, 2), distroPriority: pick(PRIORITIES), fixStatus: pick(FIX_STATUSES),
+        ecosystem: pick(ECOSYSTEMS), sources: some(SOURCES, 2), distroPriority: pick(PRIORITIES), fixStatus: pick(FIX_STATUSES), fixedVersion: pick(FIXED_VERSIONS),
         detectedAt: new Date(NOW.getTime() - Math.floor(rand() * 90) * 24 * HOUR),
         dueDate: rand() < 0.2 ? null : new Date(NOW.getTime() + (Math.floor(rand() * 40) - 10) * 12 * HOUR),
       }
@@ -102,7 +104,7 @@ function reference(q: AlertQuery): Alert[] {
     asset: new Set(q.assetIds), status: new Set(q.statuses), cvss: new Set(q.severityTiers), kev: new Set(q.risks),
     ecosystem: new Set(q.ecosystems), sources: new Set(q.sources), tag: new Set(q.tagIds),
     dependency: bothKinds ? new Set() : new Set(q.dependencies), inventory: new Set(q.inventories), due: new Set(q.dues),
-    distro: mapNone(q.distroLabels), fixStatus: mapNone(q.fixStatuses),
+    distro: mapNone(q.distroLabels), fixStatus: mapNone(q.fixStatuses), fix: new Set(q.fixes),
   }
   const alerts = all.filter((a) =>
     (!q.packageName || a.packageName === q.packageName) &&
@@ -160,6 +162,7 @@ function randomQuery(): AlertQuery {
   maybe(0.25, "due", () => some(["overdue", "urgent", "warning", "ok", "unscored"], 3).join(","))
   maybe(0.2, "distro", () => some(["Red Hat: low", "Red Hat: important", "Ubuntu: medium", "Microsoft: moderate", NONE], 3).join(","))
   maybe(0.2, "fixStatus", () => some(["affected", "deferred", "will_not_fix", "mystery", NONE], 3).join(","))
+  maybe(0.25, "fix", () => some(["available", "none"], 2).join(","))
   maybe(0.15, "packageName", () => pick(["kernel-core", "openssl", "binutils"]))
   maybe(0.1, "packageVersion", () => pick(["1.0", "2.0"]))
   maybe(0.2, "q", () => pick(["kern", "MODULES", "ssl", "gold", "x"]))

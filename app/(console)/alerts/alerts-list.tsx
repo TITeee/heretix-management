@@ -20,7 +20,7 @@ import type { AlertListFacets } from "@/lib/alerts/query"
 import {
   type AlertQuery, type SortColumn, DEFAULT_SORT, NONE, SORT_COLUMNS, alertQueryToSearchParams, parseAlertQuery,
 } from "@/lib/alerts/query-params"
-import { CVSS_OPTIONS, DEFAULT_COLUMN_VISIBILITY, DUE_OPTIONS, GroupExpansionProvider, KEV_OPTIONS, STATUS_OPTIONS, buildColumns } from "./alerts-table"
+import { CVSS_OPTIONS, DEFAULT_COLUMN_VISIBILITY, DUE_OPTIONS, FIX_OPTIONS, GroupExpansionProvider, KEV_OPTIONS, STATUS_OPTIONS, buildColumns } from "./alerts-table"
 import { AlertsMoreMenu } from "./alerts-more-menu"
 
 // Links can ask for alerts with no rating at all (the asset page's N/A badge).
@@ -38,7 +38,7 @@ const INVENTORY_OPTIONS = [
 
 type ListFilterKey =
   | "assetIds" | "statuses" | "severityTiers" | "risks" | "ecosystems" | "sources" | "tagIds"
-  | "dependencies" | "inventories" | "dues" | "distroLabels" | "fixStatuses"
+  | "dependencies" | "inventories" | "dues" | "distroLabels" | "fixStatuses" | "fixes"
 
 /**
  * The Alerts list: one page the server fetched (lib/alerts/query.ts), with
@@ -102,7 +102,7 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
   const hasFilter =
     query.assetIds.length > 0 || query.severityTiers.length > 0 || query.risks.length > 0 || query.ecosystems.length > 0 ||
     query.sources.length > 0 || query.tagIds.length > 0 || query.dependencies.length > 0 || query.inventories.length > 0 ||
-    query.dues.length > 0 || query.distroLabels.length > 0 || query.fixStatuses.length > 0 ||
+    query.dues.length > 0 || query.distroLabels.length > 0 || query.fixStatuses.length > 0 || query.fixes.length > 0 ||
     query.packageName !== null || query.packageVersion !== null ||
     query.statuses.join(",") !== defaults.statuses.join(",")
 
@@ -198,6 +198,7 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
         {fixStatusOptions.length > 0 && (
           <DataTableFacetedFilter title="Fix Status" options={fixStatusOptions} selected={new Set(query.fixStatuses)} onSelectedChange={(v) => setFilter("fixStatuses", v)} />
         )}
+        <DataTableFacetedFilter title="Fix available" options={FIX_OPTIONS} selected={new Set(query.fixes)} onSelectedChange={(v) => setFilter("fixes", v)} />
         <DataTableFacetedFilter title="Risk" options={KEV_OPTIONS} selected={new Set(query.risks)} onSelectedChange={(v) => setFilter("risks", v)} />
         <DataTableFacetedFilter title="Ecosystem" options={ecosystemOptions} selected={new Set(query.ecosystems)} onSelectedChange={(v) => setFilter("ecosystems", v)} searchable />
         <DataTableFacetedFilter title="Sources" options={sourcesOptions} selected={new Set(query.sources)} onSelectedChange={(v) => setFilter("sources", v)} />

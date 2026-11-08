@@ -33,6 +33,7 @@ const SEVERITY_TIERS: SeverityTier[] = ["critical", "high", "medium", "low", "na
 const RISKS = ["kev", "malware"] as const
 const DEPENDENCIES = ["direct", "indirect"] as const
 const INVENTORIES = ["present", "missing"] as const
+const FIXES = ["available", "none"] as const
 const DUE_STATUSES: SlaStatus[] = ["overdue", "urgent", "warning", "ok", "unscored"]
 
 export type AlertQuery = {
@@ -59,6 +60,8 @@ export type AlertQuery = {
   distroLabels: string[]
   /** fixStatus values, or NONE. */
   fixStatuses: string[]
+  /** Whether the alert has a fixed version. */
+  fixes: (typeof FIXES)[number][]
 }
 
 type Params = Record<string, string | string[] | undefined> | URLSearchParams
@@ -125,6 +128,7 @@ export function parseAlertQuery(params: Params): AlertQuery {
     dues: oneOf(list(params, "due"), DUE_STATUSES),
     distroLabels: list(params, "distro"),
     fixStatuses: list(params, "fixStatus"),
+    fixes: oneOf(list(params, "fix"), FIXES),
   }
 }
 
@@ -148,6 +152,7 @@ export function alertQueryToSearchParams(q: AlertQuery): URLSearchParams {
   set("due", q.dues)
   set("distro", q.distroLabels)
   set("fixStatus", q.fixStatuses)
+  set("fix", q.fixes)
   if (q.packageName) p.set("packageName", q.packageName)
   if (q.packageVersion) p.set("packageVersion", q.packageVersion)
   if (q.q) p.set("q", q.q)

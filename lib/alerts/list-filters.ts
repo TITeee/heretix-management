@@ -69,6 +69,8 @@ export type ListFilters = {
   due: Set<string>
   distro: Set<string>
   fixStatus: Set<string>
+  /** "available" or "none": whether the alert has a fixed version. */
+  fix: Set<string>
 }
 
 export function matchesListFilters(alert: Alert, f: ListFilters, now: Date = new Date()): boolean {
@@ -101,6 +103,7 @@ export function matchesListFilters(alert: Alert, f: ListFilters, now: Date = new
     if (!f.distro.has(label)) return false
   }
   if (f.fixStatus.size > 0 && !f.fixStatus.has(alert.fixStatus || NONE_OPTION)) return false
+  if (f.fix.size > 0 && !f.fix.has(alert.fixedVersion ? "available" : "none")) return false
   return true
 }
 

@@ -482,6 +482,11 @@ export const CVSS_OPTIONS = [
   { value: "low", label: "Low" },
 ]
 
+export const FIX_OPTIONS = [
+  { value: "available", label: "Available" },
+  { value: "none", label: "None" },
+]
+
 export const KEV_OPTIONS = [
   { value: "kev", label: "KEV" },
   { value: "malware", label: "Malware" },
@@ -513,6 +518,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
   const [dueFilter, setDueFilter] = useState<Set<string>>(new Set())
   const [distroFilter, setDistroFilter] = useState<Set<string>>(new Set())
   const [fixStatusFilter, setFixStatusFilter] = useState<Set<string>>(new Set())
+  const [fixFilter, setFixFilter] = useState<Set<string>>(new Set())
   const [selectedAlerts, setSelectedAlerts] = useState<Alert[]>([])
   const [bulkStatus, setBulkStatus] = useState("")
   const [bulkLoading, setBulkLoading] = useState(false)
@@ -582,14 +588,14 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
     const filters = {
       asset: assetFilter, status: statusFilter, cvss: cvssFilter, kev: kevFilter, ecosystem: ecosystemFilter,
       sources: sourcesFilter, tag: tagFilter, dependency: dependencyFilter, inventory: inventoryFilter,
-      due: dueFilter, distro: distroFilter, fixStatus: fixStatusFilter,
+      due: dueFilter, distro: distroFilter, fixStatus: fixStatusFilter, fix: fixFilter,
     }
     return data.filter(alert => matchesListFilters(alert, filters))
-  }, [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter, inventoryFilter, dueFilter, distroFilter, fixStatusFilter])
+  }, [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter, inventoryFilter, dueFilter, distroFilter, fixStatusFilter, fixFilter])
 
   const groupedData = useMemo(() => groupBySourcePackage(filteredData), [filteredData])
 
-  const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0 || dependencyFilter.size > 0 || inventoryFilter.size > 0 || dueFilter.size > 0 || distroFilter.size > 0 || fixStatusFilter.size > 0
+  const hasFilter = assetFilter.size > 0 || statusFilter.size > 0 || cvssFilter.size > 0 || kevFilter.size > 0 || ecosystemFilter.size > 0 || sourcesFilter.size > 0 || tagFilter.size > 0 || dependencyFilter.size > 0 || inventoryFilter.size > 0 || dueFilter.size > 0 || distroFilter.size > 0 || fixStatusFilter.size > 0 || fixFilter.size > 0
 
   function handleStatusChange(alertId: string, newStatus: string) {
     setData(prev => prev.map(a => a.id === alertId ? { ...a, status: newStatus } : a))
@@ -683,6 +689,12 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
           />
         )}
         <DataTableFacetedFilter
+          title="Fix available"
+          options={FIX_OPTIONS}
+          selected={fixFilter}
+          onSelectedChange={setFixFilter}
+        />
+        <DataTableFacetedFilter
           title="Risk"
           options={KEV_OPTIONS}
           selected={kevFilter}
@@ -740,7 +752,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
             size="sm"
             onClick={() => {
               if (initialAssetId) { router.push("/alerts"); return }
-              setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set()); setDependencyFilter(new Set()); setInventoryFilter(new Set()); setDueFilter(new Set()); setDistroFilter(new Set()); setFixStatusFilter(new Set())
+              setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set()); setDependencyFilter(new Set()); setInventoryFilter(new Set()); setDueFilter(new Set()); setDistroFilter(new Set()); setFixStatusFilter(new Set()); setFixFilter(new Set())
             }}
           >
             Reset <X className="ml-1 size-4" />

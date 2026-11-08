@@ -63,11 +63,18 @@ describe("alertQueryToSearchParams", () => {
     const params = {
       assetId: "a1,a2", status: "resolved", severity: "critical,na", risk: "malware", ecosystem: "Red Hat:9",
       source: "osv", tag: "t1", dependency: "direct", inventory: "missing", due: "overdue", distro: "Red Hat: low,none",
-      fixStatus: "deferred", packageName: "openssl", packageVersion: "1.0", q: "kern", vuln: "CVE-2026",
+      fixStatus: "deferred", fix: "available", packageName: "openssl", packageVersion: "1.0", q: "kern", vuln: "CVE-2026",
       sort: "epssScore", dir: "asc", size: "25", page: "3",
     }
     const q = parseAlertQuery(params)
     expect(parseAlertQuery(alertQueryToSearchParams(q))).toEqual(q)
+  })
+
+  it("reads fix as available and/or none and ignores anything else", () => {
+    expect(parseAlertQuery({ fix: "available" }).fixes).toEqual(["available"])
+    expect(parseAlertQuery({ fix: "none,available" }).fixes).toEqual(["none", "available"])
+    expect(parseAlertQuery({ fix: "yes,bogus" }).fixes).toEqual([])
+    expect(parseAlertQuery({}).fixes).toEqual([])
   })
 
   it("writes kev=1 links back as the risk filter", () => {

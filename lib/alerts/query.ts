@@ -96,6 +96,12 @@ export function alertConditions(q: AlertQuery, now: Date): Prisma.Sql[] {
     if (q.fixStatuses.includes(NONE)) d.push(Prisma.sql`(a."fixStatus" IS NULL OR a."fixStatus" = '')`)
     c.push(Prisma.sql`(${Prisma.join(d, " OR ")})`)
   }
+  // Both choices is no filter, as for inventories.
+  if (q.fixes.length === 1) {
+    c.push(q.fixes[0] === "available"
+      ? Prisma.sql`(a."fixedVersion" IS NOT NULL AND a."fixedVersion" <> '')`
+      : Prisma.sql`(a."fixedVersion" IS NULL OR a."fixedVersion" = '')`)
+  }
   return c
 }
 
