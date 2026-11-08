@@ -30,7 +30,7 @@ import { useRouter } from "next/navigation"
 import { getSlaStatus, formatDaysUntilDue } from "@/lib/sla"
 import { graceEndsAt } from "@/lib/scan-resolve"
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/severity"
-import { epssChangeText } from "@/lib/epss-change"
+import { EVENT_LABELS } from "@/lib/alerts/event-text"
 import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
 import { cvssVersionLabel } from "@/lib/cvss"
 import { TagBadge } from "@/components/tags/tag-badge"
@@ -177,12 +177,12 @@ const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: str
   detected: {
     icon: FaCircleExclamation,
     iconClass: "text-red-500",
-    label: () => "Alert detected",
+    label: EVENT_LABELS.detected,
   },
   status_changed: {
     icon: FaCircleExclamation,
     iconClass: "text-blue-500",
-    label: (data) => `Status changed to "${STATUS_LABELS[data.to as string] ?? data.to}"`,
+    label: EVENT_LABELS.status_changed,
     getIcon: (data) => {
       const entry = STATUS_ICON_MAP[data.to as string]
       return entry ? { icon: entry.icon, iconClass: entry.className.replace(/h-\S+ w-\S+ /, "") } : { icon: FaCircleExclamation, iconClass: "text-blue-500" }
@@ -191,56 +191,53 @@ const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: str
   ignore_reason_changed: {
     icon: FaCircleExclamation,
     iconClass: "text-blue-500",
-    label: (data) => `Ignore reason changed: "${data.from}" to "${data.to}"`,
+    label: EVENT_LABELS.ignore_reason_changed,
   },
-  // Emitted when an alert is carried over to a package whose version changed, and
-  // when a finding starts being reported under a newly assigned CVE. Both move an
-  // alert rather than replacing it, so the timeline is the only place the move is
-  // visible — an unregistered type is dropped silently by the renderer below.
+  // An unregistered type is dropped silently by the renderer below (labels: lib/alerts/event-text.ts).
   package_changed: {
     icon: GitBranch,
     iconClass: "text-blue-500",
-    label: (data) => `Package changed: ${data.from} → ${data.to}`,
+    label: EVENT_LABELS.package_changed,
   },
   identifier_changed: {
     icon: FaCircleExclamation,
     iconClass: "text-blue-500",
-    label: (data) => `Identifier changed: ${data.from} → ${data.to}`,
+    label: EVENT_LABELS.identifier_changed,
   },
   kev_added: {
     icon: AlertTriangle,
     iconClass: "text-red-600",
-    label: () => "Added to CISA KEV",
+    label: EVENT_LABELS.kev_added,
   },
   cvss_changed: {
     icon: TrendingUp,
     iconClass: "text-orange-500",
-    label: (data) => `CVSS score changed: ${data.from ?? "n/a"} → ${data.to ?? "n/a"}`,
+    label: EVENT_LABELS.cvss_changed,
   },
   epss_changed: {
     icon: TrendingUp,
     iconClass: "text-blue-500",
-    label: (data) => `EPSS updated: ${epssChangeText(data)}`,
+    label: EVENT_LABELS.epss_changed,
   },
   severity_changed: {
     icon: TrendingDown,
     iconClass: "text-yellow-600",
-    label: (data) => `Severity changed: ${data.from ?? "n/a"} → ${data.to ?? "n/a"}`,
+    label: EVENT_LABELS.severity_changed,
   },
   notes_saved: {
     icon: Clock,
     iconClass: "text-muted-foreground",
-    label: () => "Notes saved",
+    label: EVENT_LABELS.notes_saved,
   },
   vex_justification_set: {
     icon: ShieldCheck,
     iconClass: "text-muted-foreground",
-    label: () => "VEX justification set",
+    label: EVENT_LABELS.vex_justification_set,
   },
   vex_imported: {
     icon: ShieldCheck,
     iconClass: "text-green-600",
-    label: (data) => `VEX imported — ${String(data.state)}`,
+    label: EVENT_LABELS.vex_imported,
   },
 }
 
