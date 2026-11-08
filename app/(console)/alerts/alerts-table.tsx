@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ArrowUpDown, ChevronDown, ChevronRight, CircleHelp, Download, X } from "lucide-react"
+import { ArrowUpDown, Check, ChevronDown, ChevronRight, CircleHelp, Download, X } from "lucide-react"
 import { FaTriangleExclamation, FaVirus } from "react-icons/fa6"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -147,6 +147,24 @@ function GroupedPackageCell({ groupId, sourcePackage, version, members }: {
         </ul>
       )}
     </div>
+  )
+}
+
+// Whether a fixed version is known for the alert: a check, with the version in the tooltip, and
+// nothing when there is none. A collapsed source-package row stands for several alerts that can differ,
+// so it shows a check only when every one has a fix, and "n/N" when some do.
+function FixedInCell({ alert }: { alert: Alert }) {
+  const members = alert._groupMembers ?? [alert]
+  const fixed = members.filter((m) => m.fixedVersion)
+  const versions = [...new Set(fixed.map((m) => m.fixedVersion as string))]
+  if (fixed.length === 0) return null
+  if (fixed.length === members.length) {
+    return <span title={`Fixed version: ${versions.join(", ")}`}><Check className="h-4 w-4 text-green-600 dark:text-green-400" /></span>
+  }
+  return (
+    <span className="text-xs text-muted-foreground" title={`${fixed.length} of ${members.length} have a fixed version: ${versions.join(", ")}`}>
+      {fixed.length}/{members.length}
+    </span>
   )
 }
 
@@ -396,6 +414,13 @@ export function buildColumns(onStatusChange: (id: string, status: string) => voi
         />
       </div>
     ),
+  },
+  {
+    // Whether a fixed version is known. Not sortable or filterable: the list sorts on the server
+    // (SORT_COLUMNS), which has no such key.
+    id: "fixedIn",
+    header: "Fix available",
+    cell: ({ row }) => <FixedInCell alert={row.original} />,
   },
   {
     accessorKey: "detectedAt",
