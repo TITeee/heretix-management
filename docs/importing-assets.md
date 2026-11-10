@@ -133,7 +133,7 @@ Details of what the importer reads from an SBOM. You don't need them for everyda
 
 **OS release.** The point release a scanner records is normalized to the ecosystem heretix-api matches on: `rocky-9.3` becomes `Rocky Linux:9`, `debian-12.15` becomes `Debian:12`, and `alpine-3.20.10` becomes `Alpine:v3.20`.
 
-**Direct or indirect dependency.** Read from heretix-cli's `heretix:direct` property, or from a CycloneDX dependency graph rooted at the scanned project (lockfile scans, cdxgen). Where neither exists (OS packages from other scanners, installed-package scans without a lockfile, packages added by hand), the package is left unclassified rather than guessed.
+**Direct or indirect dependency.** Read from heretix-cli's `heretix:direct` property, or from a CycloneDX dependency graph rooted at the scanned project (lockfile scans, cdxgen). For OS packages, heretix-cli marks as direct the packages no other installed package depends on, and the rest as indirect; the dependency graph tab shows how a vulnerable library is pulled in. Where neither exists (OS packages from other scanners or from older heretix-cli releases, installed-package scans without a lockfile, packages added by hand), the package is left unclassified rather than guessed.
 
 **Excluded packages.** These stay in the inventory but are never scanned (`scope: excluded`), and the asset page shows why:
 
