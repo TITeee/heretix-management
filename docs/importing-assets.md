@@ -135,6 +135,8 @@ Details of what the importer reads from an SBOM. You don't need them for everyda
 
 **Direct or indirect dependency.** Read from heretix-cli's `heretix:direct` property, or from a CycloneDX dependency graph rooted at the scanned project (lockfile scans, cdxgen). For OS packages, heretix-cli marks as direct the packages no other installed package depends on, and the rest as indirect; the dependency graph tab shows how a vulnerable library is pulled in. Where neither exists (OS packages from other scanners or from older heretix-cli releases, installed-package scans without a lockfile, packages added by hand), the package is left unclassified rather than guessed.
 
+**In use, used by, needs restart.** From heretix-cli's `heretix:in-use`, `heretix:used-by` and `heretix:needs-restart` properties, which it reads from `/proc` on a host scan (not for an image): whether a running process had one of the package's executables or libraries loaded, which systemd units those were, and whether a process still runs a file the package has since replaced (the upgrade is not in effect until it is restarted). "In use" is left undetermined for a package with no code of its own (data, configuration, a library for an interpreter), for other scanners and for older heretix-cli releases; it is never read as "not in use". Shown on the asset's packages, offered as an Alerts filter and in the Excel export, and counted in the Remediation tab's no-fix groups.
+
 **Excluded packages.** These stay in the inventory but are never scanned (`scope: excluded`), and the asset page shows why:
 
 | Reason | Meaning |

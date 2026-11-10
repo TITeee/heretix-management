@@ -73,6 +73,10 @@ type PackageRow = {
   sourcePackage?: string | null
   licenses?: string[]
   windowsFeatures?: string[]
+  /** Runtime facts from the last SBOM (Package.inUse, usedBy, needsRestart); inUse null when not determined. */
+  inUse?: boolean | null
+  usedBy?: string[]
+  needsRestart?: boolean
   findingsCut?: boolean
   findingsMatched?: number | null
   findingsReturned?: number | null
@@ -397,6 +401,36 @@ function LicenseCell({ licenses }: { licenses: string[] }) {
   )
 }
 
+// What the host's running processes were doing with an OS package when the
+// SBOM was collected (heretix-cli reads /proc). In use, with the services in
+// the tooltip; Not in use when the package has executables or libraries and
+// none was loaded; nothing when not determined. Needs restart marks a process
+// still running a file the package has since replaced: the upgrade the
+// inventory shows is not in effect for it yet.
+function InUseCell({ pkg }: { pkg: PackageRow }) {
+  if (pkg.inUse == null && !pkg.needsRestart) return null
+  const usedBy = pkg.usedBy ?? []
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {pkg.inUse === true && (
+        <span title={usedBy.length > 0 ? `Loaded by: ${usedBy.join(", ")}` : "Loaded by a running process when the SBOM was collected"}>
+          <Badge className="text-xs">In use</Badge>
+        </span>
+      )}
+      {pkg.inUse === false && (
+        <span title="None of its executables or libraries was loaded by a running process when the SBOM was collected. A program that runs now and then is not seen.">
+          <Badge variant="outline" className="text-xs text-muted-foreground">Not in use</Badge>
+        </span>
+      )}
+      {pkg.needsRestart && (
+        <span title={`A running process still has an old file of this package loaded${usedBy.length > 0 ? ` (${usedBy.join(", ")})` : ""}. It runs the previous version until it is restarted.`}>
+          <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 dark:text-amber-400 dark:border-amber-800">Needs restart</Badge>
+        </span>
+      )}
+    </div>
+  )
+}
+
 // The optional features installed on a Windows Server, which the scan uses to
 // set aside the findings of server roles the server does not run (see
 // lib/windows-roles.ts). Shown on the OS package's row so it is visible why
@@ -591,6 +625,17 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
       },
     },
     {
+      accessorKey: "inUse",
+      header: sortableHeader("In use"),
+      // In use first, then not in use, then the packages it was not determined
+      // for (no code of their own, other scanners, older SBOMs).
+      sortingFn: (a, b) => {
+        const rank = (p: PackageRow) => (p.needsRestart ? -1 : p.inUse === true ? 0 : p.inUse === false ? 1 : 2)
+        return rank(a.original) - rank(b.original)
+      },
+      cell: ({ row }) => <InUseCell pkg={row.original} />,
+    },
+    {
       accessorKey: "scope",
       header: sortableHeader("Scope"),
       // Non-runtime sorts first so it's easy to spot; everything else (required
@@ -685,6 +730,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
   const [directFilter, setDirectFilter] = useState<Set<string>>(new Set())
   const [scopeFilter, setScopeFilter] = useState<Set<string>>(new Set())
   const [licenseFilter, setLicenseFilter] = useState<Set<string>>(new Set())
+  const [inUseFilter, setInUseFilter] = useState<Set<string>>(new Set())
 
   const ecosystemOptions = useMemo(() =>
     [...new Set(data.map(p => p.ecosystem))].sort().map(v => ({ value: v, label: v || "Other" })),
@@ -706,6 +752,12 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
     { value: "true", label: "Direct" },
     { value: "false", label: "Indirect" },
   ]
+  const inUseOptions = [
+    { value: "yes", label: "In use" },
+    { value: "no", label: "Not in use" },
+    { value: "restart", label: "Needs restart" },
+    { value: "unknown", label: "Not determined" },
+  ]
   const scopeOptions = [
     { value: "kernel", label: "Kernel" },
     { value: "build", label: "Build" },
@@ -721,10 +773,14 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
     if (directFilter.size > 0 && !directFilter.has(String(p.direct))) return false
     if (scopeFilter.size > 0 && !scopeFilter.has(nonRuntimeCategory(p) ?? "other")) return false
     if (licenseFilter.size > 0 && !(p.licenses ?? []).some(l => licenseFilter.has(l))) return false
+    if (inUseFilter.size > 0) {
+      const value = p.inUse === true ? "yes" : p.inUse === false ? "no" : "unknown"
+      if (!inUseFilter.has(value) && !(inUseFilter.has("restart") && p.needsRestart)) return false
+    }
     return true
-  }), [data, ecosystemFilter, sourceFilter, sourcePackageFilter, directFilter, scopeFilter, licenseFilter])
+  }), [data, ecosystemFilter, sourceFilter, sourcePackageFilter, directFilter, scopeFilter, licenseFilter, inUseFilter])
 
-  const hasFilter = ecosystemFilter.size > 0 || sourceFilter.size > 0 || sourcePackageFilter.size > 0 || directFilter.size > 0 || scopeFilter.size > 0 || licenseFilter.size > 0
+  const hasFilter = ecosystemFilter.size > 0 || sourceFilter.size > 0 || sourcePackageFilter.size > 0 || directFilter.size > 0 || scopeFilter.size > 0 || licenseFilter.size > 0 || inUseFilter.size > 0
 
   return (
     <div className="space-y-3">
@@ -757,6 +813,12 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
           onSelectedChange={setDirectFilter}
         />
         <DataTableFacetedFilter
+          title="In use"
+          options={inUseOptions}
+          selected={inUseFilter}
+          onSelectedChange={setInUseFilter}
+        />
+        <DataTableFacetedFilter
           title="Scope"
           options={scopeOptions}
           selected={scopeFilter}
@@ -771,7 +833,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
         />
         {hasFilter && (
           <Button variant="ghost" size="sm"
-            onClick={() => { setEcosystemFilter(new Set()); setSourceFilter(new Set()); setSourcePackageFilter(new Set()); setDirectFilter(new Set()); setScopeFilter(new Set()); setLicenseFilter(new Set()) }}>
+            onClick={() => { setEcosystemFilter(new Set()); setSourceFilter(new Set()); setSourcePackageFilter(new Set()); setDirectFilter(new Set()); setScopeFilter(new Set()); setLicenseFilter(new Set()); setInUseFilter(new Set()) }}>
             Reset <X className="ml-1 size-4" />
           </Button>
         )}

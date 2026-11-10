@@ -92,6 +92,18 @@ model Package {
   // findings of a role none of whose features is installed (see lib/scan.ts).
   // Empty when unknown, which is every other package.
   windowsFeatures String[] @default([])
+  // What the host's running processes were doing with an OS package when
+  // heretix-cli collected it, from its heretix:in-use, heretix:used-by and
+  // heretix:needs-restart properties (read from /proc). inUse: a process had
+  // one of the package's executables or libraries loaded; false when it has
+  // such files and none was loaded; null when not determined (no code of its
+  // own, an image, another scanner, an older heretix-cli). usedBy: the systemd
+  // units (or commands) of those processes. needsRestart: a process still runs
+  // a file the package has since replaced, so an upgrade is not in effect yet.
+  // Facts about the moment of the scan, shown and filtered on, never scored.
+  inUse        Boolean?
+  usedBy       String[] @default([])
+  needsRestart Boolean  @default(false)
   // Set by a scan when heretix-api matched more findings for this package than
   // it sends (5,000 per package), so only the most severe became alerts:
   // findingsMatched is how many matched (null if heretix-api did not say) and

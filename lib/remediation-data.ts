@@ -37,7 +37,7 @@ const ACCEPTED_WITH_FIX_WHERE = { status: "ignored", ignoreReason: "accepted_ris
 function loadPackages(assetId: string) {
   return prisma.package.findMany({
     where: { assetId },
-    select: { name: true, version: true, ecosystem: true, direct: true, deps: true, source: true },
+    select: { name: true, version: true, ecosystem: true, direct: true, deps: true, source: true, inUse: true },
   })
 }
 

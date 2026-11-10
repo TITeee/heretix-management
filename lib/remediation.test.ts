@@ -220,3 +220,25 @@ describe("compareAlertUrgency", () => {
     expect(sorted.map((x) => x.externalId)).toEqual(["v3", "v2"])
   })
 })
+
+describe("no-fix groups count what the asset's own data says about living with the findings", () => {
+  it("counts alerts in an OS package nothing depends on, and in a package no process had loaded", () => {
+    const alerts = [
+      alert({ packageName: "libexpat1", packageVersion: "2.7.1-2", ecosystem: "Debian:13", fixedVersion: null, fixStatus: "affected" }),
+      alert({ packageName: "libssl3t64", packageVersion: "3.5.1-1", ecosystem: "Debian:13", fixedVersion: null, fixStatus: "affected" }),
+      alert({ packageName: "curl", packageVersion: "8.14.1-2", ecosystem: "Debian:13", fixedVersion: null, fixStatus: "affected" }),
+      // A language package: direct means declared by the project, which is not "nothing depends on it".
+      alert({ packageName: "lodash", packageVersion: "4.17.21", ecosystem: "npm", fixedVersion: null, fixStatus: null }),
+    ]
+    const packages: RemediationPackageInput[] = [
+      { ...pkg("libexpat1", "2.7.1-2", true, [], "Debian:13"), inUse: false },
+      { ...pkg("libssl3t64", "3.5.1-1", false, [], "Debian:13"), inUse: true },
+      { ...pkg("curl", "8.14.1-2", true, [], "Debian:13"), inUse: null },
+      { ...pkg("lodash", "4.17.21", true), inUse: null },
+    ]
+    const plan = buildRemediationPlan(alerts, packages)
+    const byStatus = Object.fromEntries(plan.noFix.map((g) => [g.key, g]))
+    expect(byStatus["affected"]).toMatchObject({ notDependedOn: 2, notInUse: 1 })
+    expect(byStatus[""]).toMatchObject({ notDependedOn: 0, notInUse: 0 })
+  })
+})

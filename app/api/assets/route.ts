@@ -129,6 +129,9 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
     sourceVersion?: string | null
     licenses?: unknown
     windowsFeatures?: unknown
+    inUse?: boolean | null
+    usedBy?: unknown
+    needsRestart?: boolean
   }) => ({
     name: p.name,
     version: p.version,
@@ -148,6 +151,11 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
     windowsFeatures: Array.isArray(p.windowsFeatures)
       ? p.windowsFeatures.filter((f): f is string => typeof f === "string" && f.trim() !== "")
       : [],
+    inUse: typeof p.inUse === "boolean" ? p.inUse : null,
+    usedBy: Array.isArray(p.usedBy)
+      ? p.usedBy.filter((u): u is string => typeof u === "string" && u.trim() !== "")
+      : [],
+    needsRestart: p.needsRestart === true,
   }))
 
   const existing = await prisma.asset.findFirst({ where: { hostname } })
@@ -186,7 +194,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
       where: { assetId: existing.id, source: { not: "manual" } },
     })
 
-    type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[]; scope: string | null; category: string | null; sourcePackage: string | null; sourceVersion: string | null; licenses: string[]; windowsFeatures: string[] }
+    type IncomingPkg = { name: string; version: string; rawVersion: string; ecosystem: string; source: string; location: string | null; direct: boolean | null; deps: string[]; scope: string | null; category: string | null; sourcePackage: string | null; sourceVersion: string | null; licenses: string[]; windowsFeatures: string[]; inUse: boolean | null; usedBy: string[]; needsRestart: boolean }
     const { toCreate, toUpdateMeta, toDelete, supersededVersions } = diffPackages(
       existingPkgs,
       incomingPackages as IncomingPkg[]
@@ -215,6 +223,9 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
       ex.sourceVersion !== inc.sourceVersion ||
       JSON.stringify(ex.licenses) !== JSON.stringify(inc.licenses) ||
       JSON.stringify(ex.windowsFeatures) !== JSON.stringify(inc.windowsFeatures) ||
+      ex.inUse !== inc.inUse ||
+      ex.needsRestart !== inc.needsRestart ||
+      JSON.stringify(ex.usedBy) !== JSON.stringify(inc.usedBy) ||
       JSON.stringify(ex.deps) !== JSON.stringify(inc.deps ?? [])
     )
 
@@ -231,7 +242,7 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
       ...metaChanged.map(({ existing: ex, incoming: inc }) =>
         prisma.package.update({
           where: { id: ex.id },
-          data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [], scope: inc.scope, category: inc.category, sourcePackage: inc.sourcePackage, sourceVersion: inc.sourceVersion, licenses: inc.licenses, windowsFeatures: inc.windowsFeatures },
+          data: { rawVersion: inc.rawVersion, location: inc.location, direct: inc.direct, deps: inc.deps ?? [], scope: inc.scope, category: inc.category, sourcePackage: inc.sourcePackage, sourceVersion: inc.sourceVersion, licenses: inc.licenses, windowsFeatures: inc.windowsFeatures, inUse: inc.inUse, usedBy: inc.usedBy, needsRestart: inc.needsRestart },
         })
       ),
       ...(historyEntries.length > 0

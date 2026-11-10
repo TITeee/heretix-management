@@ -57,6 +57,10 @@ export const ALERT_XLSX_COLUMNS: Column[] = [
   { header: "Component", width: 22, value: (a) => a.component ?? null },
   { header: "Dependency", width: 12, value: (a) => (a.packageDirect === true ? "Direct" : a.packageDirect === false ? "Transitive" : null) },
   { header: "In Inventory", width: 12, value: (a) => yesNo(a.packageExists !== false) },
+  // The package's runtime facts from the last SBOM; blank when not determined.
+  { header: "In Use", width: 10, value: (a) => (a.packageInUse == null ? null : yesNo(a.packageInUse)) },
+  { header: "Used By", width: 24, value: (a) => (a.packageUsedBy?.length ? a.packageUsedBy.join(", ") : null) },
+  { header: "Needs Restart", width: 13, value: (a) => (a.packageNeedsRestart ? "Yes" : null) },
   { header: "Summary", width: 60, value: (a) => a.summary ?? null },
   { header: "Severity", width: 10, value: (a) => TIER_LABELS[getAlertSeverityTier(a.severity, a.cvssScore)] },
   { header: "CVSS Score", width: 10, value: (a) => a.cvssScore, numFmt: "0.0" },

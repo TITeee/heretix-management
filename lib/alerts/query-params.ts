@@ -34,6 +34,7 @@ const RISKS = ["kev", "malware"] as const
 const DEPENDENCIES = ["direct", "indirect"] as const
 const INVENTORIES = ["present", "missing"] as const
 const FIXES = ["available", "none"] as const
+const IN_USES = ["yes", "no", "unknown"] as const
 const DUE_STATUSES: SlaStatus[] = ["overdue", "urgent", "warning", "ok", "unscored"]
 
 export type AlertQuery = {
@@ -62,6 +63,8 @@ export type AlertQuery = {
   fixStatuses: string[]
   /** Whether the alert has a fixed version. */
   fixes: (typeof FIXES)[number][]
+  /** Whether a running process had the alert's package loaded (Package.inUse): yes, no, or not determined. */
+  inUses: (typeof IN_USES)[number][]
 }
 
 type Params = Record<string, string | string[] | undefined> | URLSearchParams
@@ -129,6 +132,7 @@ export function parseAlertQuery(params: Params): AlertQuery {
     distroLabels: list(params, "distro"),
     fixStatuses: list(params, "fixStatus"),
     fixes: oneOf(list(params, "fix"), FIXES),
+    inUses: oneOf(list(params, "inUse"), IN_USES),
   }
 }
 
@@ -153,6 +157,7 @@ export function alertQueryToSearchParams(q: AlertQuery): URLSearchParams {
   set("distro", q.distroLabels)
   set("fixStatus", q.fixStatuses)
   set("fix", q.fixes)
+  set("inUse", q.inUses)
   if (q.packageName) p.set("packageName", q.packageName)
   if (q.packageVersion) p.set("packageVersion", q.packageVersion)
   if (q.q) p.set("q", q.q)

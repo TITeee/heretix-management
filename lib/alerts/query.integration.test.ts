@@ -86,6 +86,7 @@ async function seed() {
           packages.set(`${assetId}|${packageName}|${version}`, {
             assetId, name: packageName, version, rawVersion: version, ecosystem: shared.ecosystem, source: "sbom", deps: [],
             direct: pick([true, false, null]),
+            inUse: pick([true, false, null]), needsRestart: rand() < 0.1,
           })
         }
       }
@@ -104,7 +105,7 @@ function reference(q: AlertQuery): Alert[] {
     asset: new Set(q.assetIds), status: new Set(q.statuses), cvss: new Set(q.severityTiers), kev: new Set(q.risks),
     ecosystem: new Set(q.ecosystems), sources: new Set(q.sources), tag: new Set(q.tagIds),
     dependency: bothKinds ? new Set() : new Set(q.dependencies), inventory: new Set(q.inventories), due: new Set(q.dues),
-    distro: mapNone(q.distroLabels), fixStatus: mapNone(q.fixStatuses), fix: new Set(q.fixes),
+    distro: mapNone(q.distroLabels), fixStatus: mapNone(q.fixStatuses), fix: new Set(q.fixes), inUse: new Set(q.inUses),
   }
   const alerts = all.filter((a) =>
     (!q.packageName || a.packageName === q.packageName) &&
@@ -163,6 +164,7 @@ function randomQuery(): AlertQuery {
   maybe(0.2, "distro", () => some(["Red Hat: low", "Red Hat: important", "Ubuntu: medium", "Microsoft: moderate", NONE], 3).join(","))
   maybe(0.2, "fixStatus", () => some(["affected", "deferred", "will_not_fix", "mystery", NONE], 3).join(","))
   maybe(0.25, "fix", () => some(["available", "none"], 2).join(","))
+  maybe(0.25, "inUse", () => some(["yes", "no", "unknown"], 3).join(","))
   maybe(0.15, "packageName", () => pick(["kernel-core", "openssl", "binutils"]))
   maybe(0.1, "packageVersion", () => pick(["1.0", "2.0"]))
   maybe(0.2, "q", () => pick(["kern", "MODULES", "ssl", "gold", "x"]))

@@ -43,6 +43,8 @@ export type RemediationPackageInput = {
   deps: string[]
   /** "manual" for a package added by hand or by CSV import; anything else came from an inventory. */
   source: string
+  /** Whether a running process had the package loaded when it was collected (Package.inUse); null or absent when not determined. */
+  inUse?: boolean | null
 }
 
 type GroupStats = {
@@ -78,6 +80,15 @@ export type NoFixGroup = GroupStats & {
   fixStatus: string | null
   /** How many findings carry each distro rating; "" for none. */
   distroPriorities: Record<string, number>
+  /**
+   * Facts that bear on living with these findings, counted over the group's
+   * alerts: how many are in an OS package no other installed package depends
+   * on (it could be removed without taking anything with it), and how many in
+   * a package no running process had loaded when the asset was collected.
+   * Facts, not a verdict: an essential package depends on nothing either.
+   */
+  notDependedOn: number
+  notInUse: number
 }
 
 export type RemediationPlan = {
@@ -252,12 +263,18 @@ export function buildRemediationPlan(
       const key = alert.fixStatus ?? ""
       let group = noFix.get(key)
       if (!group) {
-        group = { ...newStats(), key, fixStatus: alert.fixStatus, distroPriorities: {} }
+        group = { ...newStats(), key, fixStatus: alert.fixStatus, distroPriorities: {}, notDependedOn: 0, notInUse: 0 }
         noFix.set(key, group)
       }
       addToStats(group, alert)
       const priority = alert.distroPriority ?? ""
       group.distroPriorities[priority] = (group.distroPriorities[priority] ?? 0) + 1
+      // direct on an OS package means nothing installed depends on it (heretix-cli
+      // reads it off the dependency graph); on a language package it means
+      // declared by the project, which says nothing about removing it.
+      const pkg = packageByNameVersion.get(`${alert.packageName}\u0000${alert.packageVersion}`)
+      if (pkg?.direct === true && isOsEcosystem(alert.ecosystem)) group.notDependedOn++
+      if (pkg?.inUse === false) group.notInUse++
       continue
     }
 

@@ -328,6 +328,16 @@ export function buildColumns(onStatusChange: (id: string, status: string) => voi
                 </Badge>
               </span>
             )}
+            {row.original.packageNeedsRestart && (
+              <span title={`A running process still has an old file of this package loaded${row.original.packageUsedBy?.length ? ` (${row.original.packageUsedBy.join(", ")})` : ""}. It runs the previous version until it is restarted, so an upgrade that fixed this finding is not in effect for it yet.`}>
+                <Badge
+                  variant="outline"
+                  className="text-xs text-amber-700 border-amber-300 dark:text-amber-400 dark:border-amber-800"
+                >
+                  Needs restart
+                </Badge>
+              </span>
+            )}
           </div>
           <div className="text-xs text-muted-foreground">{row.original.packageVersion}</div>
         </div>
@@ -487,6 +497,13 @@ export const FIX_OPTIONS = [
   { value: "none", label: "None" },
 ]
 
+/** Whether a running process had the alert's package loaded when the asset was collected (Package.inUse). */
+export const IN_USE_OPTIONS = [
+  { value: "yes", label: "In use" },
+  { value: "no", label: "Not in use" },
+  { value: "unknown", label: "Not determined" },
+]
+
 export const KEV_OPTIONS = [
   { value: "kev", label: "KEV" },
   { value: "malware", label: "Malware" },
@@ -519,6 +536,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
   const [distroFilter, setDistroFilter] = useState<Set<string>>(new Set())
   const [fixStatusFilter, setFixStatusFilter] = useState<Set<string>>(new Set())
   const [fixFilter, setFixFilter] = useState<Set<string>>(new Set())
+  const [inUseFilter, setInUseFilter] = useState<Set<string>>(new Set())
   const [selectedAlerts, setSelectedAlerts] = useState<Alert[]>([])
   const [bulkStatus, setBulkStatus] = useState("")
   const [bulkLoading, setBulkLoading] = useState(false)
@@ -588,10 +606,10 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
     const filters = {
       asset: assetFilter, status: statusFilter, cvss: cvssFilter, kev: kevFilter, ecosystem: ecosystemFilter,
       sources: sourcesFilter, tag: tagFilter, dependency: dependencyFilter, inventory: inventoryFilter,
-      due: dueFilter, distro: distroFilter, fixStatus: fixStatusFilter, fix: fixFilter,
+      due: dueFilter, distro: distroFilter, fixStatus: fixStatusFilter, fix: fixFilter, inUse: inUseFilter,
     }
     return data.filter(alert => matchesListFilters(alert, filters))
-  }, [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter, inventoryFilter, dueFilter, distroFilter, fixStatusFilter, fixFilter])
+  }, [data, assetFilter, statusFilter, cvssFilter, kevFilter, ecosystemFilter, sourcesFilter, tagFilter, dependencyFilter, inventoryFilter, dueFilter, distroFilter, fixStatusFilter, fixFilter, inUseFilter])
 
   const groupedData = useMemo(() => groupBySourcePackage(filteredData), [filteredData])
 
@@ -732,6 +750,12 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
           selected={inventoryFilter}
           onSelectedChange={setInventoryFilter}
         />
+        <DataTableFacetedFilter
+          title="In use"
+          options={IN_USE_OPTIONS}
+          selected={inUseFilter}
+          onSelectedChange={setInUseFilter}
+        />
         {slaEnabled && (
           <DataTableFacetedFilter
             title="Due"
@@ -746,7 +770,7 @@ export function AlertsTable({ data: initialData, initialPackageName, initialAsse
             size="sm"
             onClick={() => {
               if (initialAssetId) { router.push("/alerts"); return }
-              setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set()); setDependencyFilter(new Set()); setInventoryFilter(new Set()); setDueFilter(new Set()); setDistroFilter(new Set()); setFixStatusFilter(new Set()); setFixFilter(new Set())
+              setAssetFilter(new Set()); setStatusFilter(new Set()); setCvssFilter(new Set()); setKevFilter(new Set()); setEcosystemFilter(new Set()); setSourcesFilter(new Set()); setTagFilter(new Set()); setDependencyFilter(new Set()); setInventoryFilter(new Set()); setDueFilter(new Set()); setDistroFilter(new Set()); setFixStatusFilter(new Set()); setFixFilter(new Set()); setInUseFilter(new Set())
             }}
           >
             Reset <X className="ml-1 size-4" />

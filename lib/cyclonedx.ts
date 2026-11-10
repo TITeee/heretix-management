@@ -270,6 +270,12 @@ function extractSbomTool(bom: CycloneDXBom): string | null {
   return version ? `${name} ${version}` : name
 }
 
+/** heretix-cli's heretix:in-use property: "true", "false", or absent (not determined). */
+function inUseOf(c: CycloneDXComponent): boolean | null {
+  const v = property(c, "heretix:in-use")
+  return v === "true" ? true : v === "false" ? false : null
+}
+
 /**
  * Converts a CycloneDX SBOM (heretix-cli, Syft, Trivy, cdxgen) into the
  * inventory shape the asset import path consumes (the same shape heretix-cli's
@@ -379,6 +385,12 @@ export function convertCycloneDXToInventory(bom: CycloneDXBom) {
       // heretix-cli's list of the optional features installed on a Windows
       // Server, on the OS package; empty when absent (unknown).
       windowsFeatures: (property(c, "heretix:windows-features") ?? "").split(",").filter(f => f !== ""),
+      // What the host's processes were doing with the package when heretix-cli
+      // ran (its runtime facts, from /proc). Absent means not determined, so
+      // it must not read as "not in use".
+      inUse: inUseOf(c),
+      usedBy: (property(c, "heretix:used-by") ?? "").split(",").filter(u => u !== ""),
+      needsRestart: property(c, "heretix:needs-restart") === "true",
     }
   }).filter(p => p.name !== "").filter(p => {
     // Some scanners (Syft on Bitnami images, for one) report the same package

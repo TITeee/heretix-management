@@ -32,6 +32,10 @@ export type Alert = {
   fixedVersion?: string | null
   packageDirect?: boolean | null
   packageExists?: boolean
+  /** The package's runtime facts from the last SBOM (Package.inUse, usedBy, needsRestart); null or absent when not determined. */
+  packageInUse?: boolean | null
+  packageUsedBy?: string[]
+  packageNeedsRestart?: boolean
   sourcePackage?: string | null
   distroPriority?: string | null
   fixStatus?: string | null
@@ -75,6 +79,13 @@ export type ListFilters = {
   fixStatus: Set<string>
   /** "available" or "none": whether the alert has a fixed version. */
   fix: Set<string>
+  /** "yes", "no" or "unknown": whether a running process had the package loaded (Package.inUse). */
+  inUse: Set<string>
+}
+
+/** The In use filter value of an alert: its package's inUse, "unknown" when null or the package is gone. */
+export function inUseValue(alert: Pick<Alert, "packageInUse">): string {
+  return alert.packageInUse === true ? "yes" : alert.packageInUse === false ? "no" : "unknown"
 }
 
 export function matchesListFilters(alert: Alert, f: ListFilters, now: Date = new Date()): boolean {
@@ -108,6 +119,7 @@ export function matchesListFilters(alert: Alert, f: ListFilters, now: Date = new
   }
   if (f.fixStatus.size > 0 && !f.fixStatus.has(alert.fixStatus || NONE_OPTION)) return false
   if (f.fix.size > 0 && !f.fix.has(alert.fixedVersion ? "available" : "none")) return false
+  if (f.inUse.size > 0 && !f.inUse.has(inUseValue(alert))) return false
   return true
 }
 

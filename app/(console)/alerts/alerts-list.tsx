@@ -20,7 +20,7 @@ import type { AlertListFacets } from "@/lib/alerts/query"
 import {
   type AlertQuery, type SortColumn, DEFAULT_SORT, NONE, SORT_COLUMNS, alertQueryToSearchParams, parseAlertQuery,
 } from "@/lib/alerts/query-params"
-import { CVSS_OPTIONS, DEFAULT_COLUMN_VISIBILITY, DUE_OPTIONS, FIX_OPTIONS, GroupExpansionProvider, KEV_OPTIONS, STATUS_OPTIONS, buildColumns } from "./alerts-table"
+import { CVSS_OPTIONS, DEFAULT_COLUMN_VISIBILITY, DUE_OPTIONS, FIX_OPTIONS, GroupExpansionProvider, IN_USE_OPTIONS, KEV_OPTIONS, STATUS_OPTIONS, buildColumns } from "./alerts-table"
 import { AlertsMoreMenu } from "./alerts-more-menu"
 
 // Links can ask for alerts with no rating at all (the asset page's N/A badge).
@@ -38,7 +38,7 @@ const INVENTORY_OPTIONS = [
 
 type ListFilterKey =
   | "assetIds" | "statuses" | "severityTiers" | "risks" | "ecosystems" | "sources" | "tagIds"
-  | "dependencies" | "inventories" | "dues" | "distroLabels" | "fixStatuses" | "fixes"
+  | "dependencies" | "inventories" | "dues" | "distroLabels" | "fixStatuses" | "fixes" | "inUses"
 
 /**
  * The Alerts list: one page the server fetched (lib/alerts/query.ts), with
@@ -102,7 +102,7 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
   const hasFilter =
     query.assetIds.length > 0 || query.severityTiers.length > 0 || query.risks.length > 0 || query.ecosystems.length > 0 ||
     query.sources.length > 0 || query.tagIds.length > 0 || query.dependencies.length > 0 || query.inventories.length > 0 ||
-    query.dues.length > 0 || query.distroLabels.length > 0 || query.fixStatuses.length > 0 || query.fixes.length > 0 ||
+    query.dues.length > 0 || query.distroLabels.length > 0 || query.fixStatuses.length > 0 || query.fixes.length > 0 || query.inUses.length > 0 ||
     query.packageName !== null || query.packageVersion !== null ||
     query.statuses.join(",") !== defaults.statuses.join(",")
 
@@ -205,6 +205,7 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
         <DataTableFacetedFilter title="Tags" options={tagOptions} selected={new Set(query.tagIds)} onSelectedChange={(v) => setFilter("tagIds", v)} searchable />
         <DataTableFacetedFilter title="Dependency" options={DEPENDENCY_OPTIONS} selected={new Set(query.dependencies)} onSelectedChange={(v) => setFilter("dependencies", v)} />
         <DataTableFacetedFilter title="Inventory" options={INVENTORY_OPTIONS} selected={new Set(query.inventories)} onSelectedChange={(v) => setFilter("inventories", v)} />
+        <DataTableFacetedFilter title="In use" options={IN_USE_OPTIONS} selected={new Set(query.inUses)} onSelectedChange={(v) => setFilter("inUses", v)} />
         {slaEnabled && (
           <DataTableFacetedFilter title="Due" options={DUE_OPTIONS} selected={new Set(query.dues)} onSelectedChange={(v) => setFilter("dues", v)} />
         )}

@@ -259,6 +259,21 @@ function distroRatingSummary(group: NoFixGroupSummary): string {
     .join(", ")
 }
 
+// What the asset's own data says about living with these findings, as counts
+// of alerts: the package nothing depends on, the package no process had loaded.
+// Stated as facts; whether that makes a finding bearable is the operator's call.
+function RuntimeFactsSummary({ group }: { group: NoFixGroupSummary }) {
+  const parts: string[] = []
+  if (group.notDependedOn > 0) parts.push(`${group.notDependedOn} in a package nothing else depends on`)
+  if (group.notInUse > 0) parts.push(`${group.notInUse} in a package no process had loaded`)
+  if (parts.length === 0) return null
+  return (
+    <div className="text-xs text-muted-foreground" title="From the last SBOM: the dependency graph, and what running processes had loaded when it was collected">
+      {parts.join(", ")}
+    </div>
+  )
+}
+
 function AcceptDialog({ assetId, group, open, onOpenChange, onAccepted }: {
   assetId: string
   group: NoFixGroupSummary
@@ -337,6 +352,7 @@ function NoFixRow({ assetId, group, version, onSelect, onAccepted }: {
           <div className="min-w-0 flex-1 space-y-1">
             <span className="font-medium">{fixStatusLabel(group.fixStatus) ?? "No fix status given"}</span>
             <div className="text-xs text-muted-foreground">Distro rating: {distroRatingSummary(group)}</div>
+            <RuntimeFactsSummary group={group} />
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <KevBadge count={group.kev} />

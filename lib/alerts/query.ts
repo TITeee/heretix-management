@@ -62,6 +62,15 @@ export function alertConditions(q: AlertQuery, now: Date): Prisma.Sql[] {
     const want = q.dependencies.map((d) => d === "direct")
     c.push(Prisma.sql`EXISTS (SELECT 1 FROM "Package" p WHERE ${PACKAGE_MATCH} AND p."direct" IN (${Prisma.join(want)}))`)
   }
+  if (q.inUses.length) {
+    // Same reading as inUseValue: a package that is gone, or whose inUse was
+    // never determined, is "unknown".
+    const known = q.inUses.filter((v) => v !== "unknown").map((v) => v === "yes")
+    const alternatives: Prisma.Sql[] = []
+    if (known.length) alternatives.push(Prisma.sql`EXISTS (SELECT 1 FROM "Package" p WHERE ${PACKAGE_MATCH} AND p."inUse" IN (${Prisma.join(known)}))`)
+    if (q.inUses.includes("unknown")) alternatives.push(Prisma.sql`NOT EXISTS (SELECT 1 FROM "Package" p WHERE ${PACKAGE_MATCH} AND p."inUse" IS NOT NULL)`)
+    c.push(Prisma.sql`(${Prisma.join(alternatives, " OR ")})`)
+  }
   if (q.inventories.length === 1) {
     c.push(q.inventories[0] === "present"
       ? Prisma.sql`EXISTS (SELECT 1 FROM "Package" p WHERE ${PACKAGE_MATCH})`
@@ -285,9 +294,9 @@ async function loadRows(groups: string[][]): Promise<Alert[]> {
       assetId: { in: [...new Set(alerts.map((a) => a.assetId))] },
       name: { in: [...new Set(alerts.map((a) => a.packageName))] },
     },
-    select: { assetId: true, name: true, version: true, direct: true },
+    select: { assetId: true, name: true, version: true, direct: true, inUse: true, usedBy: true, needsRestart: true },
   })
-  const directMap = new Map(packages.map((p) => [`${p.assetId}::${p.name}::${p.version}`, p.direct]))
+  const packageMap = new Map(packages.map((p) => [`${p.assetId}::${p.name}::${p.version}`, p]))
 
   const byId = new Map<string, Alert>()
   for (const alert of alerts) {
@@ -299,7 +308,12 @@ async function loadRows(groups: string[][]): Promise<Alert[]> {
     })
     const { assetTags: _, ...asset } = alert.asset
     const pkgKey = `${alert.assetId}::${alert.packageName}::${alert.packageVersion}`
-    byId.set(alert.id, { ...alert, asset, tags, packageDirect: directMap.get(pkgKey) ?? null, packageExists: directMap.has(pkgKey) })
+    const pkg = packageMap.get(pkgKey)
+    byId.set(alert.id, {
+      ...alert, asset, tags,
+      packageDirect: pkg?.direct ?? null, packageExists: pkg !== undefined,
+      packageInUse: pkg?.inUse ?? null, packageUsedBy: pkg?.usedBy ?? [], packageNeedsRestart: pkg?.needsRestart ?? false,
+    })
   }
 
   return groups.map((ids) => {

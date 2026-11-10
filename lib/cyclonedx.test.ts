@@ -342,3 +342,28 @@ describe("convertCycloneDXToInventory — heretix-cli Windows Server", () => {
     expect(inv.packages.map(p => p.name).sort()).toEqual(["Windows Server 2022 (Server Core installation)", "lodash"])
   })
 })
+
+describe("runtime facts from heretix-cli (in-use, used-by, needs-restart)", () => {
+  const bom: CycloneDXBom = {
+    metadata: { component: { "bom-ref": "heretix:target:web-1", type: "operating-system", name: "web-1", version: "Debian GNU/Linux 13 (trixie)" } },
+    components: [
+      { "bom-ref": "pkg:deb/debian/libssl3t64@3.5.1-1?distro=debian-13", type: "library", name: "libssl3t64", version: "3.5.1-1", purl: "pkg:deb/debian/libssl3t64@3.5.1-1?distro=debian-13",
+        properties: [
+          { name: "heretix:ecosystem", value: "Debian:13" }, { name: "heretix:source", value: "dpkg" },
+          { name: "heretix:in-use", value: "true" }, { name: "heretix:used-by", value: "nginx.service,ssh.service" }, { name: "heretix:needs-restart", value: "true" },
+        ] },
+      { "bom-ref": "pkg:deb/debian/libexpat1@2.7.1-2?distro=debian-13", type: "library", name: "libexpat1", version: "2.7.1-2", purl: "pkg:deb/debian/libexpat1@2.7.1-2?distro=debian-13",
+        properties: [{ name: "heretix:ecosystem", value: "Debian:13" }, { name: "heretix:source", value: "dpkg" }, { name: "heretix:in-use", value: "false" }] },
+      // No code of its own: heretix-cli writes no in-use at all.
+      { "bom-ref": "pkg:deb/debian/tzdata@2025b-4?distro=debian-13", type: "library", name: "tzdata", version: "2025b-4", purl: "pkg:deb/debian/tzdata@2025b-4?distro=debian-13",
+        properties: [{ name: "heretix:ecosystem", value: "Debian:13" }, { name: "heretix:source", value: "dpkg" }] },
+    ],
+  }
+
+  it("reads the three facts, and leaves a package without them undetermined rather than not in use", () => {
+    const inv = convertCycloneDXToInventory(bom)
+    expect(pkg(inv, "libssl3t64")).toMatchObject({ inUse: true, usedBy: ["nginx.service", "ssh.service"], needsRestart: true })
+    expect(pkg(inv, "libexpat1")).toMatchObject({ inUse: false, usedBy: [], needsRestart: false })
+    expect(pkg(inv, "tzdata")).toMatchObject({ inUse: null, usedBy: [], needsRestart: false })
+  })
+})
