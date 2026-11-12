@@ -63,7 +63,7 @@ Needs Node.js 22 (as in the Docker image), pnpm, PostgreSQL 15+ with a `heretix_
 | `HERETIX_API_REFRESH_PER_MINUTE` | | `900` | How many vulnerabilities the metadata refresh looks up in a minute. heretix-api allows each client 1,200 requests a minute (its `RATE_LIMIT_MAX`) and everything heretix-management sends shares that budget; a refresh that took all of it left the alert detail panel failing until it finished, so the default keeps a quarter free. A refresh of 11,000 vulnerabilities then takes about 12 minutes. Raise it together with `RATE_LIMIT_MAX`; `0` turns the pacing off |
 | `ANTHROPIC_API_KEY` | | | Key for AI Insight. **Settings → AI** overrides it |
 | `CRON_REFRESH` | | `0 12 * * *` | When the metadata refresh runs (cron, UTC) |
-| `CRON_SCAN` | | `0 13 * * *` | When every asset is scanned (cron, UTC) |
+| `CRON_SCAN` | | `45 */3 * * *` | When every asset is scanned (cron, UTC): every three hours at :45 by default |
 | `SCAN_STALE_HOURS` | | `36` | Without a successful scan for this long, the dashboard says the scheduler may not be running |
 | `SEED_EMAIL` / `SEED_PASSWORD` / `SEED_NAME` | | `admin@example.com` / (generated, printed once) / `Administrator` | The admin user `seed` creates. `SEED_PASSWORD` must be at least 12 characters |
 | `MAX_IMPORT_BODY_MB` | | `50` | Largest SBOM, CSV or VEX upload accepted, in MB; a larger one is refused with 413. A heretix-cli SBOM is about 1.1 KB a package. Other requests are limited to 1 MB |
@@ -108,12 +108,14 @@ pnpm build && pnpm start
 
 ## Scheduled jobs
 
-On start, the server registers two daily jobs:
+On start, the server registers two scheduled jobs:
 
 | Job | Default (UTC) | What it does |
 |---|---|---|
 | Refresh Metadata | 12:00 | Re-fetches CVSS, severity, EPSS, and KEV for open and in-progress alerts |
-| Scan | 13:00 | Scans every asset ([alerts.md](alerts.md#scanning)); skipped if a Rescan All from the Assets page is still running |
+| Scan | every three hours at :45 (00:45, 03:45, ... 21:45) | Scans every asset ([alerts.md](alerts.md#scanning)); skipped if a Rescan All from the Assets page is still running |
+
+The refresh runs once a day, after heretix-api has imported KEV and EPSS (09:00 and 10:00 UTC by default), since those change at most daily and it makes one request per vulnerability. A scan is cheap, one request per 1,000 packages, so it runs often: heretix-api imports NVD every two hours and the vendor advisories, CVE Records and Microsoft's documents through the day until 18:30, and a scan at :45 sees what the import before it brought, so a new finding becomes an alert within about three hours of heretix-api having it. Scans keep off the minutes heretix-api imports in, and the 12:45 scan follows the 12:00 refresh. Change `CRON_SCAN` to scan less often; keep it clear of `CRON_REFRESH`.
 
 The scheduler assumes a single server process. A scan interrupted by a restart is marked failed on the next start.
 

@@ -4,7 +4,7 @@ An alert is one vulnerability (CVE, GHSA, vendor advisory, or malicious-package 
 
 ## Scanning
 
-**Run Scan** on an asset page (or `POST /api/assets/[id]/scan`, or the daily scheduled scan) sends the asset's packages to heretix-api and reconciles the answer with the asset's alerts:
+**Run Scan** on an asset page (or `POST /api/assets/[id]/scan`, or the scheduled scan) sends the asset's packages to heretix-api and reconciles the answer with the asset's alerts:
 
 - A new finding becomes an **open** alert, with an SLA due date.
 - A finding that is already an alert updates its metadata: CVSS, severity, EPSS, KEV, fixed version, the distro's rating and fix status.
@@ -32,9 +32,9 @@ An alert is one vulnerability (CVE, GHSA, vendor advisory, or malicious-package 
 | Creates or resolves alerts | Yes | No |
 | Updates | CVSS, severity, EPSS, KEV, fixed version, distro rating, fix status | CVSS, severity, EPSS, KEV |
 
-**Rescan All** on the Assets page scans every asset now, as the daily scan does, after a confirmation. It runs in the background, one asset after another; the button shows how far it is (`Rescanning 12/50...`), you can leave the page meanwhile, and a message says how it ended. Only one scan of every asset runs at a time: while one is going (started there or by the schedule), Rescan All waits, and the daily scan skips its turn if a Rescan All is still running. Each finished Rescan All is recorded in the audit log (`assets_rescanned`).
+**Rescan All** on the Assets page scans every asset now, as the scheduled scan does, after a confirmation. It runs in the background, one asset after another; the button shows how far it is (`Rescanning 12/50...`), you can leave the page meanwhile, and a message says how it ended. Only one scan of every asset runs at a time: while one is going (started there or by the schedule), Rescan All waits, and the scheduled scan skips its turn if a Rescan All is still running. Each finished Rescan All is recorded in the audit log (`assets_rescanned`).
 
-The schedule (refresh 12:00 UTC, then scan 13:00 UTC by default) is in [operations.md](operations.md#scheduled-jobs).
+The schedule (refresh 12:00 UTC; scan every three hours, at :45, by default) is in [operations.md](operations.md#scheduled-jobs).
 
 ## Lifecycle
 

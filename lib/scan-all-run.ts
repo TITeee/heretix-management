@@ -1,5 +1,5 @@
 /**
- * One scan of every asset at a time. The daily schedule and the Assets page's
+ * One scan of every asset at a time. The schedule and the Assets page's
  * Rescan All both go through runScanAll, so they never scan the same asset at
  * once (two scans of one asset would race on the same alerts).
  *

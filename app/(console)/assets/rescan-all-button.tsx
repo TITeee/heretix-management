@@ -36,7 +36,7 @@ const SUCCESS_STYLE = { background: "#0d9488", color: "#fff", border: "none" }
  * Rescan All on the Assets page: asks first, then scans every asset again in
  * the background (POST /api/assets/scan-all) and follows it, so the button
  * shows how far it is and the list reloads when it ends. A run already going,
- * started here, in another tab or by the daily schedule, is picked up too.
+ * started here, in another tab or by the schedule, is picked up too.
  */
 export function RescanAllButton({ assetCount }: { assetCount: number }) {
   const router = useRouter()
@@ -135,7 +135,7 @@ export function RescanAllButton({ assetCount }: { assetCount: number }) {
             <DialogDescription>
               Every asset is scanned again against heretix-api, one after another, in the background.
               New findings become alerts, and alerts that are no longer reported are handled as in the
-              daily scan. This can take several minutes; you can leave this page meanwhile.
+              scheduled scan. This can take several minutes; you can leave this page meanwhile.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

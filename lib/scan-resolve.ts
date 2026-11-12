@@ -40,8 +40,8 @@ export function isCompleteBatchResult(r: { vulnerabilities: unknown[]; truncated
 /**
  * How long an alert must stay unreported before it is resolved: three days,
  * like heretix-api's own three-run grace before it drops data, which also
- * outlasts a weekend-long data problem. A few hours short of it, so a daily
- * scan that runs a little early on the last day still counts.
+ * outlasts a weekend-long data problem. A few hours short of it, so a scan
+ * that runs a little early on the last day still counts.
  */
 export const MISSING_GRACE_MS = (3 * 24 - 4) * 60 * 60 * 1000
 

@@ -37,7 +37,7 @@ services:
       HERETIX_API_URL: ${HERETIX_API_URL:-http://host.docker.internal:5000}
       HERETIX_API_KEY: ${HERETIX_API_KEY:-}
       CRON_REFRESH: ${CRON_REFRESH:-0 12 * * *}
-      CRON_SCAN: ${CRON_SCAN:-0 13 * * *}
+      CRON_SCAN: ${CRON_SCAN:-45 */3 * * *}
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
     extra_hosts:

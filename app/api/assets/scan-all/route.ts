@@ -29,7 +29,7 @@ export const GET = withApiErrorHandling("assets.scanAll.status", async () => {
 /**
  * Scan every asset again, one after another, in the background: 202 at once,
  * then GET says how far it is. 409 while a run is going, started here or by the
- * daily schedule. The finished run is recorded in the audit log.
+ * schedule. The finished run is recorded in the audit log.
  */
 export const POST = withApiErrorHandling("assets.scanAll.start", async () => {
   const session = await auth()

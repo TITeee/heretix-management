@@ -33,7 +33,7 @@ Where it sits in heretix:
 ## Features
 
 - **Inventory**: import SBOMs (heretix-cli, Trivy, Syft, cdxgen) incrementally, register appliances by hand or by CSV, keep a per-asset package change history, and view each asset's dependency graph *(Beta)*
-- **Detection**: scan on demand, from CI with an access token, or on a daily schedule, including malicious packages (`MAL-*`)
+- **Detection**: scan on demand, from CI with an access token, or on a schedule, including malicious packages (`MAL-*`)
 - **Alerts**: statuses, filters, bulk updates, CSV / JSON export, a timeline per alert, and a detail panel with NVD, OSV, vendor advisory, and CVE Record data
 - **Prioritization**: severity counted the same way on every screen, SLA due dates by severity with a shorter one for actively exploited (CISA KEV) vulnerabilities, exploit likelihood (EPSS), the distro's own rating (Ubuntu priority, Debian urgency, Red Hat impact), and whether the vendor will fix it ("will not fix", "fix deferred")
 - **VEX** *(Beta)*: export ignored alerts as CycloneDX VEX, import VEX documents, and reuse judgments made on other assets
@@ -124,7 +124,7 @@ syft myapp:1.0 -o cyclonedx-json=sbom.json
 
 Upload `sbom.json` on **Assets → Import SBOM**, then press **Run Scan** on the new asset's page.
 
-Findings appear for the ecosystems heretix-api has imported. An SBOM's OS packages need that distro's data in heretix-api, and appliances need its vendor advisories. After this, the daily jobs refresh and rescan every asset ([docs/alerts.md](docs/alerts.md#scanning)).
+Findings appear for the ecosystems heretix-api has imported. An SBOM's OS packages need that distro's data in heretix-api, and appliances need its vendor advisories. After this, the scheduled jobs refresh and rescan every asset ([docs/alerts.md](docs/alerts.md#scanning)).
 
 ### Stop and update
 

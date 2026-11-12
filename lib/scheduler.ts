@@ -13,10 +13,14 @@ export function startScheduler() {
     logger.error("scheduler: failInterruptedScanJobs failed", { error: err instanceof Error ? err.message : String(err) })
   })
 
-  // Metadata is refreshed before the scan runs, so a scan works from current advisory
-  // data. The defaults have to stay in that order and match .env.example.
+  // The refresh runs once a day, after heretix-api has imported KEV (09:00) and EPSS
+  // (10:00). A scan costs a request or two per asset, so it runs every three hours, so
+  // that what heretix-api imports during the day reaches the alerts the same day. :45
+  // keeps it off the minutes heretix-api imports in (the 12:45 scan follows the 12:00
+  // refresh; 15:45 and 18:45 follow the CVE Record and Microsoft imports at 15:30 and
+  // 18:30). The defaults have to match .env.example and docker-compose.yml.
   const refreshSchedule = process.env.CRON_REFRESH ?? "0 12 * * *"
-  const scanSchedule = process.env.CRON_SCAN ?? "0 13 * * *"
+  const scanSchedule = process.env.CRON_SCAN ?? "45 */3 * * *"
 
   schedule(refreshSchedule, () => {
     refreshMetadata()

@@ -36,7 +36,7 @@ export const GET = withApiErrorHandling("assets.list", async (req: NextRequest) 
 
 export const POST = withApiErrorHandling("assets.create", async (req: NextRequest) => {
   // ?scan=true runs a vulnerability scan right after the import, so a CI job
-  // gets its findings in one request instead of waiting for the daily scan.
+  // gets its findings in one request instead of waiting for the next scheduled scan.
   const scanAfterImport = req.nextUrl.searchParams.get("scan") === "true"
   const requiredScopes: ApiTokenScope[] = scanAfterImport ? ["import", "scan"] : ["import"]
   const authResult = await authenticate(req, requiredScopes)
