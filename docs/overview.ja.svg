@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 450" width="1080" height="450" role="img" aria-labelledby="t d" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', sans-serif">
+<title id="t">heretix-management の構成</title><desc id="d">heretix-cli、Trivy、Syft、cdxgen の SBOM と、手動または CSV で登録したネットワーク機器を heretix-management に取り込みます。heretix-management はインベントリとアラートを保持し、heretix-api を検索して定期的にスキャンし、結果を運用チームに示します。</desc>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#475569"/></marker></defs>
+<rect x="1" y="1" width="1078" height="448" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
+<rect x="30" y="85" width="210" height="70" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="135.0" y="117.0" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">heretix-cli</text>
+<text x="135.0" y="137.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">ホストやイメージの SBOM</text>
+<path d="M240 120 L322 120" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="30" y="190" width="210" height="70" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="135.0" y="222.0" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">Trivy、Syft、cdxgen</text>
+<text x="135.0" y="242.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">CycloneDX の SBOM</text>
+<path d="M240 225 L322 225" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="30" y="295" width="210" height="70" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="135.0" y="327.0" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">ネットワーク機器</text>
+<text x="135.0" y="347.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">手動登録・CSV</text>
+<path d="M240 330 L322 330" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="281" y="112" font-size="11" font-weight="500" fill="#475569" text-anchor="middle">取り込み</text>
+<rect x="330" y="60" width="270" height="350" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="2.2"/>
+<text x="465" y="93" font-size="18" font-weight="700" fill="#1d4ed8" text-anchor="middle">heretix-management</text>
+<text x="465" y="113" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">このリポジトリ</text>
+<rect x="355" y="133" width="220" height="38" rx="10" fill="#ffffff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="465.0" y="157" font-size="13" font-weight="600" fill="#0f172a" text-anchor="middle">インベントリとアラート</text>
+<rect x="355" y="183" width="220" height="38" rx="10" fill="#ffffff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="465.0" y="207" font-size="13" font-weight="600" fill="#0f172a" text-anchor="middle">定期スキャン</text>
+<rect x="355" y="233" width="220" height="38" rx="10" fill="#ffffff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="465.0" y="257" font-size="13" font-weight="600" fill="#0f172a" text-anchor="middle">Web コンソール</text>
+<path d="M390.0 310 L390.0 360 A75.0 12 0 0 0 540.0 360 L540.0 310" fill="#ffffff" stroke="#93c5fd" stroke-width="1.2"/>
+<ellipse cx="465" cy="310" rx="75.0" ry="12" fill="#ffffff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="465" y="347.0" font-size="13" font-weight="600" fill="#0f172a" text-anchor="middle">PostgreSQL</text>
+<rect x="700" y="60" width="350" height="130" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="875" y="104" font-size="17" font-weight="700" fill="#0f172a" text-anchor="middle">heretix-api</text>
+<text x="875" y="128" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">脆弱性データ</text>
+<text x="875" y="150" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">OSV、NVD、KEV、EPSS、アドバイザリ</text>
+<path d="M600 125 L692 125" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="646" y="117" font-size="11" font-weight="500" fill="#475569" text-anchor="middle">検索</text>
+<rect x="700" y="225" width="350" height="185" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="875" y="257" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">運用チーム</text>
+<rect x="745" y="272" width="260" height="38" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="875.0" y="296" font-size="13" font-weight="600" fill="#0f172a" text-anchor="middle">Remediation と Services</text>
+<rect x="745" y="316" width="260" height="38" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="875.0" y="340" font-size="13" font-weight="600" fill="#0f172a" text-anchor="middle">Slack 通知</text>
+<rect x="745" y="360" width="260" height="38" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="875.0" y="384" font-size="13" font-weight="600" fill="#0f172a" text-anchor="middle">VEX・Excel 出力</text>
+<path d="M600 318 L692 318" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#ah)"/>
+</svg>

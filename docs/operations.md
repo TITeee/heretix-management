@@ -131,6 +131,37 @@ A failed scan leaves the asset's alerts as they were, and a failed refresh leave
 - **Asset page and Assets list**: *Last Scan* / *Last Scanned* is the time of the last scan that completed (taken from the scan jobs, not from the inventory's own timestamp), with a note when the latest attempt failed.
 - **Slack**: when Slack is on, a scheduled scan that failed for any asset sends one message per run, with the errors grouped, and another if the run could not start at all. These ignore the tag and severity filters. A scheduled metadata refresh that failed in that sense sends one message too. Scans and refreshes started by hand or from CI are not announced; they show their error to whoever ran them.
 
+## Troubleshooting
+
+### The console does not answer
+
+```bash
+docker compose ps                                              # db and app are both up
+curl -s -o /dev/null -w "%{http_code}\n" localhost:3000/login  # 200
+docker compose logs -f app                                     # what the app says
+```
+
+On first start, the container creates the database schema before the console answers on port 3000, and on an update it applies new migrations first.
+
+### Test Connection fails
+
+**Settings → Vulnerability API → Test Connection** checks that heretix-management reaches heretix-api with its key. When it fails, check that:
+
+- heretix-api answers: `curl http://localhost:5000/health` on its server.
+- the key is heretix-api's `API_KEY` (not `ADMIN_API_KEY`).
+- with heretix-api on another server, `HERETIX_API_URL` points there and its port 5000 is reachable. A URL with `localhost` never works from inside the container; with heretix-api on the same server, leave `HERETIX_API_URL` unset (it defaults to `http://host.docker.internal:5000`).
+
+### The admin password was lost
+
+The seed prints the generated password only once and stores only its hash. Delete the admin user and run the seed again; this removes only that user:
+
+```bash
+docker compose exec db psql -U postgres heretix_management -c "DELETE FROM \"User\" WHERE email = 'admin@example.com';"
+docker compose exec app node_modules/.bin/tsx prisma/seed.ts
+```
+
+To choose the password, or the address, instead of a generated one, set `SEED_PASSWORD` (at least 12 characters) and `SEED_EMAIL` for that command. Another admin can also set a new password by editing the user on the **Users** page.
+
 ## Settings
 
 | Tab | Contents |

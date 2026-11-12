@@ -8,58 +8,40 @@ heretix-management is the web console of **[heretix](https://titeee.github.io/he
 
 ## What it does
 
-It keeps the inventory of what you run and the vulnerabilities found in it, and gives you one place to triage them:
+It keeps what each of your assets has installed, finds the vulnerabilities in it, and gives your team one place to work through them:
 
-1. **Import** what each asset has installed: an SBOM from heretix-cli, Trivy or Syft, a CSV of appliances, or packages added by hand.
-2. **Scan** the inventory against heretix-api, which turns matches into alerts, keeps them current, and resolves the ones that no longer apply.
-3. **Triage**: track each alert from open to resolved or ignored, with SLA due dates, CISA KEV and EPSS signals, the distro's own rating and fix status, VEX exchange, and Slack notifications.
+1. **Import** an SBOM of a server or container image, or register a network appliance by hand or by CSV.
+2. **Scan**: every package is checked against heretix-api, and each match becomes an alert. Scans run on demand, after an upload from CI, and every three hours, and close the alerts that no longer apply.
+3. **Fix**: alerts are grouped by the update that resolves them, with known-exploited (CISA KEV) ones first, SLA due dates, and Slack notifications.
 
-Where it sits in heretix:
+![How heretix-management fits in: SBOMs from heretix-cli, Trivy, Syft or cdxgen and network appliances added by hand or CSV are imported into heretix-management, which keeps the inventory and alerts, scans on a schedule by searching heretix-api, and shows the findings to your team](docs/overview.svg)
 
-```
- servers / containers                 network appliances
-        │ heretix-cli, Trivy, Syft          │ added by hand / CSV
-        ▼                                   ▼
- heretix-management (inventory + alerts) ── search ──► heretix-api (vulnerability data)
-        │
-        ▼
- dashboard, alerts, VEX, Slack
-```
-
-- **[heretix-cli](https://github.com/TITeee/heretix-cli)** collects the packages on a host or image as a CycloneDX SBOM.
-- **heretix-management** (this repository) keeps the inventory and the findings.
-- **[heretix-api](https://github.com/TITeee/heretix-api)** answers "is this version vulnerable?" from its local copy of OSV, NVD, KEV, EPSS, and vendor advisories.
+- **[heretix-cli](https://github.com/TITeee/heretix-cli)** writes the SBOM of a host or image.
+- **heretix-management** (this repository) keeps the inventory and the alerts.
+- **[heretix-api](https://github.com/TITeee/heretix-api)** holds the vulnerability data (OSV, NVD, KEV, EPSS, vendor advisories) that every scan searches.
 
 ## Features
 
-- **Inventory**: import SBOMs (heretix-cli, Trivy, Syft, cdxgen) incrementally, register appliances by hand or by CSV, keep a per-asset package change history, and view each asset's dependency graph
-- **Services**: for a host collected by heretix-cli, which services run the vulnerable code, which packages are in use, and which services still run an old copy of an upgraded package and need a restart
-- **Detection**: scan on demand, from CI with an access token, or on a schedule, including malicious packages (`MAL-*`)
-- **Alerts**: statuses, filters, bulk updates, Excel / JSON export, a timeline per alert, and a detail panel with NVD, OSV, vendor advisory, and CVE Record data
-- **Prioritization**: severity counted the same way on every screen, SLA due dates by severity with a shorter one for actively exploited (CISA KEV) vulnerabilities, exploit likelihood (EPSS), the distro's own rating (Ubuntu priority, Debian urgency, Red Hat impact), and whether the vendor will fix it ("will not fix", "fix deferred")
-- **VEX** *(Beta)*: export ignored alerts as CycloneDX VEX, import VEX documents, and reuse judgments made on other assets
-- **Tags**: group assets and packages (e.g. "Internet Facing") and see severity per tag
-- **Notifications and AI**: Slack notifications filtered by severity and tags, and an optional AI Insight chat per alert (Anthropic)
-- **Administration**: users and roles, an audit log, and Settings for heretix-api, Slack, AI, SLA, and access tokens
+- **Inventory**: SBOMs from heretix-cli, Trivy, Syft or cdxgen, appliances by hand or CSV, and each asset's package history
+- **Remediation**: an asset's alerts grouped by the change that fixes them, and the ones with no fix yet in groups of their own
+- **Services**: for a host collected by heretix-cli, which services run the vulnerable code, and which need a restart after an upgrade
+- **Prioritization**: CISA KEV, EPSS, SLA due dates, the distro's own rating and fix status
+- **Dependency graph**: what depends on a vulnerable package
+- **And**: VEX *(Beta)*, Excel / JSON export, Slack, tags, users and an audit log, uploads from CI with an access token
 
 ## Requirements
 
-| | Requirement |
-|---|---|
-| heretix-api | A running [heretix-api](https://github.com/TITeee/heretix-api) **with its data loaded** (its quick start, step 3), and its API key. heretix-management has no vulnerability data of its own: every scan asks heretix-api |
-| Sizing | heretix-management itself is light. Size the server for heretix-api, whose database accounts for most of it: see the [heretix requirements](https://titeee.github.io/heretix-web/docs/) and heretix-api's README (figures cover both, for a PoC: 2 vCPU, 8 GB RAM, 20 GB disk) |
-| Software | Docker and Docker Compose v2, and git |
-| Network | heretix-management must reach heretix-api's port (5000 by default); users reach port 3000 |
+- A running **[heretix-api](https://github.com/TITeee/heretix-api) with its data loaded**, and its API key. heretix-management has no vulnerability data of its own.
+- **Docker** with Docker Compose v2, and git.
+- Users reach port 3000; heretix-management reaches heretix-api's port (5000).
 
-To run without Docker (Node.js 22, pnpm, PostgreSQL 15+), see [docs/operations.md](docs/operations.md#running-without-docker).
+heretix-management itself is light: size the server for heretix-api ([heretix requirements](https://titeee.github.io/heretix-web/docs/)). To run without Docker, see [docs/operations.md](docs/operations.md#running-without-docker).
 
 ## Quick start
 
-### 0. Set up heretix-api first
+Set up heretix-api first, through step 3 of [its quick start](https://github.com/TITeee/heretix-api#quick-start), and note its `API_KEY`. Its first NVD import takes hours; you can carry on here meanwhile.
 
-Follow [heretix-api's quick start](https://github.com/TITeee/heretix-api#quick-start) through its step 3 (loading data), and note its `API_KEY`. Its first full NVD import takes several hours, but you can carry on here meanwhile: scans just find more once it finishes.
-
-### 1. Get the code and configure it
+### 1. Configure
 
 ```bash
 git clone https://github.com/TITeee/heretix-management.git
@@ -67,83 +49,63 @@ cd heretix-management
 cp .env.example .env
 ```
 
-Edit `.env` and set:
-- `AUTH_SECRET`: a random secret for signing sessions (`openssl rand -base64 32`).
-- `AUTH_URL`: the URL users will open, e.g. `http://192.0.2.10:3000`. Sign-in redirects go here, so it must not be `localhost` unless you only use the server's own browser.
-- `HERETIX_API_KEY`: the `API_KEY` from heretix-api's `.env`.
-- `POSTGRES_PASSWORD`: the password of the bundled database. Change it: the default, `changeme`, is only for a local trial.
+Set these in `.env`:
 
-heretix-api's URL defaults to `http://host.docker.internal:5000`, which reaches a heretix-api on the same server from inside the container. Set `HERETIX_API_URL` only if heretix-api runs elsewhere. The URL and key can also be changed later on the Settings page.
+| Variable | Value |
+|---|---|
+| `AUTH_SECRET` | A random secret: `openssl rand -base64 32` |
+| `AUTH_URL` | The URL users open, e.g. `http://192.0.2.10:3000` (not `localhost`, unless only this server's browser is used) |
+| `HERETIX_API_KEY` | heretix-api's `API_KEY` |
+| `POSTGRES_PASSWORD` | A password of your own for the bundled database |
 
-### 2. Start it
+With heretix-api on the same server, nothing else is needed. If it runs elsewhere, also set `HERETIX_API_URL`.
+
+### 2. Start
 
 ```bash
 docker compose up --build -d
-docker compose ps                                          # db and app are both up
-curl -s -o /dev/null -w "%{http_code}\n" localhost:3000/login   # → 200
+docker compose exec app node_modules/.bin/tsx prisma/seed.ts   # create the admin user
 ```
 
-On first start, the container creates the database schema and then starts the console on port 3000. Logs: `docker compose logs -f app`.
-
-### 3. Create the admin user
-
-```bash
-docker compose exec app node_modules/.bin/tsx prisma/seed.ts
-```
-
-This creates the admin user `admin@example.com` with a generated password, printed once in the command's output, and the default tags. Set `SEED_EMAIL` and `SEED_PASSWORD` (at least 12 characters) to choose your own. Sign in at your `AUTH_URL`, then change the password on the **Users** page.
-
-The output looks like this. Copy the `Generated password` line before you close the terminal: only a hash is stored, so the password cannot be shown again.
+The second command prints the admin user's password **once**:
 
 ```text
 Created user: admin@example.com
 Generated password (shown only now; change it on the Users page): <24 characters>
 ```
 
-If you lost it, delete the admin user and run the seed again (this removes only that user):
+Copy it, open your `AUTH_URL`, and sign in. Lost it? See [docs/operations.md](docs/operations.md#the-admin-password-was-lost).
 
-```bash
-docker compose exec db psql -U postgres heretix_management -c "DELETE FROM \"User\" WHERE email = 'admin@example.com';"
-docker compose exec app node_modules/.bin/tsx prisma/seed.ts
-```
+### 3. Scan your first asset
 
-### 4. Connect to heretix-api
+1. **Settings → Vulnerability API → Test Connection** checks the link to heretix-api ([if it fails](docs/operations.md#test-connection-fails)).
+2. Make an SBOM, with [heretix-cli](https://github.com/TITeee/heretix-cli/releases/latest) or Syft:
 
-Open **Settings → Vulnerability API**, check the URL and key, and press **Test Connection**. If it fails: check that heretix-api answers (`curl http://localhost:5000/health` on its server), that the key matches its `API_KEY`, and, with heretix-api on another server, that `HERETIX_API_URL` points there and port 5000 is reachable. A URL with `localhost` never works from inside the container.
+   ```bash
+   heretix-cli collect --image myapp:1.0 --name myapp --output sbom.json   # a container image
+   sudo heretix-cli collect --output sbom.json                             # this server
+   syft myapp:1.0 -o cyclonedx-json=sbom.json                              # or Syft
+   ```
 
-### 5. Import and scan your first asset
+3. **Assets → Import SBOM**, then **Run Scan** on the new asset.
 
-Create an SBOM of something you run, with either tool:
-
-```bash
-# heretix-cli: build it once (Go 1.25+), see https://github.com/TITeee/heretix-cli#installation
-heretix-cli collect --image myapp:1.0 --name myapp --output sbom.json
-
-# or Syft
-syft myapp:1.0 -o cyclonedx-json=sbom.json
-```
-
-Upload `sbom.json` on **Assets → Import SBOM**, then press **Run Scan** on the new asset's page.
-
-Findings appear for the ecosystems heretix-api has imported. An SBOM's OS packages need that distro's data in heretix-api, and appliances need its vendor advisories. After this, the scheduled jobs refresh and rescan every asset ([docs/alerts.md](docs/alerts.md#scanning)).
+Findings appear for what heretix-api has imported: a distro's packages need that distro's data, and appliances their vendor's advisories.
 
 ### Stop and update
 
 ```bash
 docker compose down                        # stop; data is kept (add -v to delete it)
-git pull && docker compose up --build -d   # update to the latest version
+git pull && docker compose up --build -d   # update; migrations run on start
 ```
-
-On start, the container applies any new database migrations before the console answers. Notes for specific upgrades: [docs/operations.md](docs/operations.md#upgrading).
 
 ## Documentation
 
 | Document | Contents |
 |---|---|
-| [docs/importing-assets.md](docs/importing-assets.md) | Importing SBOMs, matching and re-import, appliances and CSV, manual packages, CI uploads |
-| [docs/alerts.md](docs/alerts.md) | Scanning, alert lifecycle, severity and SLA, VEX, the detail panel, notifications |
-| [docs/operations.md](docs/operations.md) | Manual setup, environment variables, upgrading, scheduled jobs, settings, logging |
-| [docs/tls-proxy.md](docs/tls-proxy.md) | Serving the console over HTTPS: reverse proxy, HSTS, client address, database password |
+| [docs/importing-assets.md](docs/importing-assets.md) | Importing SBOMs, appliances and CSV, manual packages, uploads from CI |
+| [docs/alerts.md](docs/alerts.md) | Scanning, alerts, severity and SLA, Remediation, Services, VEX, notifications |
+| [docs/operations.md](docs/operations.md) | Setup without Docker, environment variables, upgrading, scheduled jobs, troubleshooting |
+| [docs/tls-proxy.md](docs/tls-proxy.md) | Serving the console over HTTPS |
 | [docs/api.md](docs/api.md) | `/api/*` endpoint reference |
 | [docs/architecture.md](docs/architecture.md) | Code layout and where the main logic lives |
 
