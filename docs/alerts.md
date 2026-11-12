@@ -131,7 +131,13 @@ Click an alert to open it:
 | **Timeline** | The alert's events |
 | **AI Insight** | Optional chat about the alert (below) |
 
-The asset page also has a **Dependency Graph** tab *(Beta)*: vulnerable packages and their dependents, 1 to 8 hops up.
+The asset page also has a **Dependency Graph** tab *(Beta)*: what depends on one vulnerable package, 1 to 8 hops up. It starts from the most urgent one (KEV, then severity, then count); **Starting from** picks another. To stay readable on an OS host, where nearly every package depends on glibc:
+
+- OS packages are one node per source package (`openssl-libs` and `openssl` together).
+- A node with more than eight dependents shows eight, those already drawn and direct, in-use and vulnerable packages first, and a **+N more** node that shows the rest when clicked.
+- An edge is left out when the same dependency is reached through another drawn edge.
+
+Which services run a vulnerable package is on the **Services** tab, which reads it from the running processes rather than from declared dependencies.
 
 ## VEX *(Beta)*
 
