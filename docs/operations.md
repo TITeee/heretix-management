@@ -60,6 +60,7 @@ Needs Node.js 22 (as in the Docker image), pnpm, PostgreSQL 15+ with a `heretix_
 | `HERETIX_API_URL` | | `http://host.docker.internal:5000` with Compose, `http://localhost:5000` without | heretix-api URL. The defaults reach a heretix-api on the same host; set it for one elsewhere. With Docker it is resolved inside the container, where `localhost` is the container itself. **Settings → Vulnerability API** overrides it |
 | `HERETIX_API_KEY` | | | heretix-api key. Settings overrides it |
 | `HERETIX_API_BATCH_TIMEOUT_MS` | | `300000` (5 minutes) | How long a scan waits for one heretix-api batch search. A large host (an RHEL server with its kernels) can take minutes when heretix-api's database has to read from disk |
+| `HERETIX_API_REFRESH_PER_MINUTE` | | `900` | How many vulnerabilities the metadata refresh looks up in a minute. heretix-api allows each client 1,200 requests a minute (its `RATE_LIMIT_MAX`) and everything heretix-management sends shares that budget; a refresh that took all of it left the alert detail panel failing until it finished, so the default keeps a quarter free. A refresh of 11,000 vulnerabilities then takes about 12 minutes. Raise it together with `RATE_LIMIT_MAX`; `0` turns the pacing off |
 | `ANTHROPIC_API_KEY` | | | Key for AI Insight. **Settings → AI** overrides it |
 | `CRON_REFRESH` | | `0 12 * * *` | When the metadata refresh runs (cron, UTC) |
 | `CRON_SCAN` | | `0 13 * * *` | When every asset is scanned (cron, UTC) |
@@ -115,6 +116,10 @@ On start, the server registers two daily jobs:
 | Scan | 13:00 | Scans every asset ([alerts.md](alerts.md#scanning)); skipped if a Rescan All from the Assets page is still running |
 
 The scheduler assumes a single server process. A scan interrupted by a restart is marked failed on the next start.
+
+### When heretix-api answers 429
+
+heretix-api limits each client address to 1,200 requests a minute (`RATE_LIMIT_MAX` in its configuration), and heretix-management, which reaches it from one address, shares that budget between the refresh, scans and the console. The refresh keeps to `HERETIX_API_REFRESH_PER_MINUTE` so that the alert detail panel, a search or a VEX export still gets an answer while it runs. The refresh and the scan's CPE searches wait out a 429 and ask again; the console's own lookups do not, so they would show an error if the budget were used up. A heretix-api log full of `429` during a refresh at the default setting means something else is also using the address.
 
 ### When scans or the refresh fail
 

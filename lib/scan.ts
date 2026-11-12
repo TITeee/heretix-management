@@ -543,7 +543,8 @@ export async function scanAsset(
     }
 
     for (const p of cpePkgs) {
-      const result = await searchByCPE(p.cpe!)
+      // A scan runs in the background, so it waits out a 429 instead of failing the asset.
+      const result = await searchByCPE(p.cpe!, { waitOnRateLimit: true })
       if (result.results.length < CPE_RESULT_CAP) {
         reconcilable.add(packageKey(p.name, p.version))
       }

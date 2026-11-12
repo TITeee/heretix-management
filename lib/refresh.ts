@@ -5,11 +5,25 @@ import { logger } from "@/lib/logger"
 import { DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
 import { diffAlertMetadata } from "@/lib/alert-metadata"
 import { recordRefreshStatus } from "@/lib/refresh-status"
+import { createPacer } from "@/lib/pacer"
 
 // heretix-api has no lookup-by-id batch endpoint, so each vulnerability costs one
 // request. They run a few at a time rather than one after another; the cap keeps the
 // refresh from opening a connection per vulnerability against a shared service.
 const LOOKUP_CONCURRENCY = 10
+
+// heretix-api limits a client to 1,200 requests a minute by default, and everything
+// heretix-management sends shares that budget. A refresh that took all of it left the
+// alert detail panel (which does not wait on a 429) failing for as long as it ran, so
+// the refresh keeps to three quarters of the default and leaves the rest for people
+// using the console. Raise it together with heretix-api's RATE_LIMIT_MAX; 0 turns the
+// pacing off.
+const DEFAULT_LOOKUPS_PER_MINUTE = 900
+
+export function refreshLookupsPerMinute(env: string | undefined = process.env.HERETIX_API_REFRESH_PER_MINUTE): number {
+  const n = Number(env)
+  return env !== undefined && env.trim() !== "" && Number.isInteger(n) && n >= 0 ? n : DEFAULT_LOOKUPS_PER_MINUTE
+}
 
 export async function refreshMetadata(): Promise<{ updated: number; failed: number; total: number }> {
   // Load SLA configuration
@@ -52,8 +66,11 @@ export async function refreshMetadata(): Promise<{ updated: number; failed: numb
   const severityChangedMap = new Map<string, AlertSummary[]>()
   const kevAddedMap = new Map<string, AlertSummary[]>()
 
+  const pace = createPacer(refreshLookupsPerMinute())
+
   const refreshOne = async (externalId: string) => {
     try {
+      await pace()
       const vuln = await getVulnerabilityById(externalId, { waitOnRateLimit: true })
       if (!vuln) return
 

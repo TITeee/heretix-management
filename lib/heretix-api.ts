@@ -295,28 +295,38 @@ export class HeretixApiError extends Error {
   }
 }
 
-export async function searchByCPE(cpe: string): Promise<CpeSearchResult> {
-  const [baseUrl, headers] = await Promise.all([getHeretixApiUrl(), apiHeaders()])
-  const query = new URLSearchParams({ cpe })
-  const res = await fetch(
-    `${baseUrl}/api/v1/vulnerabilities/search/cpe?${query}`,
-    { headers, signal: AbortSignal.timeout(30_000) }
-  )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }))
-    const msg = body?.error ?? `heretix-api CPE search error: ${res.status}`
-    throw new HeretixApiError(res.status, msg)
-  }
-  return res.json()
-}
-
 // heretix-api limits each client to a number of requests per minute (1,200 by default) and
 // answers the rest with 429 and a Retry-After up to the end of that minute. The metadata
-// refresh looks up one vulnerability per request and can need thousands, so it waits out
-// the limit rather than fail the lookups it cannot send in time. An interactive search
+// refresh looks up one vulnerability per request and can need thousands, and a scan
+// searches each package registered by its CPE with a request of its own, so both wait out
+// the limit rather than fail the requests they cannot send in time. An interactive search
 // does not wait: it would hold the page for up to a minute.
 const LOOKUP_MAX_RETRIES = 10
 const LOOKUP_RETRY_MAX_SECONDS = 60
+
+export async function searchByCPE(cpe: string, options: { waitOnRateLimit?: boolean } = {}): Promise<CpeSearchResult> {
+  const [baseUrl, headers] = await Promise.all([getHeretixApiUrl(), apiHeaders()])
+  const query = new URLSearchParams({ cpe })
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(
+      `${baseUrl}/api/v1/vulnerabilities/search/cpe?${query}`,
+      { headers, signal: AbortSignal.timeout(30_000) }
+    )
+    if (res.status === 429 && options.waitOnRateLimit && attempt < LOOKUP_MAX_RETRIES) {
+      await res.text().catch(() => "")
+      await new Promise((resolve) =>
+        setTimeout(resolve, retryAfterSeconds(res.headers.get("retry-after"), LOOKUP_RETRY_MAX_SECONDS) * 1000)
+      )
+      continue
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: res.statusText }))
+      const msg = body?.error ?? `heretix-api CPE search error: ${res.status}`
+      throw new HeretixApiError(res.status, msg)
+    }
+    return res.json()
+  }
+}
 
 export async function getVulnerabilityById(id: string, options: { waitOnRateLimit?: boolean } = {}) {
   const [baseUrl, headers] = await Promise.all([getHeretixApiUrl(), apiHeaders()])

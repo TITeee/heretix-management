@@ -4,7 +4,7 @@ vi.mock("@/lib/db", () => ({
   prisma: { setting: { findUnique: vi.fn().mockResolvedValue(null) } },
 }))
 
-import { batchSearch, batchTimeoutMs, getVulnerabilityById, listCatalog, searchAllVulnerabilities, suggestPackages, SEARCH_MAX_RESULTS } from "./heretix-api"
+import { batchSearch, batchTimeoutMs, getVulnerabilityById, listCatalog, searchAllVulnerabilities, searchByCPE, suggestPackages, SEARCH_MAX_RESULTS } from "./heretix-api"
 
 function respondWith(body: unknown, ok = true) {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok, status: ok ? 200 : 500, json: async () => body }))
@@ -260,5 +260,53 @@ describe("getVulnerabilityById", () => {
   it("returns null for a vulnerability heretix-api does not know", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }))
     expect(await getVulnerabilityById("CVE-2024-0001", { waitOnRateLimit: true })).toBeNull()
+  })
+})
+
+describe("searchByCPE", () => {
+  const rateLimited = (retryAfter: string | null) => ({
+    ok: false,
+    status: 429,
+    headers: { get: (name: string) => (name === "retry-after" ? retryAfter : null) },
+    text: async () => "",
+    json: async () => ({ error: "Too Many Requests" }),
+  })
+  const found = { ok: true, status: 200, json: async () => ({ results: [] }) }
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("fails on a 429 for an interactive search, which must not wait", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(rateLimited("30")))
+    await expect(searchByCPE("cpe:2.3:a:fortinet:fortios:7.4.3:*:*:*:*:*:*:*")).rejects.toMatchObject({ status: 429 })
+  })
+
+  it("waits out a 429 and asks again for a scan, which runs in the background", async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn().mockResolvedValueOnce(rateLimited("40")).mockResolvedValueOnce(found)
+    vi.stubGlobal("fetch", fetchMock)
+    const result = searchByCPE("cpe:2.3:a:fortinet:fortios:7.4.3:*:*:*:*:*:*:*", { waitOnRateLimit: true })
+    await vi.advanceTimersByTimeAsync(39_000)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(await result).toEqual({ results: [] })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it("gives up with the 429 after ten retries, and does not retry another error", async () => {
+    vi.useFakeTimers()
+    const busy = vi.fn().mockResolvedValue(rateLimited("1"))
+    vi.stubGlobal("fetch", busy)
+    const result = searchByCPE("cpe:2.3:a:x:y:1:*:*:*:*:*:*:*", { waitOnRateLimit: true })
+    const settled = result.catch((e) => e)
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(await settled).toMatchObject({ status: 429 })
+    expect(busy).toHaveBeenCalledTimes(11)
+
+    const broken = vi.fn().mockResolvedValue({ ok: false, status: 500, headers: { get: () => null }, text: async () => "", json: async () => ({ error: "boom" }) })
+    vi.stubGlobal("fetch", broken)
+    await expect(searchByCPE("cpe:2.3:a:x:y:1:*:*:*:*:*:*:*", { waitOnRateLimit: true })).rejects.toMatchObject({ status: 500 })
+    expect(broken).toHaveBeenCalledTimes(1)
   })
 })
