@@ -1,6 +1,7 @@
 "use client"
 
 import { DataTable } from "@/components/data-table/data-table"
+import { packageMatchesSearch, summarizeUsedBy, usedByOptions } from "@/lib/used-by"
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter"
 import { ColumnDef } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
@@ -401,6 +402,19 @@ function LicenseCell({ licenses }: { licenses: string[] }) {
   )
 }
 
+// The units (or commands) that had the package loaded: the first two, then the count of
+// the rest. Empty when it was not determined or nothing had it loaded.
+function UsedByCell({ usedBy }: { usedBy?: string[] }) {
+  const { shown, more } = summarizeUsedBy(usedBy)
+  if (shown.length === 0) return null
+  return (
+    <span className="block max-w-xs truncate text-xs" title={(usedBy ?? []).join(", ")}>
+      {shown.join(", ")}
+      {more > 0 && <span className="text-muted-foreground"> +{more}</span>}
+    </span>
+  )
+}
+
 // What the host's running processes were doing with an OS package when the
 // SBOM was collected (heretix-cli reads /proc). In use, with the services in
 // the tooltip; Not in use when the package has executables or libraries and
@@ -566,6 +580,9 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
     {
       accessorKey: "name",
       header: sortableHeader("Package"),
+      // The search box filters this column. It also finds the packages a service uses
+      // ("nginx" lists what nginx.service has loaded), not only names.
+      filterFn: (row, _columnId, value) => packageMatchesSearch(row.original, String(value ?? "")),
       cell: ({ row }) => (
         <>
           {row.original.name}
@@ -634,6 +651,15 @@ function buildColumns(assetId: string): ColumnDef<PackageRow>[] {
         return rank(a.original) - rank(b.original)
       },
       cell: ({ row }) => <InUseCell pkg={row.original} />,
+    },
+    {
+      // The services that had the package loaded (heretix-cli's heretix:used-by). A basic
+      // library is used by dozens, so the cell shows two and the count of the rest, with
+      // all of them in its tooltip. Sorts by how many there are.
+      id: "usedBy",
+      accessorFn: (row) => row.usedBy?.length ?? 0,
+      header: sortableHeader("Used by"),
+      cell: ({ row }) => <UsedByCell usedBy={row.original.usedBy} />,
     },
     {
       accessorKey: "scope",
@@ -731,6 +757,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
   const [scopeFilter, setScopeFilter] = useState<Set<string>>(new Set())
   const [licenseFilter, setLicenseFilter] = useState<Set<string>>(new Set())
   const [inUseFilter, setInUseFilter] = useState<Set<string>>(new Set())
+  const [usedByFilter, setUsedByFilter] = useState<Set<string>>(new Set())
 
   const ecosystemOptions = useMemo(() =>
     [...new Set(data.map(p => p.ecosystem))].sort().map(v => ({ value: v, label: v || "Other" })),
@@ -752,6 +779,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
     { value: "true", label: "Direct" },
     { value: "false", label: "Indirect" },
   ]
+  const usedByFilterOptions = useMemo(() => usedByOptions(data).map(v => ({ value: v, label: v })), [data])
   const inUseOptions = [
     { value: "yes", label: "In use" },
     { value: "no", label: "Not in use" },
@@ -777,10 +805,11 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
       const value = p.inUse === true ? "yes" : p.inUse === false ? "no" : "unknown"
       if (!inUseFilter.has(value) && !(inUseFilter.has("restart") && p.needsRestart)) return false
     }
+    if (usedByFilter.size > 0 && !(p.usedBy ?? []).some(u => usedByFilter.has(u))) return false
     return true
-  }), [data, ecosystemFilter, sourceFilter, sourcePackageFilter, directFilter, scopeFilter, licenseFilter, inUseFilter])
+  }), [data, ecosystemFilter, sourceFilter, sourcePackageFilter, directFilter, scopeFilter, licenseFilter, inUseFilter, usedByFilter])
 
-  const hasFilter = ecosystemFilter.size > 0 || sourceFilter.size > 0 || sourcePackageFilter.size > 0 || directFilter.size > 0 || scopeFilter.size > 0 || licenseFilter.size > 0 || inUseFilter.size > 0
+  const hasFilter = ecosystemFilter.size > 0 || sourceFilter.size > 0 || sourcePackageFilter.size > 0 || directFilter.size > 0 || scopeFilter.size > 0 || licenseFilter.size > 0 || inUseFilter.size > 0 || usedByFilter.size > 0
 
   return (
     <div className="space-y-3">
@@ -818,6 +847,15 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
           selected={inUseFilter}
           onSelectedChange={setInUseFilter}
         />
+        {usedByFilterOptions.length > 0 && (
+          <DataTableFacetedFilter
+            title="Used by"
+            options={usedByFilterOptions}
+            selected={usedByFilter}
+            onSelectedChange={setUsedByFilter}
+            searchable
+          />
+        )}
         <DataTableFacetedFilter
           title="Scope"
           options={scopeOptions}
@@ -833,7 +871,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
         />
         {hasFilter && (
           <Button variant="ghost" size="sm"
-            onClick={() => { setEcosystemFilter(new Set()); setSourceFilter(new Set()); setSourcePackageFilter(new Set()); setDirectFilter(new Set()); setScopeFilter(new Set()); setLicenseFilter(new Set()); setInUseFilter(new Set()) }}>
+            onClick={() => { setEcosystemFilter(new Set()); setSourceFilter(new Set()); setSourcePackageFilter(new Set()); setDirectFilter(new Set()); setScopeFilter(new Set()); setLicenseFilter(new Set()); setInUseFilter(new Set()); setUsedByFilter(new Set()) }}>
             Reset <X className="ml-1 size-4" />
           </Button>
         )}
@@ -842,9 +880,9 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
         columns={columns}
         data={filteredData}
         filterColumn="name"
-        filterPlaceholder="Search packages..."
+        filterPlaceholder="Search packages or services..."
         initialSorting={[{ id: "alerts", desc: true }]}
-        initialColumnVisibility={{ location: false }}
+        initialColumnVisibility={{ location: false, usedBy: false }}
         initialPageSize={15}
       />
     </div>
