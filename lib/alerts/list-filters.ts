@@ -36,6 +36,8 @@ export type Alert = {
   packageInUse?: boolean | null
   packageUsedBy?: string[]
   packageNeedsRestart?: boolean
+  /** The services that still run an old file of the package (heretix-cli 0.7.1 and later). */
+  packageRestartNeededBy?: string[]
   sourcePackage?: string | null
   distroPriority?: string | null
   fixStatus?: string | null

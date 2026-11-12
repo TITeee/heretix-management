@@ -105,6 +105,17 @@ Changes are ordered with KEV first, then by the worst severity, then by the numb
 
 **Accepted, but a fix is now available** lists, grouped the same way as the changes, the alerts ignored as Accepted risk by hand that a later scan found a fixed version for. They stay ignored, since a hand-made acceptance may rest on more than the missing fix; open one to reconsider it.
 
+## Services
+
+An asset collected by heretix-cli on the host, as root, also has a **Services** tab: its open findings by the services that run the vulnerable code. heretix-cli reads which files each running process has loaded (`/proc`), so a library's services include those that load it through another library, which the declared dependencies only say they might.
+
+- **Running kernel**: the kernel's findings, used by the host itself rather than by one service. Its subpackages (`kernel-core`, `kernel-modules`, ...) are one row.
+- **Loaded by most services**: libraries at least half of the services load (glibc, OpenSSL, zlib on a typical host), shown once instead of on every service. With fewer than four services nothing is put here.
+- **Services**: each systemd unit, or the command of a process outside one (marked `process`), with the vulnerable packages it loads besides those, most urgent first (KEV, then severity, then count). Open one to see its packages, how many of their vulnerabilities have a fix, and links to their alerts.
+- **Restart**: the service still runs an old copy of a package that has been upgraded, so the upgrade is not in effect for it until it is restarted. With an SBOM from heretix-cli before 0.7.1, which does not say which processes hold the old copy, every service using the package shows **Restart?**.
+
+Findings are counted by vulnerability, once per source package, so a kernel CVE that is on four subpackages counts once. What a service loads is what it had loaded when the SBOM was collected; a program that runs now and then is not seen. The tab is shown only for assets whose SBOM has these facts.
+
 ## The detail panel
 
 Click an alert to open it:

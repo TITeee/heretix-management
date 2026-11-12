@@ -351,6 +351,7 @@ describe("runtime facts from heretix-cli (in-use, used-by, needs-restart)", () =
         properties: [
           { name: "heretix:ecosystem", value: "Debian:13" }, { name: "heretix:source", value: "dpkg" },
           { name: "heretix:in-use", value: "true" }, { name: "heretix:used-by", value: "nginx.service,ssh.service" }, { name: "heretix:needs-restart", value: "true" },
+          { name: "heretix:restart-needed-by", value: "ssh.service" },
         ] },
       { "bom-ref": "pkg:deb/debian/libexpat1@2.7.1-2?distro=debian-13", type: "library", name: "libexpat1", version: "2.7.1-2", purl: "pkg:deb/debian/libexpat1@2.7.1-2?distro=debian-13",
         properties: [{ name: "heretix:ecosystem", value: "Debian:13" }, { name: "heretix:source", value: "dpkg" }, { name: "heretix:in-use", value: "false" }] },
@@ -362,8 +363,8 @@ describe("runtime facts from heretix-cli (in-use, used-by, needs-restart)", () =
 
   it("reads the three facts, and leaves a package without them undetermined rather than not in use", () => {
     const inv = convertCycloneDXToInventory(bom)
-    expect(pkg(inv, "libssl3t64")).toMatchObject({ inUse: true, usedBy: ["nginx.service", "ssh.service"], needsRestart: true })
-    expect(pkg(inv, "libexpat1")).toMatchObject({ inUse: false, usedBy: [], needsRestart: false })
+    expect(pkg(inv, "libssl3t64")).toMatchObject({ inUse: true, usedBy: ["nginx.service", "ssh.service"], needsRestart: true, restartNeededBy: ["ssh.service"] })
+    expect(pkg(inv, "libexpat1")).toMatchObject({ inUse: false, usedBy: [], needsRestart: false, restartNeededBy: [] })
     expect(pkg(inv, "tzdata")).toMatchObject({ inUse: null, usedBy: [], needsRestart: false })
   })
 })

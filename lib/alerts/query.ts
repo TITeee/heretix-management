@@ -294,7 +294,7 @@ async function loadRows(groups: string[][]): Promise<Alert[]> {
       assetId: { in: [...new Set(alerts.map((a) => a.assetId))] },
       name: { in: [...new Set(alerts.map((a) => a.packageName))] },
     },
-    select: { assetId: true, name: true, version: true, direct: true, inUse: true, usedBy: true, needsRestart: true },
+    select: { assetId: true, name: true, version: true, direct: true, inUse: true, usedBy: true, needsRestart: true, restartNeededBy: true },
   })
   const packageMap = new Map(packages.map((p) => [`${p.assetId}::${p.name}::${p.version}`, p]))
 
@@ -312,7 +312,7 @@ async function loadRows(groups: string[][]): Promise<Alert[]> {
     byId.set(alert.id, {
       ...alert, asset, tags,
       packageDirect: pkg?.direct ?? null, packageExists: pkg !== undefined,
-      packageInUse: pkg?.inUse ?? null, packageUsedBy: pkg?.usedBy ?? [], packageNeedsRestart: pkg?.needsRestart ?? false,
+      packageInUse: pkg?.inUse ?? null, packageUsedBy: pkg?.usedBy ?? [], packageNeedsRestart: pkg?.needsRestart ?? false, packageRestartNeededBy: pkg?.restartNeededBy ?? [],
     })
   }
 

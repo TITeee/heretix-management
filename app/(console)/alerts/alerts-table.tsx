@@ -329,7 +329,9 @@ export function buildColumns(onStatusChange: (id: string, status: string) => voi
               </span>
             )}
             {row.original.packageNeedsRestart && (
-              <span title={`A running process still has an old file of this package loaded${row.original.packageUsedBy?.length ? ` (${row.original.packageUsedBy.join(", ")})` : ""}. It runs the previous version until it is restarted, so an upgrade that fixed this finding is not in effect for it yet.`}>
+              <span title={row.original.packageRestartNeededBy?.length
+                ? `Still running an old file of this package: ${row.original.packageRestartNeededBy.join(", ")}. Restart them for an upgrade that fixed this finding to take effect.`
+                : `A running process still has an old file of this package loaded${row.original.packageUsedBy?.length ? ` (one of ${row.original.packageUsedBy.join(", ")})` : ""}. It runs the previous version until it is restarted, so an upgrade that fixed this finding is not in effect for it yet.`}>
                 <Badge
                   variant="outline"
                   className="text-xs text-amber-700 border-amber-300 dark:text-amber-400 dark:border-amber-800"

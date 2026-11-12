@@ -61,6 +61,7 @@ export const ALERT_XLSX_COLUMNS: Column[] = [
   { header: "In Use", width: 10, value: (a) => (a.packageInUse == null ? null : yesNo(a.packageInUse)) },
   { header: "Used By", width: 24, value: (a) => (a.packageUsedBy?.length ? a.packageUsedBy.join(", ") : null) },
   { header: "Needs Restart", width: 13, value: (a) => (a.packageNeedsRestart ? "Yes" : null) },
+  { header: "Restart Needed By", width: 24, value: (a) => (a.packageRestartNeededBy?.length ? a.packageRestartNeededBy.join(", ") : null) },
   { header: "Summary", width: 60, value: (a) => a.summary ?? null },
   { header: "Severity", width: 10, value: (a) => TIER_LABELS[getAlertSeverityTier(a.severity, a.cvssScore)] },
   { header: "CVSS Score", width: 10, value: (a) => a.cvssScore, numFmt: "0.0" },

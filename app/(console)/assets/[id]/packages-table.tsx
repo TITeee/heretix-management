@@ -78,6 +78,7 @@ type PackageRow = {
   inUse?: boolean | null
   usedBy?: string[]
   needsRestart?: boolean
+  restartNeededBy?: string[]
   findingsCut?: boolean
   findingsMatched?: number | null
   findingsReturned?: number | null
@@ -437,7 +438,9 @@ function InUseCell({ pkg }: { pkg: PackageRow }) {
         </span>
       )}
       {pkg.needsRestart && (
-        <span title={`A running process still has an old file of this package loaded${usedBy.length > 0 ? ` (${usedBy.join(", ")})` : ""}. It runs the previous version until it is restarted.`}>
+        <span title={pkg.restartNeededBy && pkg.restartNeededBy.length > 0
+          ? `Still running an old file of this package: ${pkg.restartNeededBy.join(", ")}. Restart them for the upgrade to take effect.`
+          : `A running process still has an old file of this package loaded${usedBy.length > 0 ? ` (one of ${usedBy.join(", ")})` : ""}. It runs the previous version until it is restarted.`}>
           <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 dark:text-amber-400 dark:border-amber-800">Needs restart</Badge>
         </span>
       )}

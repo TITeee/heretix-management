@@ -104,6 +104,10 @@ model Package {
   inUse        Boolean?
   usedBy       String[] @default([])
   needsRestart Boolean  @default(false)
+  // Of usedBy, those that still run a replaced file of the package
+  // (heretix:restart-needed-by, heretix-cli 0.7.1 and later): the services to
+  // restart. Empty when needsRestart is false, or when an older SBOM did not say.
+  restartNeededBy String[] @default([])
   // Set by a scan when heretix-api matched more findings for this package than
   // it sends (5,000 per package), so only the most severe became alerts:
   // findingsMatched is how many matched (null if heretix-api did not say) and

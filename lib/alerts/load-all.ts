@@ -46,7 +46,7 @@ export async function loadAllListAlerts(where: Prisma.AlertWhereInput): Promise<
   // in memory instead scales with asset count.
   const packages = await prisma.package.findMany({
     where: { assetId: { in: [...new Set(alerts.map(a => a.assetId))] } },
-    select: { assetId: true, name: true, version: true, direct: true, inUse: true, usedBy: true, needsRestart: true },
+    select: { assetId: true, name: true, version: true, direct: true, inUse: true, usedBy: true, needsRestart: true, restartNeededBy: true },
   })
   const packageMap = new Map(packages.map(p => [`${p.assetId}::${p.name}::${p.version}`, p]))
   // An alert whose package is no longer in the asset's current inventory is left
@@ -72,7 +72,7 @@ export async function loadAllListAlerts(where: Prisma.AlertWhereInput): Promise<
     const packageExists = packageKeys.has(pkgKey)
     return {
       ...alert, asset, tags, packageDirect: pkg?.direct ?? null, packageExists,
-      packageInUse: pkg?.inUse ?? null, packageUsedBy: pkg?.usedBy ?? [], packageNeedsRestart: pkg?.needsRestart ?? false,
+      packageInUse: pkg?.inUse ?? null, packageUsedBy: pkg?.usedBy ?? [], packageNeedsRestart: pkg?.needsRestart ?? false, packageRestartNeededBy: pkg?.restartNeededBy ?? [],
     }
   })
 }

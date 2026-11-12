@@ -391,6 +391,7 @@ export function convertCycloneDXToInventory(bom: CycloneDXBom) {
       inUse: inUseOf(c),
       usedBy: (property(c, "heretix:used-by") ?? "").split(",").filter(u => u !== ""),
       needsRestart: property(c, "heretix:needs-restart") === "true",
+      restartNeededBy: (property(c, "heretix:restart-needed-by") ?? "").split(",").filter(u => u !== ""),
     }
   }).filter(p => p.name !== "").filter(p => {
     // Some scanners (Syft on Bitnami images, for one) report the same package

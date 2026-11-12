@@ -26,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { AlertSummaryBadges, buildAlertSummary, type AlertSummary } from "@/components/alerts/alert-summary-badges"
 import { countSeverityByKey, emptySeverityCounts } from "@/lib/severity"
 import { cutExplanation, cutLabel } from "@/lib/findings-cut"
+import { ServicesTab } from "./services-tab"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -65,6 +66,7 @@ export default async function AssetDetailPage({
           inUse: true,
           usedBy: true,
           needsRestart: true,
+          restartNeededBy: true,
           findingsCut: true,
           findingsMatched: true,
           findingsReturned: true,
@@ -120,6 +122,9 @@ export default async function AssetDetailPage({
     select: { packageName: true, packageVersion: true, severity: true, cvssScore: true },
   })
   const pkgAlertMap = countSeverityByKey(alertRows, (a) => `${a.packageName}::${a.packageVersion}`)
+  // The Services tab needs heretix-cli's runtime facts (read from /proc on a host);
+  // an image, another scanner's SBOM or an older one has none.
+  const hasRuntimeFacts = asset.packages.some(p => p.inUse !== null)
   const packagesWithAlerts = asset.packages.map(p => {
     const s = pkgAlertMap.get(`${p.name}::${p.version}`) ?? emptySeverityCounts()
     return {
@@ -309,6 +314,7 @@ export default async function AssetDetailPage({
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="remediation">Remediation</TabsTrigger>
+            {hasRuntimeFacts && <TabsTrigger value="services">Services</TabsTrigger>}
             <TabsTrigger value="packages">Packages</TabsTrigger>
             <TabsTrigger value="graph">Dependency Graph</TabsTrigger>
           </TabsList>
@@ -323,6 +329,11 @@ export default async function AssetDetailPage({
         <TabsContent value="remediation">
           <Card><CardContent><RemediationTab assetId={id} /></CardContent></Card>
         </TabsContent>
+        {hasRuntimeFacts && (
+          <TabsContent value="services">
+            <Card><CardContent><ServicesTab assetId={id} /></CardContent></Card>
+          </TabsContent>
+        )}
         <TabsContent value="packages">
           <Card><CardContent><PackagesTable data={packagesWithAlerts} assetId={id} /></CardContent></Card>
         </TabsContent>
