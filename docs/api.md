@@ -21,7 +21,8 @@ The console's own routes under `/api`. All of them need a signed-in session, exc
 | POST | `/api/assets/[id]/packages` | Add a manual package |
 | PATCH | `/api/assets/[id]/packages/[pkgId]` | Edit a manual package |
 | DELETE | `/api/assets/[id]/packages/[pkgId]` | Delete a manual package |
-| GET | `/api/assets/[id]/dependency-graph` | Nodes and edges for the dependency graph |
+| GET | `/api/assets/[id]/dependency-graph` | What depends on one vulnerable package: `?focus=<node id>` to start from (the most urgent by default), `?hops=` 1 to 8 (4), `?expand=<node ids>` (comma-separated) to draw every dependent of those nodes rather than the first eight. Returns the nodes it can start from (`targets`), the nodes and edges, and how many dependents are within the hops. OS packages are one node per source package |
+| GET | `/api/assets/[id]/services` | The asset's open findings by the services that had the vulnerable packages loaded when heretix-cli collected it: the running kernel, the libraries most services load, and each service's own, with the services that need a restart. Empty for an asset without heretix-cli's runtime facts |
 | GET | `/api/assets/[id]/remediation` | The asset's open and in-progress alerts grouped into changes to make and no-fix groups (`plan`), and the alerts ignored as accepted risk that now have a fixed version (`acceptedWithFix`). Each group carries its `count` and severity counts, not its alerts |
 | GET | `/api/assets/[id]/remediation/alerts` | One group's alerts, most urgent first (KEV, severity tier, CVSS): `?section=actions|noFix|accepted&key=<group key>&offset=0&limit=100` (limit at most 500). Returns `{ total, alerts }`; 404 once the group is gone |
 | POST | `/api/assets/[id]/remediation/accept` | Accept no-fix alerts, named by `{ "alertIds": [...], "memo": "..." }` or by a whole no-fix group, `{ "groupKey": "deferred", "memo": "..." }` (the group's `key` from the plan; `""` for no fix status given). Sets each open/in-progress alert of this asset with no fixed version to Ignored (Accepted risk) and reopens it once a fix exists; other ids are skipped. Returns `{ accepted, skipped }`. Audited |
@@ -37,7 +38,7 @@ The console's own routes under `/api`. All of them need a signed-in session, exc
 | GET | `/api/alerts/events` | Events across all alerts (the Activity page) |
 | GET | `/api/alerts/[id]/events` | One alert's events (its Timeline) |
 | GET | `/api/alerts/[id]/tags` | The tags the alert falls under: `assetTags` on its asset, `packageTags` on its package name |
-| GET | `/api/alerts/[id]/dependents` | Dependency paths to the vulnerable package (npm / pnpm) |
+| GET | `/api/alerts/[id]/dependents` | Dependency paths to the vulnerable package, from the SBOM's dependency graph |
 | GET | `/api/alerts/[id]/vex-suggestions` | Judgments of the same finding on other assets |
 | GET | `/api/alerts/[id]/chat` | AI Insight chat history |
 | POST | `/api/alerts/[id]/chat` | Send a message to AI Insight |

@@ -43,7 +43,9 @@ Route handlers are thin: they check the session, parse the request, and call int
 | `lib/cyclonedx.ts`, `lib/purl.ts` | SBOM import: components to packages, PURL to ecosystem, OS-managed detection |
 | `lib/package-diff.ts`, `lib/alerts.ts` | What a re-import adds, updates, or removes; carrying alerts to a package's new version |
 | `lib/scan.ts` | A scan: batch search, then create, update, rename, resolve, and reopen alerts |
-| `lib/refresh.ts`, `lib/alert-metadata.ts` | Metadata refresh, and the diff (and timeline events) when an alert's data changes |
+| `lib/refresh.ts`, `lib/alert-metadata.ts`, `lib/pacer.ts` | Metadata refresh, paced under heretix-api's rate limit, and the diff (and timeline events) when an alert's data changes |
+| `lib/services-view.ts` | The Services tab: findings by the services that load the vulnerable packages, from heretix-cli's runtime facts |
+| `lib/dependency-graph.ts` | The Dependency Graph tab: what depends on one vulnerable package, grouped by source package, capped and without redundant edges |
 | `lib/heretix-api.ts` | The only client of heretix-api. URL and key come from Settings first, then the environment |
 | `lib/severity.ts` | `getAlertSeverityTier`, the one rule for an alert's severity tier, and the counts and filters built on it |
 | `lib/sla.ts` | Due dates from the tier and KEV; SLA status |

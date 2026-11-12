@@ -33,8 +33,9 @@ Where it sits in heretix:
 ## Features
 
 - **Inventory**: import SBOMs (heretix-cli, Trivy, Syft, cdxgen) incrementally, register appliances by hand or by CSV, keep a per-asset package change history, and view each asset's dependency graph *(Beta)*
+- **Services**: for a host collected by heretix-cli, which services run the vulnerable code, which packages are in use, and which services still run an old copy of an upgraded package and need a restart
 - **Detection**: scan on demand, from CI with an access token, or on a schedule, including malicious packages (`MAL-*`)
-- **Alerts**: statuses, filters, bulk updates, CSV / JSON export, a timeline per alert, and a detail panel with NVD, OSV, vendor advisory, and CVE Record data
+- **Alerts**: statuses, filters, bulk updates, Excel / JSON export, a timeline per alert, and a detail panel with NVD, OSV, vendor advisory, and CVE Record data
 - **Prioritization**: severity counted the same way on every screen, SLA due dates by severity with a shorter one for actively exploited (CISA KEV) vulnerabilities, exploit likelihood (EPSS), the distro's own rating (Ubuntu priority, Debian urgency, Red Hat impact), and whether the vendor will fix it ("will not fix", "fix deferred")
 - **VEX** *(Beta)*: export ignored alerts as CycloneDX VEX, import VEX documents, and reuse judgments made on other assets
 - **Tags**: group assets and packages (e.g. "Internet Facing") and see severity per tag
