@@ -32,7 +32,7 @@ Where it sits in heretix:
 
 ## Features
 
-- **Inventory**: import SBOMs (heretix-cli, Trivy, Syft, cdxgen) incrementally, register appliances by hand or by CSV, keep a per-asset package change history, and view each asset's dependency graph *(Beta)*
+- **Inventory**: import SBOMs (heretix-cli, Trivy, Syft, cdxgen) incrementally, register appliances by hand or by CSV, keep a per-asset package change history, and view each asset's dependency graph
 - **Services**: for a host collected by heretix-cli, which services run the vulnerable code, which packages are in use, and which services still run an old copy of an upgraded package and need a restart
 - **Detection**: scan on demand, from CI with an access token, or on a schedule, including malicious packages (`MAL-*`)
 - **Alerts**: statuses, filters, bulk updates, Excel / JSON export, a timeline per alert, and a detail panel with NVD, OSV, vendor advisory, and CVE Record data
