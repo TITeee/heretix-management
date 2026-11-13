@@ -104,7 +104,7 @@ git pull && docker compose up --build -d   # 更新。データベースの移�
 |---|---|
 | [docs/importing-assets.md](docs/importing-assets.md) | SBOM の取り込み、機器と CSV、手動のパッケージ、CI からのアップロード |
 | [docs/alerts.md](docs/alerts.md) | スキャン、アラート、重要度と SLA、Remediation、Services、VEX、通知 |
-| [docs/operations.md](docs/operations.md) | Docker を使わない構築、環境変数、更新、定期ジョブ、トラブルシューティング |
+| [docs/operations.md](docs/operations.md) | Docker を使わない構築、環境変数、更新、バックアップと復元、定期ジョブ、トラブルシューティング |
 | [docs/tls-proxy.md](docs/tls-proxy.md) | HTTPS でのコンソールの公開 |
 | [docs/api.md](docs/api.md) | `/api/*` のエンドポイント |
 | [docs/architecture.md](docs/architecture.md) | コードの構成と主なロジックの場所 |

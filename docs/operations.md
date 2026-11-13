@@ -106,6 +106,58 @@ pnpm build && pnpm start
 
 - **Distro rating and fix status** (2026-09 / 10): existing alerts get them on their next scan.
 
+## Backup and restore
+
+**What to back up.** The heretix-management database is the one thing that cannot be rebuilt: alert statuses and ignore reasons, VEX statements, comments, accepted risks, the audit log, users, package history and AI Insight conversations. Also keep `.env` (`AUTH_SECRET`, `POSTGRES_PASSWORD`, the heretix-api key) somewhere safe; without it the database still restores, but users have to sign in again and the keys have to be set again. heretix-api's database is not backed up here: it holds public data and is rebuilt by loading the sources again ([its quick start](https://github.com/TITeee/heretix-api#quick-start)), which takes hours for NVD.
+
+> [!WARNING]
+> **The dump holds secrets.** Settings stores the heretix-api key, the Slack webhook URL and the AI API key as they are, and the users and access tokens tables hold password and token hashes. Keep the backup directory private (the script writes files only its owner can read) and encrypt any copy that leaves the server.
+
+### Backing up
+
+`scripts/backup.sh` dumps the database of the Compose stack in this directory while it runs, checks that the dump can be read back, and then deletes dumps older than the given number of days (14 by default). It prints the new file and exits non-zero, deleting nothing, if any step fails:
+
+```bash
+scripts/backup.sh /var/backups/heretix-management 14
+# /var/backups/heretix-management/heretix-management-20261113T020000Z.dump
+```
+
+Run it daily from cron, as a user that can run `docker compose` here; cron mails the output of a failed run:
+
+```cron
+0 2 * * * cd /opt/heretix-management && scripts/backup.sh /var/backups/heretix-management 14 > /dev/null
+```
+
+A dump of 50,000 alerts is about 30 MB. If your existing backup system already collects a directory, point it at the backup directory and you are done.
+
+**Example: an encrypted copy elsewhere with [restic](https://restic.net/).** restic encrypts, keeps generations and writes to S3, SFTP and other storage. Set it up once, then let the cron job copy each new dump and `.env`:
+
+```bash
+export RESTIC_REPOSITORY=sftp:backup@backup-host:/srv/restic/heretix   # or s3:..., see restic's docs
+export RESTIC_PASSWORD_FILE=/root/.restic-password                    # lose it and nothing can be restored
+restic init                                                            # once
+
+scripts/backup.sh /var/backups/heretix-management 7 \
+  && restic backup /var/backups/heretix-management /opt/heretix-management/.env \
+  && restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
+```
+
+Keep the restic password apart from the server it protects.
+
+### Restoring
+
+`scripts/restore.sh` loads a dump into a new database, and only when that succeeds swaps it in for the current one, which it keeps as `heretix_management_before_restore_<date_time>`. It asks for confirmation, stops the app while it swaps, and starts it again; the app runs any migrations on start.
+
+```bash
+scripts/restore.sh /var/backups/heretix-management/heretix-management-20261113T020000Z.dump
+```
+
+- Restore into the same or a newer heretix-management, not an older one.
+- Decisions made after the backup (statuses, comments) are lost. Findings are not: the next scan compares the restored inventory with heretix-api and raises the alerts again, which also announces them in Slack again.
+- **Check Settings → Vulnerability API → Automatic Scans** afterwards. The setting comes back as it was in the backup.
+- **If heretix-api is being restored or rebuilt too, pause automatic scans until its loads have finished.** A scan against incomplete data finds alerts gone and starts their grace period; after about three days they would be closed. An ecosystem with no data at all is reported on the asset page and never closes alerts, but a partly loaded one is not detected.
+- Once the restored data looks right, drop the old database as the script prints.
+
 ## Scheduled jobs
 
 On start, the server registers two scheduled jobs:

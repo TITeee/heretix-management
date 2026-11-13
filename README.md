@@ -104,7 +104,7 @@ git pull && docker compose up --build -d   # update; migrations run on start
 |---|---|
 | [docs/importing-assets.md](docs/importing-assets.md) | Importing SBOMs, appliances and CSV, manual packages, uploads from CI |
 | [docs/alerts.md](docs/alerts.md) | Scanning, alerts, severity and SLA, Remediation, Services, VEX, notifications |
-| [docs/operations.md](docs/operations.md) | Setup without Docker, environment variables, upgrading, scheduled jobs, troubleshooting |
+| [docs/operations.md](docs/operations.md) | Setup without Docker, environment variables, upgrading, backup and restore, scheduled jobs, troubleshooting |
 | [docs/tls-proxy.md](docs/tls-proxy.md) | Serving the console over HTTPS |
 | [docs/api.md](docs/api.md) | `/api/*` endpoint reference |
 | [docs/architecture.md](docs/architecture.md) | Code layout and where the main logic lives |
