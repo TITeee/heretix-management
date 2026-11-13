@@ -93,6 +93,26 @@ describe("buildServicesView", () => {
     expect(keys).not.toContain("tzdata")
   })
 
+  it("lists what is installed but not loaded on its own, not undetermined ones", () => {
+    expect(view.notLoaded.map((g) => g.key)).toContain("expat")
+    expect(view.notLoaded.map((g) => g.key)).not.toContain("tzdata")
+    expect(view.notLoaded.length).toBeGreaterThan(0)
+    expect(view.notLoaded.reduce((n, g) => n + g.packages.length, 0)).toBe(view.vulnerableNotLoaded)
+  })
+
+  it("says when only part of a source package is unused, as with the kernel's tools", () => {
+    const v = buildServicesView(
+      [
+        pkg("kernel-core", { sourcePackage: "kernel", inUse: true }),
+        pkg("kernel-tools", { sourcePackage: "kernel", inUse: false }),
+        pkg("expat", { inUse: false }),
+      ],
+      [alert("kernel-core", "CVE-1"), alert("kernel-tools", "CVE-2"), alert("expat", "CVE-3")],
+    )
+    expect(v.notLoaded.find((g) => g.key === "kernel")).toMatchObject({ partlyLoaded: true, packages: [{ name: "kernel-tools" }] })
+    expect(v.notLoaded.find((g) => g.key === "expat")?.partlyLoaded).toBe(false)
+  })
+
   it("has nothing common below four services, where half would be what sets them apart", () => {
     const small = buildServicesView(
       [pkg("glibc", { usedBy: ["a.service", "b.service"] }), pkg("nginx", { usedBy: ["a.service"] })],

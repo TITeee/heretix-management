@@ -6,7 +6,7 @@ import { ChevronDown, ChevronRight, RotateCw } from "lucide-react"
 import { FaTriangleExclamation } from "react-icons/fa6"
 import { Badge } from "@/components/ui/badge"
 import { SeverityCountBadges } from "@/components/alerts/severity-count-badges"
-import { isService, type CommonGroup, type PackageGroup, type RestartNeed, type ServiceRow, type ServicesView } from "@/lib/services-view"
+import { isService, type CommonGroup, type NotLoadedGroup, type PackageGroup, type RestartNeed, type ServiceRow, type ServicesView } from "@/lib/services-view"
 
 type ServicesResponse = ServicesView & { sbomTool: string | null }
 
@@ -62,26 +62,33 @@ function vulnsLabel(n: number): string {
 }
 
 /** The running kernel, or the libraries most services load: one row per source package. */
-function GroupBox({ title, note, groups, assetId, loadedBy }: {
+function GroupBox({ title, note, groups, assetId, loadedBy, collapsible }: {
   title: string
   note: string
-  groups: (PackageGroup | CommonGroup)[]
+  groups: (PackageGroup | CommonGroup | NotLoadedGroup)[]
   assetId: string
   loadedBy?: number
+  /** Closed until opened: for a list that is background, not what needs doing. */
+  collapsible?: boolean
 }) {
   if (groups.length === 0) return null
+  const Wrapper = collapsible ? "details" : "div"
+  const Head = collapsible ? "summary" : "div"
   return (
-    <div className="rounded-md border px-4 py-3 space-y-2">
-      <div>
-        <h3 className="text-sm font-semibold">{title}</h3>
+    <Wrapper className="rounded-md border px-4 py-3 space-y-2">
+      <Head className={collapsible ? "cursor-pointer" : undefined}>
+        <h3 className="inline text-sm font-semibold">{title}{collapsible ? ` (${groups.length})` : ""}</h3>
         <p className="text-xs text-muted-foreground">{note}</p>
-      </div>
+      </Head>
       <div className="divide-y">
         {groups.map((g) => (
           <div key={g.key} className="flex items-start gap-3 py-2">
             <div className="min-w-0 flex-1 space-y-0.5">
               <div className="font-medium">{g.key}</div>
               <GroupPackages assetId={assetId} group={g} />
+              {"partlyLoaded" in g && g.partlyLoaded && (
+                <p className="text-xs text-muted-foreground">Other packages of this source package are loaded; only these are not.</p>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-3">
               {"loadedBy" in g && loadedBy !== undefined && (
@@ -94,7 +101,7 @@ function GroupBox({ title, note, groups, assetId, loadedBy }: {
           </div>
         ))}
       </div>
-    </div>
+    </Wrapper>
   )
 }
 
@@ -205,6 +212,14 @@ export function ServicesTab({ assetId }: { assetId: string }) {
         groups={data.common}
         assetId={assetId}
         loadedBy={data.services}
+      />
+
+      <GroupBox
+        title="Installed but not loaded"
+        note="Vulnerable packages that no process had loaded when heretix-cli collected the asset, by source package. A program that runs now and then is not seen, so this does not mean they are never used."
+        groups={data.notLoaded}
+        assetId={assetId}
+        collapsible
       />
 
       {services.length > 0 && (

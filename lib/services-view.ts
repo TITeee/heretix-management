@@ -55,6 +55,15 @@ export type PackageGroup = FindingStats & {
   packages: { name: string; version: string }[]
 }
 
+export type NotLoadedGroup = PackageGroup & {
+  /**
+   * Other packages of the same source package were loaded (the kernel's tools and
+   * modules come from one source package with the running kernel), so the name alone
+   * does not say that this part of it is the unused one.
+   */
+  partlyLoaded: boolean
+}
+
 export type CommonGroup = PackageGroup & {
   /** How many of the asset's services had it loaded. */
   loadedBy: number
@@ -88,6 +97,8 @@ export type ServicesView = {
   vulnerableUndetermined: number
   kernel: PackageGroup[]
   common: CommonGroup[]
+  /** Vulnerable packages installed that no process had loaded, by source package. */
+  notLoaded: NotLoadedGroup[]
   rows: ServiceRow[]
 }
 
@@ -180,6 +191,19 @@ export function buildServicesView(packages: ServicesPackageInput[], alerts: Serv
     for (const u of p.usedBy) g.usedBy.add(u)
   }
 
+  // The vulnerable packages no process had loaded, by source package.
+  const unused = new Map<string, Group>()
+  for (const p of vulnerable.filter((p) => p.inUse === false)) {
+    const key = groupKey(p)
+    let g = unused.get(key)
+    if (!g) {
+      g = { key, members: [], alerts: [], usedBy: new Set() }
+      unused.set(key, g)
+    }
+    g.members.push(p)
+    g.alerts.push(...(alertsByPkg.get(pkgKey(p.name, p.version)) ?? []))
+  }
+
   const view = (g: Group): PackageGroup => ({
     key: g.key,
     packages: g.members.map((m) => ({ name: m.name, version: m.version })).sort((a, b) => a.name.localeCompare(b.name)),
@@ -234,6 +258,7 @@ export function buildServicesView(packages: ServicesPackageInput[], alerts: Serv
     vulnerableUndetermined: vulnerable.filter((p) => p.inUse === null).length,
     kernel: kernel.sort(byUrgency),
     common: common.sort(byUrgency),
+    notLoaded: [...unused.values()].map((g) => ({ ...view(g), partlyLoaded: groups.has(g.key) })).sort(byUrgency),
     rows: rows.sort(byUrgency),
   }
 }
