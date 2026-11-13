@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { AI_MODELS, DEFAULT_AI_MODEL, isListedAiModel } from "@/lib/ai-models"
 import { AI_PROMPT_DATA, AI_PROMPT_INTRO, AI_PROMPT_TASK } from "@/lib/ai-prompt-text"
 import { AI_LANGUAGES, AI_LANGUAGE_LABELS } from "@/lib/ai-language"
 import {
@@ -60,6 +61,7 @@ export default function SettingsPage() {
   const [aiApiKey, setAiApiKey] = useState("")
   const [aiModel, setAiModel] = useState("")
   const [aiLanguage, setAiLanguage] = useState("")
+  const [aiModelCustom, setAiModelCustom] = useState(false)
   const [aiSaving, setAiSaving] = useState(false)
   const [aiSaved, setAiSaved] = useState(false)
   const [aiSaveError, setAiSaveError] = useState("")
@@ -90,6 +92,7 @@ export default function SettingsPage() {
         setAiEnabled(data.AI_ENABLED === "true")
         setAiApiKey(data.AI_API_KEY ?? "")
         setAiModel(data.AI_MODEL ?? "")
+        setAiModelCustom(!!data.AI_MODEL && !isListedAiModel(data.AI_MODEL))
         setAiLanguage(data.AI_LANGUAGE ?? "")
       })
     fetch("/api/tags")
@@ -501,13 +504,36 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Model</label>
-                  <Input
-                    value={aiModel}
-                    onChange={(e) => setAiModel(e.target.value)}
-                    placeholder="claude-sonnet-4-5-20250929"
-                    className="max-w-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">Leave blank to use the default model.</p>
+                  <Select
+                    value={aiModelCustom ? "custom" : aiModel || DEFAULT_AI_MODEL}
+                    onValueChange={(v) => {
+                      if (!v) return
+                      if (v === "custom") { setAiModelCustom(true); return }
+                      setAiModelCustom(false)
+                      setAiModel(v)
+                    }}
+                  >
+                    <SelectTrigger className="w-72">
+                      <SelectValue>
+                        {(v: string) => v === "custom" ? "Other (enter a model ID)" : AI_MODELS.find((m) => m.id === v)?.label ?? v}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AI_MODELS.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.label} ({m.note})</SelectItem>
+                      ))}
+                      <SelectItem value="custom">Other (enter a model ID)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {aiModelCustom && (
+                    <Input
+                      value={aiModel}
+                      onChange={(e) => setAiModel(e.target.value)}
+                      placeholder="claude-..."
+                      className="max-w-sm"
+                    />
+                  )}
+                  <p className="text-xs text-muted-foreground">A smaller model costs less per question. Test Connection checks the model you choose.</p>
                 </div>
                 <details className="max-w-2xl rounded-md border p-3 text-xs text-muted-foreground">
                   <summary className="cursor-pointer text-sm font-medium text-foreground">What is sent to the AI</summary>

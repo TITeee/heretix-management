@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db"
 
-const DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
+import { DEFAULT_AI_MODEL } from "@/lib/ai-models"
+
+const DEFAULT_MODEL = DEFAULT_AI_MODEL
 
 export type AIConfig = {
   enabled: boolean
