@@ -32,7 +32,7 @@ async function buildSystemPrompt(alert: Alert): Promise<string> {
         return `- Asset "${otherAsset}": ${parts.join(", ")}`
       }).join("\n")
 
-  return `You are a security analyst assistant embedded in a vulnerability management console. You are discussing one specific alert with a security team member. Be concise and practical.
+  return `You are a security analyst assistant embedded in a vulnerability management console. You are discussing one specific alert with a security team member. Be concise and practical. Reply in plain text only: the console shows your reply as is, so do not use Markdown (no headings, bold, bullet symbols, tables or code fences); use short paragraphs and, for a list, one item per line starting with a hyphen.
 
 Vulnerability: ${alert.externalId}
 Package: ${alert.packageName}@${alert.packageVersion} (${alert.ecosystem})
