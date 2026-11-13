@@ -4,6 +4,7 @@ import { recordRefreshStatus, refreshFailed } from "@/lib/refresh-status"
 import { failInterruptedScanJobs } from "@/lib/scan"
 import { runScanAll } from "@/lib/scan-all-run"
 import { logger } from "@/lib/logger"
+import { areAutoScansPaused } from "@/lib/scan-pause"
 import { notifySlackRefreshFailed, notifySlackScanFailures, notifySlackScanNotRun } from "@/lib/slack"
 
 export function startScheduler() {
@@ -35,7 +36,12 @@ export function startScheduler() {
       })
   })
 
-  schedule(scanSchedule, () => {
+  schedule(scanSchedule, async () => {
+    // Paused in Settings: say so in the log each time, so a pause nobody lifted shows up there too.
+    if (await areAutoScansPaused().catch(() => false)) {
+      logger.warn("scheduler: automatic scans are paused in Settings, skipping the scheduled scan")
+      return
+    }
     runScanAll("schedule")
       // One Slack message for the whole run; a notification that itself fails must not become another failure.
       .then((run) => {

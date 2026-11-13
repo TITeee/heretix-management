@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { areAutoScansPaused } from "@/lib/scan-pause"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { createAuditLog } from "@/lib/audit"
@@ -329,6 +330,10 @@ export const POST = withApiErrorHandling("assets.create", async (req: NextReques
   // re-importing the same inventory changes nothing.
   async function withScan<T extends { id: string; name: string; hostname: string }>(result: T, status: number) {
     if (!scanAfterImport) return NextResponse.json(result, { status })
+    // The import stands; the scan waits for the pause to be lifted, and the answer says so.
+    if (await areAutoScansPaused()) {
+      return NextResponse.json({ ...result, scan: { paused: true, message: "Automatic scans are paused in heretix-management's Settings, so this asset was not scanned." } }, { status })
+    }
     try {
       const { newAlerts, resolvedAlerts, heldAlerts, cutPackages } = await scanAsset(result.id)
       await createAuditLog({

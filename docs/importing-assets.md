@@ -115,7 +115,7 @@ A CI job can upload an SBOM and scan it in one request, with an access token ins
    ```
 
    - `hostname`: the asset to import into, overriding the file's own name. Set a fixed value for a Trivy SBOM, whose name includes the tag.
-   - `scan=true`: scan right after the import (needs both scopes). The response includes `scan: { newAlerts, resolvedAlerts }`. If the scan fails, the response is **502** with the import already saved, so the job fails and can simply be re-run.
+   - `scan=true`: scan right after the import (needs both scopes). The response includes `scan: { newAlerts, resolvedAlerts }`. If the scan fails, the response is **502** with the import already saved, so the job fails and can simply be re-run. While automatic scans are paused in Settings, the import is saved and the asset is not scanned: the response is 200/201 with `scan: { paused: true, message }`.
 
    GitHub Actions:
 

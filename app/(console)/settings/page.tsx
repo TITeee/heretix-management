@@ -62,6 +62,11 @@ export default function SettingsPage() {
   const [aiModel, setAiModel] = useState("")
   const [aiLanguage, setAiLanguage] = useState("")
   const [aiModelCustom, setAiModelCustom] = useState(false)
+
+  // Automatic scans
+  const [scansPaused, setScansPaused] = useState(false)
+  const [pauseSaving, setPauseSaving] = useState(false)
+  const [pauseError, setPauseError] = useState("")
   const [aiSaving, setAiSaving] = useState(false)
   const [aiSaved, setAiSaved] = useState(false)
   const [aiSaveError, setAiSaveError] = useState("")
@@ -94,6 +99,7 @@ export default function SettingsPage() {
         setAiModel(data.AI_MODEL ?? "")
         setAiModelCustom(!!data.AI_MODEL && !isListedAiModel(data.AI_MODEL))
         setAiLanguage(data.AI_LANGUAGE ?? "")
+        setScansPaused(data.SCANS_PAUSED === "true")
       })
     fetch("/api/tags")
       .then((r) => r.ok ? r.json() : [])
@@ -118,6 +124,16 @@ export default function SettingsPage() {
     } catch {
       return "Network error"
     }
+  }
+
+  async function toggleScansPaused() {
+    const next = !scansPaused
+    setPauseSaving(true)
+    const error = await saveSettings({ SCANS_PAUSED: next ? "true" : "false" })
+    setPauseSaving(false)
+    setPauseError(error)
+    // A full reload, so the banner at the top of every page follows at once.
+    if (!error) window.location.reload()
   }
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
@@ -324,6 +340,26 @@ export default function SettingsPage() {
               </p>
             )}
           </form>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Automatic Scans</CardTitle>
+          <CardDescription>
+            Pause the scheduled scan of every asset and the scan after an upload, while heretix-api is being restored or loaded again.
+            An incomplete heretix-api makes alerts look gone, and a scan would start closing them.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm">
+            {scansPaused
+              ? <span className="font-medium text-amber-700 dark:text-amber-400">Paused. Scans started by hand (Run Scan, Rescan All) still run.</span>
+              : <span>Running on schedule.</span>}
+          </p>
+          <Button type="button" variant={scansPaused ? "default" : "outline"} onClick={toggleScansPaused} disabled={pauseSaving}>
+            {pauseSaving ? "Saving..." : scansPaused ? "Resume Automatic Scans" : "Pause Automatic Scans"}
+          </Button>
+          {pauseError && <p className="text-sm text-destructive">{pauseError}</p>}
         </CardContent>
       </Card>
         </TabsContent>

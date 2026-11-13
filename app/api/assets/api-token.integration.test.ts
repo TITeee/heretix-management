@@ -100,6 +100,16 @@ describe("API token authentication", () => {
     expect(mockedBatchSearch).toHaveBeenCalled()
   })
 
+  it("imports but does not scan while automatic scans are paused, and says so", async () => {
+    await prisma.setting.create({ data: { key: "SCANS_PAUSED", value: "true" } })
+    const token = await createToken({ scopes: ["import", "scan"] })
+    const res = await POST(importRequest(token, "?scan=true&hostname=myapp"))
+    expect(res.status).toBe(201)
+    expect(await res.json()).toMatchObject({ hostname: "myapp", scan: { paused: true } })
+    expect(mockedBatchSearch).not.toHaveBeenCalled()
+    expect(await prisma.asset.count()).toBe(1)
+  })
+
   it("answers 502 when the scan fails, with the import already committed", async () => {
     mockedBatchSearch.mockRejectedValue(new Error("heretix-api unreachable"))
     const token = await createToken({ scopes: ["import", "scan"] })

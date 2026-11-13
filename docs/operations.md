@@ -117,6 +117,8 @@ On start, the server registers two scheduled jobs:
 
 The refresh runs once a day, after heretix-api has imported KEV and EPSS (09:00 and 10:00 UTC by default), since those change at most daily and it makes one request per vulnerability. A scan is cheap, one request per 1,000 packages, so it runs often: heretix-api imports NVD every two hours and the vendor advisories, CVE Records and Microsoft's documents through the day until 18:30, and a scan at :45 sees what the import before it brought, so a new finding becomes an alert within about three hours of heretix-api having it. Scans keep off the minutes heretix-api imports in, and the 12:45 scan follows the 12:00 refresh. Change `CRON_SCAN` to scan less often; keep it clear of `CRON_REFRESH`.
 
+**Pausing automatic scans.** Settings → Vulnerability API → **Pause Automatic Scans** stops the scheduled scan and the scan after an upload with `?scan=true` (the import itself still happens), without a restart. Use it while heretix-api is being restored from a backup or loaded again: until its data is complete, alerts look gone to a scan, which starts their grace period and, after about three days, closes them. Scans started by hand (Run Scan, Rescan All, editing a package) still run. Every page shows a banner while scans are paused, and each skipped scheduled scan is logged. The setting is kept in the database, so restoring heretix-management from a backup brings back whatever it was when the backup was taken: check it after a restore.
+
 The scheduler assumes a single server process. A scan interrupted by a restart is marked failed on the next start.
 
 ### When heretix-api answers 429
