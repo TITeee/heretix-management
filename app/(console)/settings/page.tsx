@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { AI_PROMPT_DATA, AI_PROMPT_INTRO, AI_PROMPT_TASK } from "@/lib/ai-prompt-text"
 import { AI_LANGUAGES, AI_LANGUAGE_LABELS } from "@/lib/ai-language"
 import {
   Select,
@@ -508,6 +509,24 @@ export default function SettingsPage() {
                   />
                   <p className="text-xs text-muted-foreground">Leave blank to use the default model.</p>
                 </div>
+                <details className="max-w-2xl rounded-md border p-3 text-xs text-muted-foreground">
+                  <summary className="cursor-pointer text-sm font-medium text-foreground">What is sent to the AI</summary>
+                  <div className="mt-3 space-y-3">
+                    <p>Each alert has its own chat. Nothing is sent until someone confirms the first analysis or asks a question. A request sends the instructions below, the alert&apos;s data, and the whole conversation so far to the Anthropic API.</p>
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">Instructions</p>
+                      <p className="whitespace-pre-wrap rounded bg-muted p-2">{AI_PROMPT_INTRO}</p>
+                      <p className="whitespace-pre-wrap rounded bg-muted p-2">{AI_PROMPT_TASK}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">Data about the alert</p>
+                      <ul className="list-disc space-y-0.5 pl-4">
+                        {AI_PROMPT_DATA.map((d) => <li key={d}>{d}</li>)}
+                      </ul>
+                    </div>
+                    <p>The reply language below is added as one more sentence. The prompt cannot be edited here.</p>
+                  </div>
+                </details>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">Reply language</label>
                   <Select value={aiLanguage || "auto"} onValueChange={(v) => { if (v) setAiLanguage(v === "auto" ? "" : v) }}>

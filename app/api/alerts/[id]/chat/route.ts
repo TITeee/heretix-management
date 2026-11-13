@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import type { Alert } from "@prisma/client"
+import { AI_PROMPT_INTRO, AI_PROMPT_TASK } from "@/lib/ai-prompt-text"
 import { languageInstruction } from "@/lib/ai-language"
 import { getAIConfig, callAnthropic, AIError, type ChatMessage } from "@/lib/ai"
 import { withApiErrorHandling } from "@/lib/api-handler"
@@ -33,7 +34,7 @@ async function buildSystemPrompt(alert: Alert, language: string): Promise<string
         return `- Asset "${otherAsset}": ${parts.join(", ")}`
       }).join("\n")
 
-  return `You are a security analyst assistant embedded in a vulnerability management console. You are discussing one specific alert with a security team member. Be concise and practical. Reply in plain text only: the console shows your reply as is, so do not use Markdown (no headings, bold, bullet symbols, tables or code fences); use short paragraphs and, for a list, one item per line starting with a hyphen.
+  return `${AI_PROMPT_INTRO}
 
 Vulnerability: ${alert.externalId}
 Package: ${alert.packageName}@${alert.packageVersion} (${alert.ecosystem})
@@ -49,7 +50,7 @@ Affected asset: ${assetName} (tags: ${tags})
 Past handling of this same vulnerability (same ID) on other assets in this system:
 ${historyText}
 
-When asked for your initial analysis, give a short plain-language explanation of why this matters for this specific asset (considering its tags and the vulnerability's severity/exploitability), then summarize the past-handling history above if any exists. For follow-up questions, answer helpfully using the context above. Do not invent facts that aren't in the context provided; say so if you don't know something.${languageInstruction(language) ? `\n\n${languageInstruction(language)}` : ""}`
+${AI_PROMPT_TASK}${languageInstruction(language) ? `\n\n${languageInstruction(language)}` : ""}`
 }
 
 export const GET = withApiErrorHandling("alerts.chat.list", async (
