@@ -507,6 +507,8 @@ function AlertAiChatTab({ alertId, open, aiEnabled }: { alertId: string; open: b
   // Asked before the first analysis is requested: it spends the API key's tokens, so it
   // never starts on its own just because the tab was opened.
   const [confirming, setConfirming] = useState(false)
+  const [clearing, setClearing] = useState(false)
+  const [clearBusy, setClearBusy] = useState(false)
 
   async function sendMessage(text?: string) {
     setSending(true)
@@ -527,6 +529,22 @@ function AlertAiChatTab({ alertId, open, aiEnabled }: { alertId: string; open: b
       setError(err instanceof Error ? err.message : "Request failed")
     } finally {
       setSending(false)
+    }
+  }
+
+  async function clearConversation() {
+    setClearBusy(true)
+    setError("")
+    try {
+      const res = await fetch(`/api/alerts/${alertId}/chat`, { method: "DELETE" })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Request failed")
+      setMessages([])
+      setClearing(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Request failed")
+      setClearing(false)
+    } finally {
+      setClearBusy(false)
     }
   }
 
@@ -589,9 +607,27 @@ function AlertAiChatTab({ alertId, open, aiEnabled }: { alertId: string; open: b
     </Dialog>
   )
 
+  const clearDialog = (
+    <Dialog open={clearing} onOpenChange={setClearing}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Clear this conversation?</DialogTitle>
+          <DialogDescription>
+            This deletes every message of this alert&apos;s AI Insight conversation for all users. It cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setClearing(false)} disabled={clearBusy}>Cancel</Button>
+          <Button variant="destructive" onClick={clearConversation} disabled={clearBusy}>{clearBusy ? "Clearing..." : "Clear"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
   return (
     <div className="flex flex-col h-full min-h-0">
       {confirmDialog}
+      {clearDialog}
       <div className="flex-1 overflow-y-auto space-y-3 pr-1">
         {messages.length === 0 && !sending && (
           <div className="flex flex-col items-center justify-center h-32 gap-3 text-muted-foreground">
@@ -631,7 +667,14 @@ function AlertAiChatTab({ alertId, open, aiEnabled }: { alertId: string; open: b
         />
         <Button onClick={handleSend} disabled={sending || !input.trim()}>Send</Button>
       </div>
-      <p className="text-[11px] text-muted-foreground mt-1.5">AI-generated: verify before relying on it.</p>
+      <div className="flex items-center justify-between mt-1.5">
+        <p className="text-[11px] text-muted-foreground">AI-generated: verify before relying on it.</p>
+        {messages.length > 0 && (
+          <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-muted-foreground" onClick={() => setClearing(true)} disabled={sending}>
+            Clear conversation
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

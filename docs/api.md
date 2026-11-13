@@ -42,6 +42,7 @@ The console's own routes under `/api`. All of them need a signed-in session, exc
 | GET | `/api/alerts/[id]/vex-suggestions` | Judgments of the same finding on other assets |
 | GET | `/api/alerts/[id]/chat` | AI Insight chat history |
 | POST | `/api/alerts/[id]/chat` | Send a message to AI Insight |
+| DELETE | `/api/alerts/[id]/chat` | Clear the alert's AI Insight conversation (recorded in the audit log as `ai_chat_cleared`) |
 
 ## VEX
 

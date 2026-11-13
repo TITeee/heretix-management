@@ -5,6 +5,7 @@ import type { Alert } from "@prisma/client"
 import { AI_PROMPT_INTRO, AI_PROMPT_TASK } from "@/lib/ai-prompt-text"
 import { languageInstruction } from "@/lib/ai-language"
 import { getAIConfig, callAnthropic, AIError, type ChatMessage } from "@/lib/ai"
+import { createAuditLog } from "@/lib/audit"
 import { withApiErrorHandling } from "@/lib/api-handler"
 import { BodyTooLargeError, readJsonBody } from "@/lib/request-body"
 
@@ -127,4 +128,28 @@ export const POST = withApiErrorHandling("alerts.chat.send", async (
     const message = err instanceof Error ? err.message : "AI request failed"
     return NextResponse.json({ error: message }, { status })
   }
+})
+
+// Any signed-in user may clear it: anyone can start the conversation and it is shared,
+// so no one person owns it. Recorded in the audit log, as it cannot be undone.
+export const DELETE = withApiErrorHandling("alerts.chat.clear", async (
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) => {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { id } = await params
+  const alert = await prisma.alert.findUnique({ where: { id }, select: { externalId: true } })
+  if (!alert) return NextResponse.json({ error: "Alert not found" }, { status: 404 })
+
+  const { count } = await prisma.alertChatMessage.deleteMany({ where: { alertId: id } })
+  if (count > 0) {
+    await createAuditLog({
+      userId: session.user.id, userEmail: session.user.email,
+      action: "ai_chat_cleared", target: id,
+      detail: `${alert.externalId}: ${count} messages`,
+    })
+  }
+  return NextResponse.json({ deleted: count })
 })
