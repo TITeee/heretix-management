@@ -178,10 +178,11 @@ export function ServicesTab({ assetId }: { assetId: string }) {
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        <p className="text-sm">
-          <strong>{servicesWithFindings}</strong> of {data.services} services and processes had vulnerable packages loaded.{" "}
-          <strong>{data.vulnerableInUse}</strong> vulnerable packages were in use,{" "}
-          {data.vulnerableNotLoaded} installed but not loaded, and {data.vulnerableUndetermined} not determined
+        <p className="text-base">
+          <strong className="text-lg font-semibold">{servicesWithFindings}</strong> of {data.services} services and processes had vulnerable packages loaded.{" "}
+          <strong className="text-lg font-semibold text-amber-700 dark:text-amber-400">{data.vulnerableInUse}</strong> vulnerable packages were in use,{" "}
+          <strong className="text-lg font-semibold text-green-700 dark:text-green-400">{data.vulnerableNotLoaded}</strong> installed but not loaded, and{" "}
+          <strong className="text-lg font-semibold">{data.vulnerableUndetermined}</strong> not determined
           (no program or library of their own).
         </p>
         <p className="text-xs text-muted-foreground">
