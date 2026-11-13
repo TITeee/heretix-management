@@ -148,7 +148,7 @@ Which services run a vulnerable package is on the **Services** tab, which reads 
 ## Notifications and AI Insight
 
 - **Slack** (Settings → Notifications): a webhook message on new detections, severity changes, new KEV alerts, or alerts a scan reopened (one it had auto-resolved that is detected again, or an accepted no-fix alert whose fix is now available), filtered by a minimum severity tier and by asset tags (KEV additions ignore the severity filter). Use the test button to check the webhook.
-- **AI Insight** (Settings → AI): an optional chat per alert, powered by Anthropic's API. It is given the alert's CVSS, EPSS, and KEV data and how the same vulnerability was handled on other assets. Off by default; set the API key and model, and test the connection, in Settings.
+- **AI Insight** (Settings → AI): an optional chat per alert, powered by Anthropic's API. It is given the alert's CVSS, EPSS, and KEV data and how the same vulnerability was handled on other assets. Off by default; set the API key and model, and test the connection, in Settings. Opening the tab of an alert with no conversation asks first, and sends nothing to the API until you choose **Analyze**.
 
 ## Vulnerability Search
 

@@ -20,6 +20,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Clock, TrendingUp, TrendingDown, AlertTriangle, History, ShieldCheck, GitBranch, CircleHelp, Sparkles, Info, CircleAlert, CircleCheck, CircleMinus, User } from "lucide-react"
 import { ReactFlow, Node, Edge, Background, Controls, MarkerType, useNodesState, useEdgesState } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
@@ -503,7 +504,9 @@ function AlertAiChatTab({ alertId, open, aiEnabled }: { alertId: string; open: b
   const [input, setInput] = useState("")
   const [error, setError] = useState("")
   const bottomRef = useRef<HTMLDivElement>(null)
-  const initializedRef = useRef(false)
+  // Asked before the first analysis is requested: it spends the API key's tokens, so it
+  // never starts on its own just because the tab was opened.
+  const [confirming, setConfirming] = useState(false)
 
   async function sendMessage(text?: string) {
     setSending(true)
@@ -529,19 +532,16 @@ function AlertAiChatTab({ alertId, open, aiEnabled }: { alertId: string; open: b
 
   useEffect(() => {
     if (!open || !aiEnabled) return
-    initializedRef.current = false
     setMessages([])
     setError("")
+    setConfirming(false)
     setLoading(true)
     fetch(`/api/alerts/${alertId}/chat`)
       .then((r) => r.json())
       .then(async (data: ChatMsg[]) => {
         const list = Array.isArray(data) ? data : []
         setMessages(list)
-        if (list.length === 0 && !initializedRef.current) {
-          initializedRef.current = true
-          await sendMessage(undefined)
-        }
+        if (list.length === 0) setConfirming(true)
       })
       .catch(() => setError("Failed to load conversation"))
       .finally(() => setLoading(false))
@@ -571,9 +571,35 @@ function AlertAiChatTab({ alertId, open, aiEnabled }: { alertId: string; open: b
 
   if (loading && messages.length === 0) return <DetailSkeleton />
 
+  const confirmDialog = (
+    <Dialog open={confirming} onOpenChange={setConfirming}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Analyze this alert with AI?</DialogTitle>
+          <DialogDescription>
+            This sends the alert&apos;s details (package, CVSS, EPSS, KEV, asset name and tags, and how the same
+            vulnerability was handled on other assets) to the Anthropic API and uses your API key&apos;s tokens.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setConfirming(false)}>Not now</Button>
+          <Button onClick={() => { setConfirming(false); sendMessage(undefined) }}>Analyze</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
   return (
     <div className="flex flex-col h-full min-h-0">
+      {confirmDialog}
       <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+        {messages.length === 0 && !sending && (
+          <div className="flex flex-col items-center justify-center h-32 gap-3 text-muted-foreground">
+            <Sparkles className="h-6 w-6" />
+            <p className="text-sm">No analysis yet.</p>
+            <Button size="sm" onClick={() => setConfirming(true)}>Analyze with AI</Button>
+          </div>
+        )}
         {messages.map((m) => (
           <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
