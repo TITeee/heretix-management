@@ -6,6 +6,8 @@ export type AIConfig = {
   enabled: boolean
   apiKey: string | null
   model: string
+  /** One of AI_LANGUAGES, or "" for the language the user writes in. */
+  language: string
 }
 
 export async function getAIConfig(): Promise<AIConfig> {
@@ -18,6 +20,7 @@ export async function getAIConfig(): Promise<AIConfig> {
     enabled: cfg.AI_ENABLED === "true",
     apiKey: cfg.AI_API_KEY || process.env.ANTHROPIC_API_KEY || null,
     model: cfg.AI_MODEL || DEFAULT_MODEL,
+    language: cfg.AI_LANGUAGE || "",
   }
 }
 

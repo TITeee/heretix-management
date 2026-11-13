@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import type { Alert } from "@prisma/client"
+import { languageInstruction } from "@/lib/ai-language"
 import { getAIConfig, callAnthropic, AIError, type ChatMessage } from "@/lib/ai"
 import { withApiErrorHandling } from "@/lib/api-handler"
 import { BodyTooLargeError, readJsonBody } from "@/lib/request-body"
 
-async function buildSystemPrompt(alert: Alert): Promise<string> {
+async function buildSystemPrompt(alert: Alert, language: string): Promise<string> {
   const asset = await prisma.asset.findUnique({
     where: { id: alert.assetId },
     include: { assetTags: { include: { tag: { select: { name: true } } } } },
@@ -48,7 +49,7 @@ Affected asset: ${assetName} (tags: ${tags})
 Past handling of this same vulnerability (same ID) on other assets in this system:
 ${historyText}
 
-When asked for your initial analysis, give a short plain-language explanation of why this matters for this specific asset (considering its tags and the vulnerability's severity/exploitability), then summarize the past-handling history above if any exists. For follow-up questions, answer helpfully using the context above. Do not invent facts that aren't in the context provided; say so if you don't know something.`
+When asked for your initial analysis, give a short plain-language explanation of why this matters for this specific asset (considering its tags and the vulnerability's severity/exploitability), then summarize the past-handling history above if any exists. For follow-up questions, answer helpfully using the context above. Do not invent facts that aren't in the context provided; say so if you don't know something.${languageInstruction(language) ? `\n\n${languageInstruction(language)}` : ""}`
 }
 
 export const GET = withApiErrorHandling("alerts.chat.list", async (
@@ -109,7 +110,7 @@ export const POST = withApiErrorHandling("alerts.chat.send", async (
   }
 
   try {
-    const system = await buildSystemPrompt(alert)
+    const system = await buildSystemPrompt(alert, config.language)
     const reply = await callAnthropic({
       apiKey: config.apiKey,
       model: config.model,

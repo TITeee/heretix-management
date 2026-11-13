@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { AI_LANGUAGES, AI_LANGUAGE_LABELS } from "@/lib/ai-language"
 import {
   Select,
   SelectContent,
@@ -57,6 +58,7 @@ export default function SettingsPage() {
   const [aiEnabled, setAiEnabled] = useState(false)
   const [aiApiKey, setAiApiKey] = useState("")
   const [aiModel, setAiModel] = useState("")
+  const [aiLanguage, setAiLanguage] = useState("")
   const [aiSaving, setAiSaving] = useState(false)
   const [aiSaved, setAiSaved] = useState(false)
   const [aiSaveError, setAiSaveError] = useState("")
@@ -87,6 +89,7 @@ export default function SettingsPage() {
         setAiEnabled(data.AI_ENABLED === "true")
         setAiApiKey(data.AI_API_KEY ?? "")
         setAiModel(data.AI_MODEL ?? "")
+        setAiLanguage(data.AI_LANGUAGE ?? "")
       })
     fetch("/api/tags")
       .then((r) => r.ok ? r.json() : [])
@@ -166,6 +169,7 @@ export default function SettingsPage() {
       AI_ENABLED: aiEnabled ? "true" : "false",
       AI_API_KEY: aiApiKey,
       AI_MODEL: aiModel,
+      AI_LANGUAGE: aiLanguage,
     })
     setAiSaving(false)
     setAiSaveError(error)
@@ -503,6 +507,21 @@ export default function SettingsPage() {
                     className="max-w-sm"
                   />
                   <p className="text-xs text-muted-foreground">Leave blank to use the default model.</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium">Reply language</label>
+                  <Select value={aiLanguage || "auto"} onValueChange={(v) => { if (v) setAiLanguage(v === "auto" ? "" : v) }}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Auto</SelectItem>
+                      {AI_LANGUAGES.map((l) => (
+                        <SelectItem key={l} value={l}>{AI_LANGUAGE_LABELS[l]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">The language of AI Insight replies, including the first analysis. Auto follows the language of the question.</p>
                 </div>
               </div>
             )}

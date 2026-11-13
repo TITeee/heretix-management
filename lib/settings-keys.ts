@@ -14,6 +14,7 @@ export const EDITABLE_SETTING_KEYS = new Set([
   "AI_ENABLED",
   "AI_API_KEY",
   "AI_MODEL",
+  "AI_LANGUAGE",
 ])
 
 /**
