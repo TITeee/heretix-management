@@ -94,6 +94,9 @@ export type BatchResultItem = {
   truncated?: boolean
 }
 
+/** An ecosystem heretix-api has no data for, and how many of the searched packages belong to it. */
+export type NoDataEcosystem = { ecosystem: string; packages: number }
+
 // heretix-api runs only a few batch searches at once and answers another with 429 and
 // a Retry-After. Scans send one after another, so this is met only when several run
 // together; waiting for a free slot is better than failing the scan.
@@ -118,8 +121,13 @@ export function batchTimeoutMs(env: string | undefined = process.env.HERETIX_API
   return env && Number.isFinite(n) && n > 0 ? n : DEFAULT_BATCH_TIMEOUT_MS
 }
 
+/**
+ * `onCoverage` is told which ecosystems of the search heretix-api has no data for (its
+ * `coverage.noData`); an older heretix-api does not say, and then it is not called.
+ */
 export async function batchSearch(
-  packages: BatchPackage[]
+  packages: BatchPackage[],
+  onCoverage?: (noData: NoDataEcosystem[]) => void,
 ): Promise<BatchResultItem[]> {
   const [baseUrl, headers] = await Promise.all([getHeretixApiUrl(), apiHeaders()])
   const timeoutMs = batchTimeoutMs()
@@ -151,6 +159,8 @@ export async function batchSearch(
       throw new Error(`heretix-api batch error: ${res.status} ${await res.text()}`)
     }
     const data = await res.json()
+    const noData = data.coverage?.noData
+    if (onCoverage && Array.isArray(noData)) onCoverage(noData)
     return data.results ?? []
   }
 }

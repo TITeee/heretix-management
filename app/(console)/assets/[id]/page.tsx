@@ -1,3 +1,4 @@
+import { parseNoData } from "@/lib/no-data"
 import { prisma } from "@/lib/db"
 import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -136,6 +137,9 @@ export default async function AssetDetailPage({
 
   // Packages heretix-api cut short: only their most severe findings are alerts.
   const cutPackages = asset.packages.filter((p) => p.findingsCut)
+
+  // Ecosystems the latest completed scan found heretix-api has no data for.
+  const noDataEcosystems = parseNoData(asset.scanJobs.find((j) => j.status === "completed")?.noDataEcosystems)
 
   const tags = asset.assetTags
     .map((at) => at.tag)
@@ -281,6 +285,26 @@ export default async function AssetDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      {noDataEcosystems.length > 0 && (
+        <div className="rounded-lg border border-amber-400 bg-amber-50 p-4 text-sm dark:border-amber-700 dark:bg-amber-950/40">
+          <p className="font-medium text-amber-900 dark:text-amber-200">
+            heretix-api has no vulnerability data for {noDataEcosystems.length === 1 ? "1 ecosystem" : `${noDataEcosystems.length} ecosystems`} of this asset
+          </p>
+          <p className="mt-1 text-xs text-amber-900/80 dark:text-amber-200/80">
+            Having no alerts for these packages does not mean they are safe: nothing is loaded to check them against.
+            Load the ecosystem in heretix-api (Dashboard, OSV Ecosystems), then scan this asset again. Their existing alerts are left open.
+          </p>
+          <ul className="mt-2 space-y-0.5 text-xs">
+            {noDataEcosystems.map((n) => (
+              <li key={n.ecosystem}>
+                <span className="font-mono">{n.ecosystem}</span>
+                <span className="ml-2 text-muted-foreground">{n.packages === 1 ? "1 package" : `${n.packages.toLocaleString()} packages`}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Alert Summary */}
       {cutPackages.length > 0 && (

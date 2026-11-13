@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
 import { batchSearch, searchByCPE, type VulnSearchResult } from "@/lib/heretix-api"
+import { mergeNoData, noDataList } from "@/lib/no-data"
 import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
 import { logger } from "@/lib/logger"
 import { calculateDueDate, DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
@@ -514,6 +515,10 @@ export async function scanAsset(
       chunks.push(normalPkgs.slice(i, i + BATCH_SIZE))
     }
 
+    // Ecosystems heretix-api has no data for: an empty answer there is not evidence of anything.
+    const noData = new Map<string, number>()
+    const noDataEcosystems = new Set<string>()
+
     for (const chunk of chunks) {
       const results = await batchSearch(
         chunk.map((p) => ({
@@ -522,11 +527,18 @@ export async function scanAsset(
           ...(p.ecosystem.trim().length > 0 && { ecosystem: p.ecosystem }),
           ...(p.sourcePackage && { sourcePackage: p.sourcePackage }),
           ...(p.sourceVersion && { sourceVersion: p.sourceVersion }),
-        }))
+        })),
+        (batchNoData) => {
+          mergeNoData(noData, batchNoData)
+          for (const n of batchNoData) noDataEcosystems.add(n.ecosystem)
+        },
       )
 
       for (const r of results) {
-        if (isCompleteBatchResult(r)) {
+        // Its alerts stay as they are, as for a cut package: nothing loaded cannot show they are fixed.
+        if (r.ecosystem && noDataEcosystems.has(r.ecosystem)) {
+          // not reconcilable
+        } else if (isCompleteBatchResult(r)) {
           reconcilable.add(packageKey(r.package, r.version))
         } else {
           cutFindings.set(packageKey(r.package, r.version), {
@@ -649,7 +661,10 @@ export async function scanAsset(
 
     await prisma.scanJob.update({
       where: { id: job.id },
-      data: { status: "completed", completedAt: new Date(), newAlerts: newAlertCount, heldAlerts: heldCount, cutPackages: cutFindings.size },
+      data: {
+        status: "completed", completedAt: new Date(), newAlerts: newAlertCount, heldAlerts: heldCount, cutPackages: cutFindings.size,
+        noDataEcosystems: noDataList(noData) ?? undefined,
+      },
     })
     await prisma.asset.update({
       where: { id: assetId },

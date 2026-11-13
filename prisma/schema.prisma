@@ -138,6 +138,9 @@ model ScanJob {
   heldAlerts  Int       @default(0)
   // Packages heretix-api cut short in this scan (see Package.findingsCut).
   cutPackages Int       @default(0)
+  // Ecosystems heretix-api has no data for, as [{ ecosystem, packages }]: for their packages
+  // "no findings" means nothing is loaded, not that they are safe (see lib/no-data.ts).
+  noDataEcosystems Json?
   createdAt   DateTime  @default(now())
 
   // The dashboard and the asset pages read an asset's latest and last successful scan.

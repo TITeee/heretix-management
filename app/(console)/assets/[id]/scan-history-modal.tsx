@@ -1,5 +1,6 @@
 "use client"
 
+import { parseNoData } from "@/lib/no-data"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -20,6 +21,7 @@ type ScanJob = {
   newAlerts: number
   heldAlerts: number
   cutPackages: number
+  noDataEcosystems?: unknown
   errorMsg: string | null
 }
 
@@ -62,6 +64,14 @@ export function ScanHistoryModal({ scanJobs }: { scanJobs: ScanJob[] }) {
                         title="heretix-api matched more findings than it sends for these packages, so only their most severe findings became alerts."
                       >
                         {job.cutPackages} cut
+                      </span>
+                    )}
+                    {parseNoData(job.noDataEcosystems).length > 0 && (
+                      <span
+                        className="text-xs text-amber-700 dark:text-amber-400"
+                        title={`heretix-api has no data for: ${parseNoData(job.noDataEcosystems).map((n) => n.ecosystem).join(", ")}. Their packages cannot show findings until it is loaded.`}
+                      >
+                        {parseNoData(job.noDataEcosystems).length} not loaded
                       </span>
                     )}
                     {job.heldAlerts > 0 && (

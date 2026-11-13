@@ -106,6 +106,21 @@ describe("batchSearch", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  it("tells which ecosystems heretix-api has no data for, when it says", async () => {
+    const withCoverage = { ...ok, json: async () => ({ results: [], coverage: { noData: [{ ecosystem: "npm", packages: 3 }] } }) }
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(withCoverage))
+    const told: unknown[] = []
+    await batchSearch(pkgs, (n) => told.push(n))
+    expect(told).toEqual([[{ ecosystem: "npm", packages: 3 }]])
+  })
+
+  it("does not call back for a heretix-api that does not say", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(ok))
+    const told: unknown[] = []
+    await batchSearch(pkgs, (n) => told.push(n))
+    expect(told).toEqual([])
+  })
+
   it("waits 5 s when there is no usable Retry-After, and never more than 30 s", async () => {
     vi.useFakeTimers()
     const fetchMock = vi.fn().mockResolvedValueOnce(busy(null)).mockResolvedValueOnce(busy("600")).mockResolvedValueOnce(ok)

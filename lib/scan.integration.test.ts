@@ -577,3 +577,58 @@ describe("scanAsset — packages heretix-api cut short", () => {
     expect(await pkgOf(asset.id, "kernel")).toMatchObject({ findingsCut: true, findingsMatched: null, findingsReturned: 500 })
   })
 })
+
+describe("scanAsset: ecosystems heretix-api has no data for", () => {
+  beforeEach(async () => {
+    await resetDb()
+    mockedBatchSearch.mockReset().mockResolvedValue([])
+    mockedSearchByCPE.mockReset().mockResolvedValue({ results: [] })
+  })
+
+  afterAll(async () => {
+    await prisma.$disconnect()
+  })
+
+  // What heretix-api answers when nothing is loaded for npm: empty results, and the coverage.
+  function answerNoData(ecosystem: string, packages: number) {
+    mockedBatchSearch.mockImplementation(async (sent: { package: string; version: string; ecosystem?: string }[], onCoverage?: (n: unknown) => void) => {
+      onCoverage?.([{ ecosystem, packages }])
+      return sent.map((p) => ({ package: p.package, version: p.version, ecosystem: p.ecosystem, vulnerabilities: [], total: 0, truncated: false }))
+    })
+  }
+
+  async function setup() {
+    const asset = await createAsset()
+    for (const [name, version, ecosystem] of [["lodash", "4.17.20", "npm"], ["curl", "8.0.0", "Debian:13"]]) {
+      await prisma.package.create({ data: { assetId: asset.id, name, version, rawVersion: version, ecosystem, source: "sbom", deps: [] } })
+      await prisma.alert.create({
+        data: { assetId: asset.id, packageName: name, packageVersion: version, ecosystem, externalId: `CVE-2026-${name === "curl" ? "9002" : "9001"}`, sources: ["osv"], status: "open" },
+      })
+    }
+    return asset
+  }
+
+  it("records them on the scan, and leaves the alerts of their packages alone", async () => {
+    const asset = await setup()
+    answerNoData("npm", 1)
+    // Both packages come back empty; only the npm one is empty because nothing is loaded.
+    await scanAsset(asset.id)
+
+    const job = await prisma.scanJob.findFirstOrThrow({ where: { assetId: asset.id }, orderBy: { createdAt: "desc" } })
+    expect(job.noDataEcosystems).toEqual([{ ecosystem: "npm", packages: 1 }])
+
+    // The Debian alert starts its grace period, as an alert missing from a complete answer does;
+    // the npm one is not touched at all, so it can never be closed on an empty answer.
+    const npm = await prisma.alert.findFirstOrThrow({ where: { assetId: asset.id, packageName: "lodash" } })
+    const deb = await prisma.alert.findFirstOrThrow({ where: { assetId: asset.id, packageName: "curl" } })
+    expect(npm.missingSince).toBeNull()
+    expect(deb.missingSince).not.toBeNull()
+  })
+
+  it("records nothing when every ecosystem has data, or when heretix-api does not say", async () => {
+    const asset = await setup()
+    await scanAsset(asset.id)
+    const job = await prisma.scanJob.findFirstOrThrow({ where: { assetId: asset.id } })
+    expect(job.noDataEcosystems).toBeNull()
+  })
+})
