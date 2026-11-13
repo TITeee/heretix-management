@@ -97,6 +97,15 @@ const TIER_RANK: Record<SeverityTier, number> = { critical: 0, high: 1, medium: 
 const UNIT_SUFFIX = /\.(service|scope|socket|timer|mount|automount|swap|path|slice|target|device)$/
 
 /**
+ * Whether a row is a service proper: a systemd unit that is not a scope. A scope is a
+ * login session or a container's group of processes, so it belongs with the processes
+ * outside any unit, not with the services someone would restart.
+ */
+export function isService(row: Pick<ServiceRow, "name" | "kind">): boolean {
+  return row.kind === "unit" && !row.name.endsWith(".scope")
+}
+
+/**
  * A library counts as common when at least half of the services load it. Below four
  * services, "half" would be one or two, and the common box would take in what makes the
  * services differ, so then nothing is common.

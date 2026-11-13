@@ -6,7 +6,7 @@ import { ChevronDown, ChevronRight, RotateCw } from "lucide-react"
 import { FaTriangleExclamation } from "react-icons/fa6"
 import { Badge } from "@/components/ui/badge"
 import { SeverityCountBadges } from "@/components/alerts/severity-count-badges"
-import type { CommonGroup, PackageGroup, RestartNeed, ServiceRow, ServicesView } from "@/lib/services-view"
+import { isService, type CommonGroup, type PackageGroup, type RestartNeed, type ServiceRow, type ServicesView } from "@/lib/services-view"
 
 type ServicesResponse = ServicesView & { sbomTool: string | null }
 
@@ -174,6 +174,8 @@ export function ServicesTab({ assetId }: { assetId: string }) {
   if (error) return <p className="text-sm text-destructive">The services could not be loaded.</p>
   if (!data) return <p className="text-sm text-muted-foreground">Loading...</p>
 
+  const services = data.rows.filter(isService)
+  const others = data.rows.filter((r) => !isService(r))
   const servicesWithFindings = data.rows.filter((r) => r.vulns > 0 || r.commonLoaded > 0).length
   return (
     <div className="space-y-4">
@@ -205,10 +207,21 @@ export function ServicesTab({ assetId }: { assetId: string }) {
         loadedBy={data.services}
       />
 
-      {data.rows.length > 0 && (
+      {services.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-semibold">Services</h3>
-          {data.rows.map((row) => <ServiceLine key={row.name} row={row} assetId={assetId} />)}
+          {services.map((row) => <ServiceLine key={row.name} row={row} assetId={assetId} />)}
+        </div>
+      )}
+      {others.length > 0 && (
+        <div className="space-y-2">
+          <div>
+            <h3 className="text-sm font-semibold">Other processes</h3>
+            <p className="text-xs text-muted-foreground">
+              Login sessions and containers (systemd scopes), and commands that run outside a systemd unit.
+            </p>
+          </div>
+          {others.map((row) => <ServiceLine key={row.name} row={row} assetId={assetId} />)}
         </div>
       )}
     </div>

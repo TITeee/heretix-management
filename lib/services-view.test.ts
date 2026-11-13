@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { buildServicesView, type ServicesAlertInput, type ServicesPackageInput } from "./services-view"
+import { buildServicesView, isService, type ServicesAlertInput, type ServicesPackageInput } from "./services-view"
 
 function pkg(name: string, over: Partial<ServicesPackageInput> = {}): ServicesPackageInput {
   return {
@@ -78,6 +78,13 @@ describe("buildServicesView", () => {
     expect(nm.groups[0].packages.map((p) => p.name)).toEqual(["curl", "libcurl"])
     expect(view.rows.find((r) => r.name === "sshd.service")).toMatchObject({ vulns: 1, fixable: 1, worst: "critical" })
     expect(view.rows.find((r) => r.name === "bash")).toMatchObject({ kind: "process", vulns: 0, groups: [] })
+  })
+
+  it("counts a systemd unit as a service, but not a scope or a command outside a unit", () => {
+    expect(isService({ name: "sshd.service", kind: "unit" })).toBe(true)
+    expect(isService({ name: "sshd.socket", kind: "unit" })).toBe(true)
+    expect(isService({ name: "session-3.scope", kind: "unit" })).toBe(false)
+    expect(isService({ name: "bash", kind: "process" })).toBe(false)
   })
 
   it("leaves out what is installed but not loaded, and what could not be judged", () => {
