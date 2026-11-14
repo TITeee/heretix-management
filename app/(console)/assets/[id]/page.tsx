@@ -28,6 +28,7 @@ import { AlertSummaryBadges, buildAlertSummary, type AlertSummary } from "@/comp
 import { countSeverityByKey, emptySeverityCounts } from "@/lib/severity"
 import { cutExplanation, cutLabel } from "@/lib/findings-cut"
 import { ServicesTab } from "./services-tab"
+import { DOMAIN_CONTROLLER_FEATURE, isDomainController } from "@/lib/windows-roles"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -172,6 +173,15 @@ export default async function AssetDetailPage({
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">{asset.name || asset.hostname}</h1>
             <AssetTypeBadge assetType={asset.assetType} />
+            {isDomainController(asset.packages) && (
+              <Badge
+                variant="outline"
+                className="border-violet-300 bg-violet-100 text-violet-800 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-200"
+                title={`The server has the ${DOMAIN_CONTROLLER_FEATURE} feature installed (Active Directory Domain Services).`}
+              >
+                Domain Controller
+              </Badge>
+            )}
           </div>
           {/* The hostname is what an import matches on, so it is always shown, even when it is also the name. */}
           <p className="mt-1 font-mono text-xs text-muted-foreground">{asset.hostname}</p>

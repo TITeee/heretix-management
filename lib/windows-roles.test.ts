@@ -1,5 +1,37 @@
 import { describe, it, expect } from "vitest"
-import { isWindowsServerOs, roleNotInstalled, roleNotInstalledNote, rolesNotInstalled, WINDOWS_FEATURE_ROLES, WINDOWS_ROLES } from "./windows-roles"
+import {
+  DOMAIN_CONTROLLER_FEATURE,
+  isDomainController,
+  isWindowsServerOs,
+  roleNotInstalled,
+  roleNotInstalledNote,
+  rolesNotInstalled,
+  WINDOWS_FEATURE_ROLES,
+  WINDOWS_ROLES,
+} from "./windows-roles"
+
+describe("isDomainController", () => {
+  const os = { name: "Windows Server 2022", ecosystem: "advisory" }
+
+  it("is true when the OS package has the domain controller feature", () => {
+    expect(isDomainController([{ ...os, windowsFeatures: ["NetFx4", DOMAIN_CONTROLLER_FEATURE] }])).toBe(true)
+  })
+
+  it("is false without the feature, with only the AD management tools, or when features are unknown", () => {
+    expect(isDomainController([{ ...os, windowsFeatures: ["NetFx4", "DNS-Server-Full-Role"] }])).toBe(false)
+    expect(isDomainController([{ ...os, windowsFeatures: ["DirectoryServices-AdministrativeCenter"] }])).toBe(false)
+    expect(isDomainController([{ ...os, windowsFeatures: [] }])).toBe(false)
+    expect(isDomainController([])).toBe(false)
+  })
+
+  it("reads the feature only from the Windows Server OS package", () => {
+    expect(isDomainController([{ name: "openssl", ecosystem: "", windowsFeatures: [DOMAIN_CONTROLLER_FEATURE] }])).toBe(false)
+  })
+
+  it("is not a role the scan judges by", () => {
+    expect(WINDOWS_FEATURE_ROLES[DOMAIN_CONTROLLER_FEATURE]).toBeUndefined()
+  })
+})
 
 describe("roleNotInstalled", () => {
   const installed = ["NetFx4", "Server-Gui-Mgmt", "DHCPServer"]

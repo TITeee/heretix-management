@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { SEVERITY_COLORS } from "@/lib/severity"
-import { isWindowsServerOs, rolesNotInstalled, WINDOWS_FEATURE_ROLES } from "@/lib/windows-roles"
+import { DOMAIN_CONTROLLER_FEATURE, isWindowsServerOs, rolesNotInstalled, WINDOWS_FEATURE_ROLES } from "@/lib/windows-roles"
 import { cutExplanation, cutLabel } from "@/lib/findings-cut"
 import { sourcePackageToShow } from "@/lib/remediation"
 import { ArrowUpDown, ChevronDown, ChevronRight, ExternalLink, Pencil, Trash2, X } from "lucide-react"
@@ -452,19 +452,22 @@ function InUseCell({ pkg }: { pkg: PackageRow }) {
 // set aside the findings of server roles the server does not run (see
 // lib/windows-roles.ts). Shown on the OS package's row so it is visible why
 // an alert was set aside, and whether the list was collected at all.
+const DOMAIN_CONTROLLER_LABEL = "AD DS (domain controller)"
+
 function WindowsFeaturesButton({ pkg }: { pkg: PackageRow }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [rolesOnly, setRolesOnly] = useState(false)
-  // Features that install a role the scan judges by come first, then the rest.
-  const features = [...(pkg.windowsFeatures ?? [])].sort((a, b) =>
-    Number(!!WINDOWS_FEATURE_ROLES[b]) - Number(!!WINDOWS_FEATURE_ROLES[a]) || a.localeCompare(b)
-  )
+  // The domain controller feature comes first, then the features that install
+  // a role the scan judges by, then the rest.
+  const rank = (f: string) => (f === DOMAIN_CONTROLLER_FEATURE ? 2 : WINDOWS_FEATURE_ROLES[f] ? 1 : 0)
+  const features = [...(pkg.windowsFeatures ?? [])].sort((a, b) => rank(b) - rank(a) || a.localeCompare(b))
   const roleFeatureCount = features.filter((f) => WINDOWS_FEATURE_ROLES[f]).length
   const needle = query.trim().toLowerCase()
+  const label = (f: string) => (f === DOMAIN_CONTROLLER_FEATURE ? DOMAIN_CONTROLLER_LABEL : WINDOWS_FEATURE_ROLES[f] ?? "")
   const shown = features.filter((f) =>
     (!rolesOnly || WINDOWS_FEATURE_ROLES[f]) &&
-    (f.toLowerCase().includes(needle) || (WINDOWS_FEATURE_ROLES[f] ?? "").toLowerCase().includes(needle))
+    (f.toLowerCase().includes(needle) || label(f).toLowerCase().includes(needle))
   )
   const notInstalled = rolesNotInstalled(features)
   const byHand = pkg.source === "manual"
@@ -548,7 +551,9 @@ function WindowsFeaturesButton({ pkg }: { pkg: PackageRow }) {
                         <TableCell className="text-right text-xs text-muted-foreground">{features.indexOf(f) + 1}</TableCell>
                         <TableCell className="font-mono text-xs">{f}</TableCell>
                         <TableCell className="text-xs">
-                          {WINDOWS_FEATURE_ROLES[f]
+                          {f === DOMAIN_CONTROLLER_FEATURE
+                            ? <Badge variant="outline" className="rounded-md border-violet-300 bg-violet-100 text-violet-800 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-200" title="Shown only: AD DS CVEs are not set aside by role, so they stay open on every server.">{DOMAIN_CONTROLLER_LABEL}</Badge>
+                            : WINDOWS_FEATURE_ROLES[f]
                             ? <Badge variant="outline" className="rounded-md border-sky-300 bg-sky-100 text-sky-800 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200">{WINDOWS_FEATURE_ROLES[f]}</Badge>
                             : <span className="text-muted-foreground" title="Not the install of a server role this check tells apart: a feature every server has, or one it does not judge by.">Not a role</span>}
                         </TableCell>

@@ -60,6 +60,25 @@ export const WINDOWS_FEATURE_ROLES: Readonly<Record<string, string>> = {
   "Microsoft-Windows-Deployment-Services": "Windows Deployment Services",
 }
 
+/**
+ * The feature that makes a server an Active Directory domain controller. It is
+ * shown, never judged by: MSRC's AD DS component tag also covers DNS Server,
+ * MSMQ, DCOM, AD FS and AD CS CVEs, so setting AD DS findings aside on other
+ * servers would hide real ones. It is kept out of WINDOWS_FEATURE_ROLES for
+ * that reason. The AD management tools (DirectoryServices-AdministrativeCenter
+ * and the like) also install on member servers and do not count.
+ */
+export const DOMAIN_CONTROLLER_FEATURE = "DirectoryServices-DomainController"
+
+/**
+ * Whether the asset is a domain controller, by the features its Windows Server
+ * OS package reports. False when the features are unknown, so it only ever
+ * says "is a domain controller", never "is not".
+ */
+export function isDomainController(packages: { name: string; ecosystem: string; windowsFeatures?: string[] | null }[]): boolean {
+  return packages.some((p) => isWindowsServerOs(p) && !!p.windowsFeatures?.includes(DOMAIN_CONTROLLER_FEATURE))
+}
+
 /** The roles a finding can be judged by, in the order above, each once. */
 export const WINDOWS_ROLES: readonly string[] = [...new Set(Object.values(WINDOWS_FEATURE_ROLES))]
 
