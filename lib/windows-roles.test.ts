@@ -76,7 +76,7 @@ describe("isWindowsServerOs", () => {
 describe("rolesNotInstalled", () => {
   it("lists every role when no role feature is installed", () => {
     expect(rolesNotInstalled(["NetFx4", "Server-Gui-Mgmt"])).toEqual([...WINDOWS_ROLES])
-    expect(WINDOWS_ROLES).toHaveLength(11)
+    expect(WINDOWS_ROLES).toHaveLength(15)
   })
 
   it("leaves out a role when any one of its features is installed", () => {
@@ -84,7 +84,11 @@ describe("rolesNotInstalled", () => {
     expect(notInstalled).not.toContain("DHCP Server")
     expect(notInstalled).not.toContain("Routing and Remote Access (RRAS)")
     expect(notInstalled).toContain("DNS Server")
-    expect(notInstalled).toHaveLength(9)
+    expect(notInstalled).toHaveLength(13)
+  })
+
+  it("counts NFS as installed with the client side alone", () => {
+    expect(rolesNotInstalled(["ServicesForNFS-ServerAndClient", "ClientForNFS-Infrastructure"])).not.toContain("Network File System (NFS)")
   })
 
   it("labels the features by role, sharing one label for the two RRAS features", () => {

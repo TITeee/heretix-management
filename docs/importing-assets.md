@@ -29,9 +29,9 @@ On a Windows Server host, heretix-cli's SBOM also carries the OS itself (beta): 
 
 Only a CVE in a role heretix-api can recognise is set aside this way:
 
-- **Judged by role:** DNS Server, DHCP Server, Routing and Remote Access (RRAS), AD FS, Network Policy Server (NPS), Message Queuing, Remote Desktop Gateway, WSUS, IIS, AD CS (certificate services) and Windows Deployment Services.
+- **Judged by role:** DNS Server, DHCP Server, Routing and Remote Access (RRAS), AD FS, Network Policy Server (NPS), Message Queuing, Remote Desktop Gateway, WSUS, IIS, AD CS (certificate services), Windows Deployment Services, Remote Desktop Licensing, Fax Server, OCSP responder and Network File System (NFS, server or client side).
 - **Always open, not judged:** Hyper-V, AD DS (domain controllers) and Failover Cluster, whose parts member servers or guests also have; Print Spooler, SMB and Remote Desktop, which run on every server; WebDAV and iSCSI, whose CVE does not say whether the client or the server part is affected; the kernel, NTFS and the rest of the operating system.
-- **Not reviewed yet (open):** Fax Service, OCSP responder, Network File System, Remote Desktop Services, HTTP.sys.
+- **Not reviewed yet (open):** Remote Desktop Services, HTTP.sys.
 
 These roles cover about 9% of the CVEs heretix-api stores for Windows Server (for a Windows Server 2022 one monthly update behind in October 2026, 123 of its 977 findings); the rest always apply, since they sit in parts every server has. A CVE is set aside only when its role is recognised, so a CVE in a role that is not on this list stays open rather than being hidden by mistake. The full table, with the features each role needs, is in heretix-api's [data-sources.md](https://github.com/TITeee/heretix-api/blob/main/docs/data-sources.md#microsoft-windows-server).
 

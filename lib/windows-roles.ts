@@ -58,6 +58,14 @@ export const WINDOWS_FEATURE_ROLES: Readonly<Record<string, string>> = {
   "IIS-WebServer": "IIS",
   "ADCertificateServicesRole": "AD CS",
   "Microsoft-Windows-Deployment-Services": "Windows Deployment Services",
+  "Licensing": "Remote Desktop Licensing",
+  "FaxServiceRole": "Fax Server",
+  "OnlineRevocationServices": "OCSP responder",
+  // Either side of NFS installs the shared ONCRPC XDR driver, so heretix-api
+  // asks for any of the three and they share one label.
+  "ServerForNFS-Infrastructure": "Network File System (NFS)",
+  "ClientForNFS-Infrastructure": "Network File System (NFS)",
+  "ServicesForNFS-ServerAndClient": "Network File System (NFS)",
 }
 
 /**
