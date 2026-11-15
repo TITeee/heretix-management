@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from "vitest"
 import { prisma } from "@/lib/db"
 import { resetDb } from "@/lib/test-utils/db"
-import { activeAlertsByAsset, activeSeverityCounts, activeSlaCounts, mttrByTier, weeklyCounts } from "@/lib/dashboard-data"
+import { activeAlertsByAsset, activeSeverityByAsset, activeSeverityCounts, activeSlaCounts, mttrByTier, weeklyCounts } from "@/lib/dashboard-data"
 
 const DAY = 24 * 60 * 60 * 1000
 const now = new Date("2026-11-11T12:00:00Z") // a Wednesday
@@ -43,6 +43,17 @@ describe("dashboard counts from the database", () => {
       { name: "web", critical: 0, high: 1, medium: 0, low: 0, na: 0 },
     ])
     expect(overall).toEqual({ critical: 0, high: 1, medium: 0, low: 3, na: 0 })
+  })
+
+  it("counts open alerts per asset and tier for the Assets list", async () => {
+    await alert(a1, { severity: "HIGH", status: "open" })
+    await alert(a1, { severity: null, cvssScore: 9.5, status: "in_progress" })
+    await alert(a1, { severity: "HIGH", status: "ignored" })
+    await alert(a2, { severity: "LOW", status: "open" })
+    const byAsset = await activeSeverityByAsset()
+    expect(byAsset.get(a1)).toEqual({ critical: 1, high: 1, medium: 0, low: 0, na: 0 })
+    expect(byAsset.get(a2)).toEqual({ critical: 0, high: 0, medium: 0, low: 1, na: 0 })
+    expect(byAsset.size).toBe(2)
   })
 
   it("puts open alerts in the SLA status getSlaStatus gives", async () => {

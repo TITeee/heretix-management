@@ -24,6 +24,18 @@ export async function activeSeverityCounts(where: Prisma.AlertWhereInput = {}): 
   return counts
 }
 
+/** Open alerts per asset and tier, for every asset that has any. */
+export async function activeSeverityByAsset(): Promise<Map<string, SeverityCounts>> {
+  const groups = await prisma.alert.groupBy({ by: ["assetId", "severityTier"], where: ACTIVE, _count: { _all: true } })
+  const byAsset = new Map<string, SeverityCounts>()
+  for (const g of groups) {
+    const counts = byAsset.get(g.assetId) ?? emptySeverityCounts()
+    counts[asTier(g.severityTier)] += g._count._all
+    byAsset.set(g.assetId, counts)
+  }
+  return byAsset
+}
+
 export type AssetSeverityRow = SeverityCounts & { name: string }
 
 /**
@@ -31,15 +43,9 @@ export type AssetSeverityRow = SeverityCounts & { name: string }
  * assets (the same alerts, so the Critical card and the chart agree).
  */
 export async function activeAlertsByAsset(top = 10): Promise<{ topAssets: AssetSeverityRow[]; overall: SeverityCounts }> {
-  const groups = await prisma.alert.groupBy({ by: ["assetId", "severityTier"], where: ACTIVE, _count: { _all: true } })
-  const byAsset = new Map<string, SeverityCounts>()
+  const byAsset = await activeSeverityByAsset()
   const overall = emptySeverityCounts()
-  for (const g of groups) {
-    const counts = byAsset.get(g.assetId) ?? emptySeverityCounts()
-    counts[asTier(g.severityTier)] += g._count._all
-    overall[asTier(g.severityTier)] += g._count._all
-    byAsset.set(g.assetId, counts)
-  }
+  for (const counts of byAsset.values()) for (const t of TIERS) overall[t] += counts[t]
   const total = (c: SeverityCounts) => c.critical + c.high + c.medium + c.low + c.na
   const ranked = [...byAsset].sort((a, b) => total(b[1]) - total(a[1])).slice(0, top)
   const assets = await prisma.asset.findMany({ where: { id: { in: ranked.map(([id]) => id) } }, select: { id: true, name: true, hostname: true } })

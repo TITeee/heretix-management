@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db"
-import { countSeverityByKey, emptySeverityCounts } from "@/lib/severity"
+import { emptySeverityCounts } from "@/lib/severity"
+import { activeSeverityByAsset } from "@/lib/dashboard-data"
 import { getScanStatuses } from "@/lib/scan-status"
 import { AssetsTable } from "./assets-table"
 import { RescanAllButton } from "./rescan-all-button"
@@ -22,11 +23,9 @@ async function getAssets() {
     },
   })
 
-  const openAlertRows = await prisma.alert.findMany({
-    where: { status: { in: ["open", "in_progress"] } },
-    select: { assetId: true, severity: true, cvssScore: true },
-  })
-  const openMap = countSeverityByKey(openAlertRows, (a) => a.assetId)
+  // Counted by the database: reading every open alert to count them here took 2 s and
+  // a few hundred MB with 1.7 million alerts.
+  const openMap = await activeSeverityByAsset()
 
   // The distinct license strings in each asset's inventory, for the License
   // filter. Unnested in SQL: reading every package row just to collect these
