@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db"
 import { batchSearch, searchByCPE, type VulnSearchResult } from "@/lib/heretix-api"
 import { mergeNoData, noDataList } from "@/lib/no-data"
 import { writeInSlices } from "@/lib/in-slices"
+import { scanQueue } from "@/lib/scan-queue"
 import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
 import { logger } from "@/lib/logger"
 import { calculateDueDate, DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
@@ -62,9 +63,16 @@ export async function failInterruptedScanJobs(): Promise<number> {
   return count
 }
 
-export async function scanAsset(
+export type ScanResult = { newAlerts: number; resolvedAlerts: number; heldAlerts: number; cutPackages: number }
+
+/** Scans an asset when its turn comes: every scan, whoever starts it, waits in one queue (lib/scan-queue.ts). */
+export function scanAsset(assetId: string): Promise<ScanResult> {
+  return scanQueue.run(() => scanAssetNow(assetId))
+}
+
+async function scanAssetNow(
   assetId: string
-): Promise<{ newAlerts: number; resolvedAlerts: number; heldAlerts: number; cutPackages: number }> {
+): Promise<ScanResult> {
   const asset = await prisma.asset.findUnique({
     where: { id: assetId },
     include: { packages: true, assetTags: true },

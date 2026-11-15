@@ -697,3 +697,40 @@ describe("scanAsset: a host with more new alerts than one bulk insert writes", (
     expect(await prisma.alert.count({ where: { assetId: asset.id, alertEvents: { none: { type: "detected" } } } })).toBe(0)
   })
 })
+
+describe("scanAsset: scans started together", () => {
+  beforeEach(async () => {
+    await resetDb()
+    mockedBatchSearch.mockReset().mockResolvedValue([])
+    mockedSearchByCPE.mockReset().mockResolvedValue({ results: [] })
+  })
+
+  afterAll(async () => {
+    await prisma.$disconnect()
+  })
+
+  it("take turns, so heretix-api sees one batch search at a time, and all finish", async () => {
+    const assets = []
+    for (let i = 0; i < 4; i++) {
+      const a = await prisma.asset.create({ data: { name: `h${i}`, hostname: `h${i}`, osId: "debian", osVersionId: "13", osName: "Debian 13" } })
+      await prisma.package.create({ data: { assetId: a.id, name: "lodash", version: "4.17.20", rawVersion: "4.17.20", ecosystem: "npm", source: "sbom", deps: [] } })
+      assets.push(a)
+    }
+    let inFlight = 0
+    let peak = 0
+    mockedBatchSearch.mockImplementation(async (sent: { package: string; version: string }[]) => {
+      inFlight++
+      peak = Math.max(peak, inFlight)
+      await new Promise((r) => setTimeout(r, 20))
+      inFlight--
+      return sent.map((p) => ({ package: p.package, version: p.version, ecosystem: "npm", total: 1, truncated: false,
+        vulnerabilities: [{ id: "CVE-2026-7777", externalId: "CVE-2026-7777", source: "osv", sources: ["osv"], severity: "HIGH" }] }))
+    })
+
+    const results = await Promise.all(assets.map((a) => scanAsset(a.id)))
+
+    expect(peak).toBe(1)
+    expect(results.map((r) => r.newAlerts)).toEqual([1, 1, 1, 1])
+    expect(await prisma.scanJob.count({ where: { status: "completed" } })).toBe(4)
+  })
+})
