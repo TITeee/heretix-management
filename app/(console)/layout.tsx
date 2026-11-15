@@ -6,6 +6,7 @@ import { Topbar } from "@/components/layout/topbar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import Link from "next/link"
 import { areAutoScansPaused } from "@/lib/scan-pause"
+import { isDemoMode } from "@/lib/demo-mode"
 
 export default async function ConsoleLayout({
   children,
@@ -29,7 +30,13 @@ export default async function ConsoleLayout({
           userName={session.user?.name}
           userEmail={session.user?.email}
         />
-        {scansPaused && (
+        {isDemoMode() && (
+          <div className="border-b border-sky-300 bg-sky-50 px-6 py-2 text-sm text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200">
+            This is a demo with sample data. Importing, scanning and package changes are turned off, and its
+            vulnerability database holds only what the sample assets need. Triage, comments and exports work.
+          </div>
+        )}
+        {scansPaused && !isDemoMode() && (
           <div className="border-b border-amber-400 bg-amber-50 px-6 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
             Automatic scans are paused: the scheduled scan and scans after an upload do not run. Scans started by hand still run.{" "}
             {dbUser?.role === "admin"

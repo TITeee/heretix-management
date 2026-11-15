@@ -24,6 +24,17 @@ describe("/api/assets/scan-all", () => {
     auth.mockResolvedValue({ user: { id: "u1", email: "op@example.com", name: "Op", role: "operator" } })
   })
 
+  it("starts nothing in the demo", async () => {
+    vi.stubEnv("DEMO_MODE", "true")
+    try {
+      const res = await json(await POST())
+      expect(res.status).toBe(403)
+      expect((await json(await GET())).body.running).toBeNull()
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it("starts a scan of every asset in the background and says how far it is", async () => {
     const started = await json(await POST())
     expect(started.status).toBe(202)

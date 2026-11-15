@@ -12,6 +12,7 @@ import { authenticate } from "@/lib/api-auth"
 import { auditIdentity, type ApiTokenScope } from "@/lib/api-token"
 import { scanAsset } from "@/lib/scan"
 import { importBodyMaxBytes, readJsonBody } from "@/lib/request-body"
+import { demoModeBlocked } from "@/lib/demo-mode"
 
 export const GET = withApiErrorHandling("assets.list", async (req: NextRequest) => {
   const session = await auth()
@@ -36,6 +37,8 @@ export const GET = withApiErrorHandling("assets.list", async (req: NextRequest) 
 })
 
 export const POST = withApiErrorHandling("assets.create", async (req: NextRequest) => {
+  const blocked = demoModeBlocked()
+  if (blocked) return blocked
   // ?scan=true runs a vulnerability scan right after the import, so a CI job
   // gets its findings in one request instead of waiting for the next scheduled scan.
   const scanAfterImport = req.nextUrl.searchParams.get("scan") === "true"

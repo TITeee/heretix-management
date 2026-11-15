@@ -3,11 +3,14 @@ import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { withApiErrorHandling } from "@/lib/api-handler"
 import { readJsonBody } from "@/lib/request-body"
+import { demoModeBlocked } from "@/lib/demo-mode"
 
 export const POST = withApiErrorHandling("assets.packages.create", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) => {
+  const blocked = demoModeBlocked()
+  if (blocked) return blocked
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 

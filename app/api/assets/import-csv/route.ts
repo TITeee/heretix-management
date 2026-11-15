@@ -6,6 +6,7 @@ import { createAuditLog } from "@/lib/audit"
 import { withApiErrorHandling } from "@/lib/api-handler"
 import { validateCsvRows, type RawCsvRow, type CsvImportRow } from "@/lib/csv-import"
 import { importBodyMaxBytes, readJsonBody } from "@/lib/request-body"
+import { demoModeBlocked } from "@/lib/demo-mode"
 
 type RowStatus = "create" | "update" | "skip" | "error"
 type RowResult = { line: number; hostname: string; status: RowStatus; message?: string }
@@ -122,6 +123,8 @@ async function runImport(rawRows: RawCsvRow[], updateExisting: boolean, commit: 
 }
 
 export const POST = withApiErrorHandling("assets.importCsv", async (req: NextRequest) => {
+  const blocked = demoModeBlocked()
+  if (blocked) return blocked
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 

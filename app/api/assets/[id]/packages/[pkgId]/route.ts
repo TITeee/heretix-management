@@ -6,11 +6,14 @@ import { carryForwardAlerts } from "@/lib/alerts"
 import { logger } from "@/lib/logger"
 import { withApiErrorHandling } from "@/lib/api-handler"
 import { readJsonBody } from "@/lib/request-body"
+import { demoModeBlocked } from "@/lib/demo-mode"
 
 export const PATCH = withApiErrorHandling("assets.packages.update", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string; pkgId: string }> }
 ) => {
+  const blocked = demoModeBlocked()
+  if (blocked) return blocked
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -79,6 +82,8 @@ export const DELETE = withApiErrorHandling("assets.packages.delete", async (
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; pkgId: string }> }
 ) => {
+  const blocked = demoModeBlocked()
+  if (blocked) return blocked
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 

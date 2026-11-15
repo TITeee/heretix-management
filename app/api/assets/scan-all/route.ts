@@ -4,6 +4,7 @@ import { withApiErrorHandling } from "@/lib/api-handler"
 import { logger } from "@/lib/logger"
 import { createAuditLog } from "@/lib/audit"
 import { runScanAll, scanAllStatus, type ScanAllRun } from "@/lib/scan-all-run"
+import { demoModeBlocked } from "@/lib/demo-mode"
 
 function view(run: ScanAllRun | null) {
   if (!run) return null
@@ -32,6 +33,8 @@ export const GET = withApiErrorHandling("assets.scanAll.status", async () => {
  * schedule. The finished run is recorded in the audit log.
  */
 export const POST = withApiErrorHandling("assets.scanAll.start", async () => {
+  const blocked = demoModeBlocked()
+  if (blocked) return blocked
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (scanAllStatus().running) {

@@ -5,6 +5,7 @@ import { failInterruptedScanJobs } from "@/lib/scan"
 import { runScanAll } from "@/lib/scan-all-run"
 import { logger } from "@/lib/logger"
 import { areAutoScansPaused } from "@/lib/scan-pause"
+import { isDemoMode } from "@/lib/demo-mode"
 import { notifySlackRefreshFailed, notifySlackScanFailures, notifySlackScanNotRun } from "@/lib/slack"
 
 export function startScheduler() {
@@ -13,6 +14,12 @@ export function startScheduler() {
   failInterruptedScanJobs().catch((err) => {
     logger.error("scheduler: failInterruptedScanJobs failed", { error: err instanceof Error ? err.message : String(err) })
   })
+
+  // The demo's data is scanned in advance; its heretix-api has no more to give.
+  if (isDemoMode()) {
+    logger.info("scheduler: not started, DEMO_MODE is on")
+    return
+  }
 
   // The refresh runs once a day, after heretix-api has imported KEV (09:00) and EPSS
   // (10:00). A scan costs a request or two per asset, so it runs every three hours, so

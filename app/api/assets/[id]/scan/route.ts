@@ -4,11 +4,14 @@ import { auditIdentity } from "@/lib/api-token"
 import { scanAsset } from "@/lib/scan"
 import { prisma } from "@/lib/db"
 import { createAuditLog } from "@/lib/audit"
+import { demoModeBlocked } from "@/lib/demo-mode"
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const blocked = demoModeBlocked()
+  if (blocked) return blocked
   const authResult = await authenticate(req, ["scan"])
   if ("response" in authResult) return authResult.response
 
