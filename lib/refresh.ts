@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
 import { getVulnerabilityById } from "@/lib/heretix-api"
 import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
@@ -20,6 +21,13 @@ const LOOKUP_CONCURRENCY = 10
 // pacing off.
 const DEFAULT_LOOKUPS_PER_MINUTE = 900
 
+const REFRESH_ALERT_SELECT = {
+  id: true, externalId: true, cvssScore: true, cvssVector: true, severity: true, isKev: true,
+  epssScore: true, epssPercentile: true, fixedVersion: true, detectedAt: true,
+  assetId: true, packageName: true, packageVersion: true,
+} satisfies Prisma.AlertSelect
+type RefreshAlert = Prisma.AlertGetPayload<{ select: typeof REFRESH_ALERT_SELECT }>
+
 export function refreshLookupsPerMinute(env: string | undefined = process.env.HERETIX_API_REFRESH_PER_MINUTE): number {
   const n = Number(env)
   return env !== undefined && env.trim() !== "" && Number.isInteger(n) && n >= 0 ? n : DEFAULT_LOOKUPS_PER_MINUTE
@@ -39,24 +47,13 @@ export async function refreshMetadata(): Promise<{ updated: number; failed: numb
     }
   }
 
-  const alerts = await prisma.alert.findMany({
-    where: { status: { notIn: ["resolved", "ignored"] } },
-    select: {
-      id: true, externalId: true, cvssScore: true, cvssVector: true, severity: true, isKev: true,
-      epssScore: true, epssPercentile: true, fixedVersion: true, detectedAt: true,
-      assetId: true, packageName: true, packageVersion: true,
-    },
-  })
-
-  // Grouped up front: scanning the whole alert list once per vulnerability turns the
-  // refresh quadratic on installations where one CVE covers many assets.
-  const alertsByExternalId = new Map<string, typeof alerts>()
-  for (const a of alerts) {
-    const group = alertsByExternalId.get(a.externalId)
-    if (group) group.push(a)
-    else alertsByExternalId.set(a.externalId, [a])
-  }
-  const uniqueIds = [...alertsByExternalId.keys()]
+  // Only the vulnerability ids are read up front; each group of lookups then reads the
+  // alerts of its own vulnerabilities. Reading every open alert at once held 1.7 GB for
+  // the whole run (it takes minutes, paced) on 1.7 million alerts, next to a 2 GB heap.
+  const openAlerts = { status: { notIn: ["resolved", "ignored"] } } satisfies Prisma.AlertWhereInput
+  const uniqueIds = (await prisma.alert.groupBy({ by: ["externalId"], where: openAlerts }))
+    .map((g) => g.externalId)
+  let alertCount = 0
   const run = await prisma.metadataRefreshRun.create({ data: { updatedCount: 0 } })
 
   let updated = 0
@@ -68,13 +65,11 @@ export async function refreshMetadata(): Promise<{ updated: number; failed: numb
 
   const pace = createPacer(refreshLookupsPerMinute())
 
-  const refreshOne = async (externalId: string) => {
+  const refreshOne = async (externalId: string, targets: RefreshAlert[]) => {
     try {
       await pace()
       const vuln = await getVulnerabilityById(externalId, { waitOnRateLimit: true })
       if (!vuln) return
-
-      const targets = alertsByExternalId.get(externalId) ?? []
 
       for (const alert of targets) {
         // getVulnerabilityById looks up by vulnerability alone, not a specific
@@ -128,12 +123,25 @@ export async function refreshMetadata(): Promise<{ updated: number; failed: numb
   }
 
   for (let i = 0; i < uniqueIds.length; i += LOOKUP_CONCURRENCY) {
-    await Promise.all(uniqueIds.slice(i, i + LOOKUP_CONCURRENCY).map(refreshOne))
+    const ids = uniqueIds.slice(i, i + LOOKUP_CONCURRENCY)
+    // Read when its turn comes, so an alert a scan resolved meanwhile is left alone.
+    const alerts = await prisma.alert.findMany({
+      where: { ...openAlerts, externalId: { in: ids } },
+      select: REFRESH_ALERT_SELECT,
+    })
+    alertCount += alerts.length
+    const byId = new Map<string, RefreshAlert[]>()
+    for (const a of alerts) {
+      const group = byId.get(a.externalId)
+      if (group) group.push(a)
+      else byId.set(a.externalId, [a])
+    }
+    await Promise.all(ids.map((id) => refreshOne(id, byId.get(id) ?? [])))
   }
 
   logger.info("metadata refresh completed", {
     vulnerabilities: uniqueIds.length,
-    alerts: alerts.length,
+    alerts: alertCount,
     updated,
     events: totalEvents,
     failed,

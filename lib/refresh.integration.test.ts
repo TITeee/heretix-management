@@ -59,3 +59,33 @@ describe("refreshMetadata status", () => {
     expect(await getRefreshStatus()).toMatchObject({ error: "connection refused", lastSuccessAt: null })
   })
 })
+
+describe("refreshMetadata over more vulnerabilities than one group of lookups", () => {
+  beforeEach(async () => {
+    await resetDb()
+    mockedLookup.mockReset()
+  })
+  afterAll(() => prisma.$disconnect())
+
+  it("updates the alerts of every vulnerability, on every asset, and leaves closed ones alone", async () => {
+    // 25 vulnerabilities on two assets: three groups of ten lookups, the last one short.
+    const ids = Array.from({ length: 25 }, (_, i) => `CVE-2026-${3000 + i}`)
+    await openAlerts(ids)
+    const second = await prisma.asset.create({ data: { name: "b", hostname: "b", osName: "Debian 13", osId: "debian", osVersionId: "13" } })
+    await prisma.alert.createMany({
+      data: ids.map((externalId) => ({
+        assetId: second.id, packageName: "lodash", packageVersion: "4.17.20", ecosystem: "npm", externalId, sources: ["osv"], severity: "HIGH", cvssScore: 7.5,
+      })),
+    })
+    const closed = await prisma.alert.findFirstOrThrow({ where: { externalId: ids[0] } })
+    await prisma.alert.update({ where: { id: closed.id }, data: { status: "resolved" } })
+    mockedLookup.mockImplementation(async (id: string) => ({ id, externalId: id, cvssScore: 9.8, severity: "CRITICAL" }))
+
+    const result = await refreshMetadata()
+
+    expect(result).toEqual({ updated: 49, failed: 0, total: 25 })
+    expect(mockedLookup).toHaveBeenCalledTimes(25)
+    expect(await prisma.alert.count({ where: { status: "open", cvssScore: 9.8 } })).toBe(49)
+    expect((await prisma.alert.findUniqueOrThrow({ where: { id: closed.id } })).cvssScore).toBe(7.5)
+  })
+})
