@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterAll, vi } from "vitest"
 import { prisma } from "@/lib/db"
 import { resetDb } from "@/lib/test-utils/db"
 import { batchSearch, searchByCPE } from "@/lib/heretix-api"
+import { WRITE_SLICE } from "@/lib/in-slices"
 import { scanAsset } from "@/lib/scan"
 import { notifySlackIfNeeded } from "@/lib/slack"
 import { MISSING_GRACE_MS } from "@/lib/scan-resolve"
@@ -630,5 +631,69 @@ describe("scanAsset: ecosystems heretix-api has no data for", () => {
     await scanAsset(asset.id)
     const job = await prisma.scanJob.findFirstOrThrow({ where: { assetId: asset.id } })
     expect(job.noDataEcosystems).toBeNull()
+  })
+})
+
+describe("scanAsset: a host with more new alerts than one bulk insert writes", () => {
+  beforeEach(async () => {
+    await resetDb()
+    mockedBatchSearch.mockReset().mockResolvedValue([])
+    mockedSearchByCPE.mockReset().mockResolvedValue({ results: [] })
+  })
+
+  afterAll(async () => {
+    await prisma.$disconnect()
+  })
+
+  it("saves every alert and its detected event", async () => {
+    const asset = await createAsset()
+    await prisma.package.create({
+      data: { assetId: asset.id, name: "kernel-core", version: "5.14.0-1", rawVersion: "5.14.0-1", ecosystem: "AlmaLinux:9", source: "sbom", deps: [] },
+    })
+    const count = WRITE_SLICE * 2 + 37
+    mockedBatchSearch.mockResolvedValue([{
+      package: "kernel-core", version: "5.14.0-1", ecosystem: "AlmaLinux:9", total: count, truncated: false,
+      vulnerabilities: Array.from({ length: count }, (_, i) => ({
+        id: `CVE-2026-${String(10_000 + i)}`, externalId: `CVE-2026-${String(10_000 + i)}`, source: "osv", sources: ["osv"],
+        severity: "HIGH", cvssScore: 7.5, summary: "x".repeat(200),
+      })),
+    }])
+
+    const result = await scanAsset(asset.id)
+
+    expect(result.newAlerts).toBe(count)
+    expect(await prisma.alert.count({ where: { assetId: asset.id } })).toBe(count)
+    expect(await prisma.alertEvent.count({ where: { type: "detected", alert: { assetId: asset.id } } })).toBe(count)
+  })
+
+  it("leaves no alert without its detected event when the save stops part way, and the next scan adds the rest", async () => {
+    const asset = await createAsset()
+    await prisma.package.create({
+      data: { assetId: asset.id, name: "kernel-core", version: "5.14.0-1", rawVersion: "5.14.0-1", ecosystem: "AlmaLinux:9", source: "sbom", deps: [] },
+    })
+    const count = WRITE_SLICE * 2 + 37
+    mockedBatchSearch.mockResolvedValue([{
+      package: "kernel-core", version: "5.14.0-1", ecosystem: "AlmaLinux:9", total: count, truncated: false,
+      vulnerabilities: Array.from({ length: count }, (_, i) => ({
+        id: `CVE-2026-${String(20_000 + i)}`, externalId: `CVE-2026-${String(20_000 + i)}`, source: "osv", sources: ["osv"], severity: "HIGH", cvssScore: 7.5,
+      })),
+    }])
+    const realTransaction = prisma.$transaction.bind(prisma)
+    let slices = 0
+    const spy = vi.spyOn(prisma, "$transaction").mockImplementation(((arg: unknown) => {
+      if (++slices === 2) return Promise.reject(new Error("database went away"))
+      return (realTransaction as (a: unknown) => Promise<unknown>)(arg)
+    }) as typeof prisma.$transaction)
+
+    await expect(scanAsset(asset.id)).rejects.toThrow("database went away")
+    spy.mockRestore()
+
+    const saved = await prisma.alert.count({ where: { assetId: asset.id } })
+    expect(saved).toBe(WRITE_SLICE)
+    expect(await prisma.alert.count({ where: { assetId: asset.id, alertEvents: { none: { type: "detected" } } } })).toBe(0)
+
+    await scanAsset(asset.id)
+    expect(await prisma.alert.count({ where: { assetId: asset.id } })).toBe(count)
+    expect(await prisma.alert.count({ where: { assetId: asset.id, alertEvents: { none: { type: "detected" } } } })).toBe(0)
   })
 })

@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
 import { batchSearch, searchByCPE, type VulnSearchResult } from "@/lib/heretix-api"
 import { mergeNoData, noDataList } from "@/lib/no-data"
+import { writeInSlices } from "@/lib/in-slices"
 import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
 import { logger } from "@/lib/logger"
 import { calculateDueDate, DEFAULT_SLA_CONFIG, type SlaConfig } from "@/lib/sla"
@@ -193,12 +194,13 @@ export async function scanAsset(
     })
     // A first scan of a new asset can report thousands of brand-new findings;
     // writing each with its own create() + create() pair is the dominant cost
-    // of a scan. Collected here and flushed with two createMany calls once
-    // both search loops are done, instead of two round-trips per finding.
+    // of a scan. Collected here and flushed with createMany, in slices (see
+    // WRITE_SLICE), once both search loops are done, instead of two round-trips
+    // per finding.
     // ids are generated up front (rather than left to the DB default) so the
     // "detected" AlertEvent rows can be built in the same pass.
-    const pendingNewAlerts: Prisma.AlertCreateManyInput[] = []
-    const pendingNewEvents: Prisma.AlertEventCreateManyInput[] = []
+    // Each new alert travels with its own events, so a slice saves both at once (see below).
+    const pendingNew: { alert: Prisma.AlertCreateManyInput; events: Prisma.AlertEventCreateManyInput[] }[] = []
 
     // A match under the id already reported does not, by itself, mean nothing
     // changed: heretix-api's own data for that id can move between scans (a CVSS
@@ -435,7 +437,7 @@ export async function scanAsset(
       const epssPercentile = v.epssPercentile ?? null
       const fixedVersion = v.fixedVersion ?? null
 
-      pendingNewAlerts.push({
+      const newAlert: Prisma.AlertCreateManyInput = {
         id,
         assetId,
         packageName,
@@ -462,19 +464,20 @@ export async function scanAsset(
           vexJustification: ROLE_NOT_INSTALLED_JUSTIFICATION,
           notApplicableByScan: true,
         }),
-      })
-      pendingNewEvents.push({
+      }
+      const newEvents: Prisma.AlertEventCreateManyInput[] = [{
         alertId: id,
         type: "detected",
         data: { cvssScore, severity },
-      })
+      }]
       if (notApplicable) {
-        pendingNewEvents.push({
+        newEvents.push({
           alertId: id,
           type: "status_changed",
           data: { from: "open", to: "ignored", ignoreReason: "not_affected", reason: roleNotInstalledNote(v.requiresFeatures ?? []) },
         })
       }
+      pendingNew.push({ alert: newAlert, events: newEvents })
       // Mirrors the shape of existingAlerts' select — this entry can be found
       // again later in the same scan via findByAlias, so it needs to look
       // like a real one to updateMetadataIfChanged/reopenIfAutoResolved.
@@ -565,9 +568,15 @@ export async function scanAsset(
       }
     }
 
-    if (pendingNewAlerts.length > 0) {
-      await prisma.alert.createMany({ data: pendingNewAlerts })
-      await prisma.alertEvent.createMany({ data: pendingNewEvents })
+    // A slice of alerts and their events in one transaction: a scan that stops part way
+    // leaves no alert without its "detected" event, and the next scan creates the rest.
+    // The callback form, not the array form: with the array form, ten hosts (three RHEL)
+    // in a row ran the app out of its 2 GB heap again; with this one they peak at 1.5 GB.
+    if (pendingNew.length > 0) {
+      await writeInSlices(pendingNew, (slice) => prisma.$transaction(async (tx) => {
+        await tx.alert.createMany({ data: slice.map((p) => p.alert) })
+        await tx.alertEvent.createMany({ data: slice.flatMap((p) => p.events) })
+      }))
     }
 
     // Alerts reported again are no longer missing.
@@ -623,13 +632,14 @@ export async function scanAsset(
         where: { id: { in: ids } },
         data: { status: "resolved", resolvedAt: now, resolveReason: RESOLVE_REASONS[cause], missingSince: null },
       })
-      await prisma.alertEvent.createMany({
-        data: ids.map((id) => ({
+      await writeInSlices(
+        ids.map((id) => ({
           alertId: id,
           type: "status_changed",
           data: { from: byId.get(id)!.status, to: "resolved", reason: RESOLVE_REASONS[cause] },
         })),
-      })
+        (data) => prisma.alertEvent.createMany({ data }),
+      )
     }
     if (decision.startMissing.length > 0) {
       await prisma.alert.updateMany({
