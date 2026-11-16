@@ -21,7 +21,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 RUN pnpm exec prisma generate
-RUN pnpm exec next build
+# The build's own cache is no use at run time and is 140 MB.
+RUN pnpm exec next build && rm -rf .next/cache
 
 # ─── Stage 3: Production runner ──────────────────────────────────────────────
 FROM node:22-alpine AS runner
@@ -37,17 +38,21 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 # Install prod deps + generate Prisma client in runner
 # (pnpm resolves symlinks natively; avoids broken symlinks from COPY)
+#
+# Ownership is set in the same step as the install, and by COPY --chown below:
+# a chown -R of /app in a later step of its own copies all of node_modules into
+# another layer, which doubled the image.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./prisma.config.ts
-RUN pnpm install --frozen-lockfile --prod && pnpm exec prisma generate
+RUN pnpm install --frozen-lockfile --prod && pnpm exec prisma generate && \
+    chown -R nextjs:nodejs /app
 
 # Copy build output
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-COPY entrypoint.sh ./entrypoint.sh
-RUN chmod +x entrypoint.sh && chown -R nextjs:nodejs /app
+COPY --chown=nextjs:nodejs --chmod=755 entrypoint.sh ./entrypoint.sh
 
 USER nextjs
 
