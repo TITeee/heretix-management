@@ -5,8 +5,13 @@ import {
 } from "@/components/ui/breadcrumb"
 
 import { countSeverityByKey, emptySeverityCounts as emptyCounts } from "@/lib/severity"
+import { connection } from "next/server"
 
 export default async function TagsPage() {
+  // Rendered per request: the console's sign-in check is in the layout, which renders
+  // beside this page, so without this the build tried to prerender it and ran its queries
+  // with no database (prisma:error in every image build).
+  await connection()
   const tags = await prisma.tag.findMany({
     orderBy: { createdAt: "desc" },
     include: {

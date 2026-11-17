@@ -13,6 +13,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb"
+import { connection } from "next/server"
 
 async function getAssets() {
   const assets = await prisma.asset.findMany({
@@ -54,6 +55,10 @@ async function getAssets() {
 }
 
 export default async function AssetsPage() {
+  // Rendered per request: the console's sign-in check is in the layout, which renders
+  // beside this page, so without this the build tried to prerender it and ran its queries
+  // with no database (prisma:error in every image build).
+  await connection()
   const assets = await getAssets()
 
   return (

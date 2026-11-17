@@ -22,6 +22,7 @@ import { SlaSeverityChart, type SlaSeverityBarData } from "@/components/dashboar
 import { getAlertSeverityTier } from "@/lib/severity"
 import { ScanHealthNotice } from "@/components/dashboard/scan-health-notice"
 import { activeAlertsByAsset, activeSeverityCounts, activeSlaCounts, mttrByTier, weeklyCounts } from "@/lib/dashboard-data"
+import { connection } from "next/server"
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -298,6 +299,10 @@ async function getDashboardData() {
 // ── page ──────────────────────────────────────────────────────────────────────
 
 export default async function DashboardPage() {
+  // Rendered per request: the console's sign-in check is in the layout, which renders
+  // beside this page, so without this the build tried to prerender it and ran its queries
+  // with no database (prisma:error in every image build).
+  await connection()
   const {
     totalAssets,
     totalAlerts,
