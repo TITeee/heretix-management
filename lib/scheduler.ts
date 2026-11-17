@@ -1,5 +1,5 @@
 import { schedule } from "node-cron"
-import { refreshMetadata } from "@/lib/refresh"
+import { runRefresh } from "@/lib/refresh-run"
 import { recordRefreshStatus, refreshFailed } from "@/lib/refresh-status"
 import { failInterruptedScanJobs } from "@/lib/scan"
 import { runScanAll } from "@/lib/scan-all-run"
@@ -31,9 +31,13 @@ export function startScheduler() {
   const scanSchedule = process.env.CRON_SCAN ?? "45 */3 * * *"
 
   schedule(refreshSchedule, () => {
-    refreshMetadata()
-      // A Slack message that cannot be sent is not a failed refresh.
-      .then((result) => (refreshFailed({ ...result, error: null }) ? notifySlackRefreshFailed(result).catch(() => {}) : undefined))
+    runRefresh()
+      .then((result) => {
+        // A refresh someone started from the Alerts page is still going: it covers today.
+        if (!result) { logger.info("scheduler: a metadata refresh is already running, skipping"); return }
+        // A Slack message that cannot be sent is not a failed refresh.
+        return refreshFailed({ ...result, error: null }) ? notifySlackRefreshFailed(result).catch(() => {}) : undefined
+      })
       .catch((err) => {
         const error = err instanceof Error ? err.message : String(err)
         logger.error("scheduler: refreshMetadata failed", { error })
