@@ -21,13 +21,13 @@ import {
 } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Clock, TrendingUp, TrendingDown, AlertTriangle, History, ShieldCheck, GitBranch, CircleHelp, Sparkles, Info, CircleAlert, CircleCheck, CircleMinus, User } from "lucide-react"
-import { ReactFlow, Node, Edge, Background, Controls, MarkerType, useNodesState, useEdgesState } from "@xyflow/react"
-import "@xyflow/react/dist/style.css"
-import { applyDagreLayout } from "@/lib/dagre-layout"
+import { Clock, TrendingUp, TrendingDown, AlertTriangle, History, ShieldCheck, GitBranch, CircleHelp, Sparkles, Info, CircleAlert, CircleCheck, CircleMinus, User, ChevronDown, ChevronRight } from "lucide-react"
+import type { DependentsData, DependentsEntry } from "@/lib/dependents"
 import { FaTriangleExclamation, FaVirus, FaCircleExclamation } from "react-icons/fa6"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { buttonVariants } from "@/components/ui/button-variants"
+import { cn } from "@/lib/utils"
 import { getSlaStatus, formatDaysUntilDue } from "@/lib/sla"
 import { graceEndsAt } from "@/lib/scan-resolve"
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/severity"
@@ -242,136 +242,267 @@ const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: str
   },
 }
 
-type ChainItem = { name: string; version: string; direct: boolean | null }
-type DependentPath = { chain: ChainItem[] }
+type DependentsResponse = DependentsData & { assetId: string; hasRuntimeFacts: boolean; loadedBy: number }
 
-function buildDependentsGraph(
-  dependents: DependentPath[],
-  vulnName: string,
-  vulnVersion: string,
-): { nodes: Node[]; edges: Edge[] } {
-  const vulnKey = `${vulnName}@${vulnVersion}`
-  const nodeMap = new Map<string, { name: string; version: string; direct: boolean | null; vulnerable: boolean }>()
-  nodeMap.set(vulnKey, { name: vulnName, version: vulnVersion, direct: null, vulnerable: true })
+type DependentsSectionKey = "running" | "direct" | "vulnerable" | "other" | "quiet"
 
-  for (const dep of dependents) {
-    for (const item of dep.chain) {
-      const key = `${item.name}@${item.version}`
-      if (!nodeMap.has(key)) nodeMap.set(key, { ...item, vulnerable: false })
-    }
-  }
+/**
+ * The sections of the entry point list, most pressing first. "quiet" holds what does not
+ * ship or run (development dependencies, build tools, kernel headers) and metapackages,
+ * and starts closed.
+ */
+const DEPENDENTS_SECTIONS: { key: DependentsSectionKey; title: string; note: string; accent: string }[] = [
+  { key: "running", title: "Running", note: "A service had it and this package loaded: it runs the vulnerable code.", accent: "border-l-emerald-500" },
+  // The note depends on the kind of package: see directNote.
+  { key: "direct", title: "Direct", note: "", accent: "border-l-blue-500" },
+  { key: "vulnerable", title: "Vulnerable", note: "Has open alerts of its own.", accent: "border-l-red-500" },
+  { key: "other", title: "Other", note: "Nothing depends on it, but it is not marked direct.", accent: "border-l-slate-300 dark:border-l-slate-600" },
+  { key: "quiet", title: "Not shipped or not run", note: "Development dependencies, build tools, kernel headers and metapackages.", accent: "border-l-slate-200 dark:border-l-slate-700" },
+]
 
-  const nodes: Node[] = []
-  for (const [key, n] of nodeMap) {
-    nodes.push({
-      id: key,
-      position: { x: 0, y: 0 },
-      data: {
-        label: (
-          <div className="text-left px-1">
-            <div className="font-semibold text-xs break-all">{n.name}</div>
-            <div className="text-[10px] text-muted-foreground font-mono">{n.version}</div>
-            {n.direct && <div className="text-[10px] text-blue-600 font-medium">Direct</div>}
-            {n.vulnerable && <div className="text-[10px] text-red-600 font-medium">Vulnerable</div>}
-          </div>
-        ),
-      },
-      style: {
-        background: n.vulnerable ? "#fee2e2" : n.direct ? "#dbeafe" : "#f9fafb",
-        border: n.vulnerable ? "2px solid #dc2626" : n.direct ? "2px solid #2563eb" : "1px solid #e5e7eb",
-        borderRadius: 8,
-        width: 180,
-        fontSize: 12,
-        color: "#111827",
-      },
-    })
-  }
-
-  const seenEdges = new Set<string>()
-  const edges: Edge[] = []
-  for (const dep of dependents) {
-    const extended = [...dep.chain.map(c => `${c.name}@${c.version}`), vulnKey]
-    for (let i = 0; i < extended.length - 1; i++) {
-      const eKey = `${extended[i]}>>${extended[i + 1]}`
-      if (seenEdges.has(eKey)) continue
-      seenEdges.add(eKey)
-      edges.push({
-        id: eKey,
-        source: extended[i],
-        target: extended[i + 1],
-        markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
-        style: { stroke: "#9ca3af", strokeWidth: 1.5 },
-      })
-    }
-  }
-
-  return applyDagreLayout(nodes, edges)
+/**
+ * What "direct" means for the asset's kind of package. For a language package, the project
+ * lists it among its own dependencies. For an OS package, heretix-cli marks as direct what
+ * no other installed package depends on: the top of the tree, not necessarily something a
+ * person chose to install.
+ */
+function directNote(os: boolean): string {
+  return os ? "Nothing else installed depends on it." : "The project lists it among its own dependencies."
 }
 
-function AlertDependentsTab({ alertId, open, packageName, packageVersion }: {
-  alertId: string; open: boolean; packageName: string; packageVersion: string
+function dependentsSectionOf(e: DependentsEntry): DependentsSectionKey {
+  if (e.dev || e.notRun || e.meta) return "quiet"
+  if (e.running) return "running"
+  if (e.direct) return "direct"
+  if (e.vulnerable) return "vulnerable"
+  return "other"
+}
+
+// The cards a section shows before its Show all.
+const DEPENDENTS_SHOWN_PER_SECTION = 8
+
+function DependentsTile({ label, value, unit, note, action }: {
+  label: string; value: React.ReactNode; unit: string; note?: React.ReactNode
+  action?: { label: string; href: string; onClick?: () => void }
 }) {
-  const [data, setData] = useState<{ hasDepsData: boolean; dependents: DependentPath[] } | null>(null)
+  return (
+    <div className="flex flex-col rounded-md border px-4 py-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 flex items-baseline gap-1.5">
+        <span className="text-2xl font-semibold tabular-nums">{value}</span>
+        <span className="text-sm text-muted-foreground">{unit}</span>
+      </div>
+      {note && <div className="mt-1 text-xs text-muted-foreground">{note}</div>}
+      {action && (
+        <Link
+          href={action.href}
+          onClick={action.onClick}
+          className={cn(buttonVariants({ variant: "outline", size: "xs" }), "mt-2 self-start")}
+        >
+          {action.label}
+        </Link>
+      )}
+    </div>
+  )
+}
+
+function DependentsFlag({ children, className, title }: { children: React.ReactNode; className: string; title?: string }) {
+  return <Badge variant="outline" title={title} className={`h-5 px-1.5 text-[10px] font-medium ${className}`}>{children}</Badge>
+}
+
+/** The path as chips, from the entry point down to the vulnerable package; a long middle folds into "+N". */
+function DependentsPath({ path }: { path: string[] }) {
+  const [unfolded, setUnfolded] = useState(false)
+  const folded = path.length > 4 && !unfolded
+  const chip = "rounded border bg-background px-1.5 py-0.5 font-mono text-[11px] break-all"
+  const items: React.ReactNode[] = []
+  const push = (node: React.ReactNode, key: string) => {
+    if (items.length > 0) items.push(<span key={`${key}-arrow`} className="text-muted-foreground">→</span>)
+    items.push(node)
+  }
+  const last = path.length - 1
+  const shown = folded ? [0, -1, last - 1, last] : path.map((_, i) => i)
+  for (const i of shown) {
+    if (i === -1) {
+      push(
+        <button key="fold" type="button" onClick={() => setUnfolded(true)} className={`${chip} text-muted-foreground hover:bg-muted`} title="Show the whole path">
+          +{path.length - 3}
+        </button>,
+        "fold",
+      )
+      continue
+    }
+    push(
+      <span key={i} className={i === last ? `${chip} border-red-300 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300` : chip}>
+        {path[i]}
+      </span>,
+      String(i),
+    )
+  }
+  return <div className="flex flex-wrap items-center gap-1">{items}</div>
+}
+
+function DependentsEntryCard({ entry, accent, os }: { entry: DependentsEntry; accent: string; os: boolean }) {
+  const others = entry.otherPathsCapped
+    ? `${entry.otherPaths}+ other paths`
+    : entry.otherPaths > 0 ? `${entry.otherPaths.toLocaleString()} other path${entry.otherPaths !== 1 ? "s" : ""}` : null
+  return (
+    <li className={`rounded-md border border-l-4 ${accent} px-3 py-2.5 space-y-1.5`}>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-sm font-medium break-all">{entry.name}</span>
+        <span className="font-mono text-xs text-muted-foreground">{entry.version}</span>
+        <span className="flex-1" />
+        {entry.running && <DependentsFlag className="border-emerald-300 text-emerald-800 dark:border-emerald-800 dark:text-emerald-300">Running</DependentsFlag>}
+        {entry.direct && <DependentsFlag title={directNote(os)} className="border-blue-300 text-blue-800 dark:border-blue-800 dark:text-blue-300">Direct</DependentsFlag>}
+        {entry.vulnerable && <DependentsFlag className="border-red-300 text-red-800 dark:border-red-900 dark:text-red-300">Vulnerable</DependentsFlag>}
+        {entry.dev && <DependentsFlag className="text-muted-foreground">Dev</DependentsFlag>}
+        {entry.notRun && <DependentsFlag className="text-muted-foreground">Not run</DependentsFlag>}
+        {entry.meta && <DependentsFlag className="text-muted-foreground">Metapackage</DependentsFlag>}
+      </div>
+      {entry.services.length > 0 && (
+        <div className="text-xs text-emerald-800 dark:text-emerald-300 break-all">
+          Runs in {entry.services.slice(0, 3).join(", ")}{entry.services.length > 3 ? ` and ${entry.services.length - 3} more` : ""}
+        </div>
+      )}
+      {entry.packages.length > 1 && (
+        <div className="flex flex-wrap gap-1">
+          {entry.packages.map((p) => (
+            <span key={p.name} className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">{p.name}</span>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <DependentsPath path={entry.path} />
+        {others && <span className="text-[11px] text-muted-foreground whitespace-nowrap tabular-nums">{others}</span>}
+      </div>
+    </li>
+  )
+}
+
+function DependentsSection({ section, entries, filtering, os }: {
+  section: (typeof DEPENDENTS_SECTIONS)[number]; entries: DependentsEntry[]; filtering: boolean; os: boolean
+}) {
+  const [open, setOpen] = useState(section.key !== "quiet")
+  const [showAll, setShowAll] = useState(false)
+  const isOpen = open || filtering
+  const shown = showAll || filtering ? entries : entries.slice(0, DEPENDENTS_SHOWN_PER_SECTION)
+  return (
+    <section className="space-y-2">
+      <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-baseline gap-2 text-left">
+        {isOpen ? <ChevronDown className="h-4 w-4 shrink-0 self-center" /> : <ChevronRight className="h-4 w-4 shrink-0 self-center" />}
+        <span className="text-sm font-semibold">{section.title}</span>
+        <span className="text-sm tabular-nums text-muted-foreground">{entries.length}</span>
+        <span className="text-xs text-muted-foreground">{section.key === "direct" ? directNote(os) : section.note}</span>
+      </button>
+      {isOpen && (
+        <>
+          <ul className="space-y-2">
+            {shown.map((e) => <DependentsEntryCard key={e.key} entry={e} accent={section.accent} os={os} />)}
+          </ul>
+          {!showAll && !filtering && entries.length > DEPENDENTS_SHOWN_PER_SECTION && (
+            <button type="button" onClick={() => setShowAll(true)} className="text-xs text-primary underline-offset-4 hover:underline">
+              Show all {entries.length}
+            </button>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
+function DependentsNote({ children }: { children: React.ReactNode }) {
+  return <div className="rounded-md border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">{children}</div>
+}
+
+// onNavigate closes the sheet: a link to the asset page opened from that same page would
+// otherwise leave the sheet open over it.
+function AlertDependentsTab({ alertId, open, onNavigate }: { alertId: string; open: boolean; onNavigate: () => void }) {
+  const [data, setData] = useState<DependentsResponse | null>(null)
   const [loading, setLoading] = useState(false)
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+  const [filter, setFilter] = useState("")
 
   useEffect(() => {
     if (!open) return
     setLoading(true)
+    setFilter("")
     fetch(`/api/alerts/${alertId}/dependents`)
-      .then(r => r.json())
-      .then((d: { hasDepsData: boolean; dependents: DependentPath[] }) => {
-        setData(d)
-        if (d.hasDepsData) {
-          const { nodes: n, edges: e } = buildDependentsGraph(d.dependents, packageName, packageVersion)
-          setNodes(n)
-          setEdges(e)
-        }
-      })
-      .catch(() => {})
+      .then((r) => r.json())
+      .then((d: DependentsResponse) => setData(d))
+      .catch(() => setData(null))
       .finally(() => setLoading(false))
-  }, [open, alertId, packageName, packageVersion, setNodes, setEdges])
+  }, [open, alertId])
 
   if (loading) return <DetailSkeleton />
+  if (!data) return null
 
-  if (!data?.hasDepsData) {
+  if (!data.hasDepsData) {
     return (
-      <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground">
-        <GitBranch className="h-6 w-6" />
-        <p className="text-sm">No dependency graph data available for this package type.</p>
-        <p className="text-xs opacity-70">Dependency data is available for npm and pnpm packages.</p>
-      </div>
+      <DependentsNote>
+        <p>This asset&apos;s SBOM carries no dependency relationships, so what brings this package in is not known.</p>
+        <p className="mt-1 text-xs">Some sources record none, such as a jar read on its own.</p>
+      </DependentsNote>
     )
   }
+  if (!data.target) return <DependentsNote>The package is no longer in this asset&apos;s package list.</DependentsNote>
+
+  const { target, entries } = data
+  const assetUrl = `/assets/${data.assetId}`
+  const graphUrl = `${assetUrl}?tab=graph&focus=${encodeURIComponent(target.graphId)}`
+  const throughOthers = data.dependents - data.directDependents
+  const query = filter.trim().toLowerCase()
+  const matching = query
+    ? entries.filter((e) => e.name.toLowerCase().includes(query) || e.packages.some((p) => p.name.toLowerCase().includes(query)))
+    : entries
+  const running = entries.filter((e) => dependentsSectionOf(e) === "running").length
+  const direct = entries.filter((e) => e.direct).length
+  const showServices = data.hasRuntimeFacts && data.loadedBy > 0
+  // OS packages are keyed by source package ("src:openssl"), as on the Dependency Graph.
+  const os = target.graphId.startsWith("src:")
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-red-100 border-2 border-red-600" /> Vulnerable</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-blue-100 border-2 border-blue-600" /> Direct dep</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gray-100 border border-gray-300" /> Indirect dep</span>
+    <div className="space-y-5">
+      <div className="min-w-0">
+        <div className="text-base font-semibold break-all">
+          {target.name} <span className="font-mono text-sm font-normal text-muted-foreground">{target.version}</span>
+        </div>
+        {target.sourcePackage && target.sourcePackage !== target.name && (
+          <div className="text-xs text-muted-foreground">Source package {target.sourcePackage}</div>
+        )}
       </div>
-      {data.dependents.length === 0 && (
-        <p className="text-xs text-muted-foreground">No other packages in this asset depend on this package.</p>
+
+      <div className={`grid gap-3 ${showServices ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+        <DependentsTile label="Depend on it" value={data.dependents.toLocaleString()} unit={data.dependents === 1 ? "package" : "packages"}
+          note={data.dependents === 0
+            ? (target.direct ? "Installed directly; nothing depends on it." : "Nothing in this asset depends on it.")
+            : `${data.directDependents.toLocaleString()} directly, ${throughOthers.toLocaleString()} through others`}
+          action={data.dependents > 0 ? { label: "Open in Dependency Graph", href: graphUrl, onClick: onNavigate } : undefined} />
+        <DependentsTile label="Brought in by" value={entries.length} unit={entries.length === 1 ? "entry point" : "entry points"}
+          note={entries.length > 0 ? <><span className="text-emerald-700 dark:text-emerald-400">{running} running</span>, {direct} direct</> : undefined} />
+        {showServices && (
+          <DependentsTile label="Loaded by" value={data.loadedBy} unit={data.loadedBy === 1 ? "service" : "services"}
+            note="with this package loaded"
+            action={{ label: "Open Services tab", href: `${assetUrl}?tab=services`, onClick: onNavigate }} />
+        )}
+      </div>
+
+      {entries.length > 0 && (
+        <div className="space-y-4">
+          {entries.length > 10 && (
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter entry points"
+              className="h-8 w-full max-w-xs rounded-md border bg-background px-2.5 text-sm"
+            />
+          )}
+          {DEPENDENTS_SECTIONS.map((section) => {
+            const list = matching.filter((e) => dependentsSectionOf(e) === section.key)
+            if (list.length === 0) return null
+            return <DependentsSection key={section.key} section={section} entries={list} filtering={!!query} os={os} />
+          })}
+          {query && matching.length === 0 && <p className="text-sm text-muted-foreground">No entry point matches.</p>}
+        </div>
       )}
-      <div style={{ height: Math.max(640, nodes.length * 120) }} className="rounded-md border overflow-hidden">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
-          minZoom={0.3}
-          nodesDraggable
-          nodesConnectable={false}
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background gap={16} size={1} color="#f0f0f0" />
-          <Controls style={{ backgroundColor: "white", color: "#374151", borderColor: "#e5e7eb" }} />
-        </ReactFlow>
-      </div>
     </div>
   )
 }
@@ -1413,7 +1544,7 @@ export function AlertDetailSheet({
           </TabsContent>
 
           <TabsContent value="dependents" className="flex-1 overflow-y-auto px-6 py-4">
-            <AlertDependentsTab alertId={alert.id} open={open} packageName={alert.packageName} packageVersion={alert.packageVersion} />
+            <AlertDependentsTab alertId={alert.id} open={open} onNavigate={() => onOpenChange(false)} />
           </TabsContent>
 
           <TabsContent value="timeline" className="flex-1 overflow-y-auto px-6 py-4">

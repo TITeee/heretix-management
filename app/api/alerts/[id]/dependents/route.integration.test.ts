@@ -3,6 +3,7 @@ import { NextRequest } from "next/server"
 import { prisma } from "@/lib/db"
 import { resetDb } from "@/lib/test-utils/db"
 import { auth } from "@/lib/auth"
+import { buildPURL } from "@/lib/purl"
 import { GET } from "./route"
 
 vi.mock("@/lib/auth", () => ({
@@ -54,8 +55,39 @@ describe("GET /api/alerts/[id]/dependents", () => {
     expect(res.status).toBe(200)
     const data = await res.json()
     expect(data.hasDepsData).toBe(true)
-    expect(data.dependents).toHaveLength(1)
-    expect(data.dependents[0].chain).toEqual([{ name: "httpd", version: "2.4.57-2.el9", direct: true }])
+    expect(data.dependents).toBe(1)
+    expect(data.entries).toHaveLength(1)
+    expect(data.entries[0]).toMatchObject({ name: "httpd", version: "2.4.57-2.el9", direct: true, path: ["httpd", "openssl-libs"] })
+  })
+
+  it("gives what the tab links with: the asset, its Services tab, the services that load the package", async () => {
+    const asset = await prisma.asset.create({
+      data: { name: "host-2", hostname: "host-2", osId: "rhel", osVersionId: "9", osName: "RHEL 9" },
+    })
+    const ecosystem = "Red Hat:9"
+    await prisma.package.create({
+      data: {
+        assetId: asset.id, name: "openssl-libs", version: "1:3.5.5-6.el9", rawVersion: "1:3.5.5-6.el9", ecosystem, source: "rpm",
+        sourcePackage: "openssl", inUse: true, usedBy: ["sshd.service", "postgresql.service"], deps: [],
+      },
+    })
+    await prisma.package.create({
+      data: {
+        assetId: asset.id, name: "openssh-server", version: "9.9p1-12.el9", rawVersion: "9.9p1-12.el9", ecosystem, source: "rpm",
+        sourcePackage: "openssh", direct: true, inUse: true, usedBy: ["sshd.service"], deps: [buildPURL("openssl-libs", "1:3.5.5-6.el9", ecosystem)],
+      },
+    })
+    const alert = await prisma.alert.create({
+      data: { assetId: asset.id, packageName: "openssl-libs", packageVersion: "1:3.5.5-6.el9", ecosystem, externalId: "CVE-2026-3333", sources: ["red-hat"], status: "open" },
+    })
+    await prisma.alert.create({
+      data: { assetId: asset.id, packageName: "openssh-server", packageVersion: "9.9p1-12.el9", ecosystem, externalId: "CVE-2026-4444", sources: ["red-hat"], status: "open" },
+    })
+
+    const data = await (await get(alert.id)).json()
+    expect(data).toMatchObject({ assetId: asset.id, hasRuntimeFacts: true, loadedBy: 2, dependents: 1 })
+    expect(data.target).toMatchObject({ name: "openssl-libs", sourcePackage: "openssl", graphId: "src:openssl" })
+    expect(data.entries[0]).toMatchObject({ key: "src:openssh", name: "openssh", running: true, services: ["sshd.service"], direct: true, vulnerable: true })
   })
 
   it("reports no deps data when nothing on the asset has any", async () => {
@@ -70,7 +102,7 @@ describe("GET /api/alerts/[id]/dependents", () => {
     })
 
     const data = await (await get(alert.id)).json()
-    expect(data).toEqual({ hasDepsData: false, dependents: [] })
+    expect(data).toMatchObject({ hasDepsData: false, entries: [] })
   })
 
   it("returns 404 for a missing alert", async () => {

@@ -38,12 +38,21 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 
+// Tabs a link can open (?tab=), as an alert's Dependents tab does; ?focus= picks the
+// package the Dependency Graph starts from.
+const LINKABLE_TABS = ["remediation", "services", "packages", "graph"] as const
+
 export default async function AssetDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const { id } = await params
+  const query = await searchParams
+  const tabParam = typeof query.tab === "string" ? query.tab : null
+  const focusParam = typeof query.focus === "string" ? query.focus : null
   const asset = await prisma.asset.findUnique({
     where: { id },
     include: {
@@ -127,6 +136,9 @@ export default async function AssetDetailPage({
   // The Services tab needs heretix-cli's runtime facts (read from /proc on a host);
   // an image, another scanner's SBOM or an older one has none.
   const hasRuntimeFacts = asset.packages.some(p => p.inUse !== null)
+  const initialTab = (LINKABLE_TABS as readonly string[]).includes(tabParam ?? "") && !(tabParam === "services" && !hasRuntimeFacts)
+    ? tabParam!
+    : "remediation"
   const packagesWithAlerts = asset.packages.map(p => {
     const s = pkgAlertMap.get(`${p.name}::${p.version}`) ?? emptySeverityCounts()
     return {
@@ -344,7 +356,9 @@ export default async function AssetDetailPage({
 
       {/* Remediation / Packages / Dependency Graph tabs. Opens on Remediation:
           what to change comes before the package list. */}
-      <Tabs defaultValue="remediation">
+      {/* Keyed by the link's tab and focus: a link from an alert on this same page changes only
+          the query, and Tabs and the graph read theirs when they mount. */}
+      <Tabs key={`${initialTab}:${focusParam ?? ""}`} defaultValue={initialTab}>
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="remediation">Remediation</TabsTrigger>
@@ -372,7 +386,7 @@ export default async function AssetDetailPage({
           <Card><CardContent><PackagesTable data={packagesWithAlerts} assetId={id} /></CardContent></Card>
         </TabsContent>
         <TabsContent value="graph">
-          <Card><CardContent><DependencyGraphLoader assetId={id} /></CardContent></Card>
+          <Card><CardContent><DependencyGraphLoader assetId={id} initialFocus={focusParam} /></CardContent></Card>
         </TabsContent>
       </Tabs>
     </div>

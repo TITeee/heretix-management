@@ -2,55 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { withApiErrorHandling } from "@/lib/api-handler"
-import { buildPURL } from "@/lib/purl"
+import { buildDependents } from "@/lib/dependents"
 
-type PkgNode = {
-  name: string
-  version: string
-  direct: boolean | null
-  deps: string[]
-  purl: string
-}
-
-type ChainItem = { name: string; version: string; direct: boolean | null }
-type DependentPath = { chain: ChainItem[] }
-
-// Find all upstream dependency paths to the target PURL.
-// chain is built from direct parent → ... → immediate parent of target.
-function findPaths(
-  targetPurl: string,
-  pkgByPurl: Map<string, PkgNode>,
-  visited: Set<string>,
-  maxDepth: number
-): DependentPath[] {
-  if (maxDepth <= 0) return []
-
-  const results: DependentPath[] = []
-
-  for (const [purl, pkg] of pkgByPurl) {
-    if (visited.has(purl)) continue
-    if (!pkg.deps.includes(targetPurl)) continue
-
-    const node: ChainItem = { name: pkg.name, version: pkg.version, direct: pkg.direct }
-
-    const newVisited = new Set([...visited, targetPurl])
-    const parentPaths = findPaths(purl, pkgByPurl, newVisited, maxDepth - 1)
-    if (parentPaths.length > 0) {
-      for (const pp of parentPaths) {
-        results.push({ chain: [...pp.chain, node] })
-      }
-    }
-    if (pkg.direct === true || parentPaths.length === 0) {
-      // Also emit as a top-level path: direct deps that are themselves reachable
-      // from a higher direct dep (e.g. mermaid-cli is both direct and a child of
-      // prisma-erd-generator) still appear as standalone roots.
-      results.push({ chain: [node] })
-    }
-  }
-
-  return results
-}
-
+/**
+ * What brings the alert's package into its asset: the entry points above it, each with
+ * one shortest path down to it (lib/dependents.ts). Also what the tab links on with: the
+ * asset, whether it has a Services tab, and how many services had the package loaded.
+ */
 export const GET = withApiErrorHandling("alerts.dependents", async (
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -65,50 +23,33 @@ export const GET = withApiErrorHandling("alerts.dependents", async (
   })
   if (!alert) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  // Build the vulnerable package's PURL
-  const vulnerablePurl = buildPURL(alert.packageName, alert.packageVersion, alert.ecosystem)
+  const [packages, openAlerts] = await Promise.all([
+    prisma.package.findMany({
+      where: { assetId: alert.assetId },
+      select: {
+        name: true, version: true, ecosystem: true, direct: true, deps: true,
+        sourcePackage: true, scope: true, category: true, inUse: true, usedBy: true,
+      },
+    }),
+    prisma.alert.findMany({
+      where: { assetId: alert.assetId, status: { in: ["open", "in_progress"] } },
+      select: { packageName: true, packageVersion: true },
+      distinct: ["packageName", "packageVersion"],
+    }),
+  ])
 
-  // Fetch all packages of this asset that have any deps data
-  const allPkgs = await prisma.package.findMany({
-    where: { assetId: alert.assetId },
-    select: { name: true, version: true, ecosystem: true, direct: true, deps: true },
-  })
-
-  // Check if deps data is available at all for this asset
-  const hasDepsData = allPkgs.some(p => p.deps.length > 0)
-  if (!hasDepsData) {
-    return NextResponse.json({ hasDepsData: false, dependents: [] })
-  }
-
-  // Build PURL → PkgNode map
-  const pkgByPurl = new Map<string, PkgNode>()
-  for (const pkg of allPkgs) {
-    const purl = buildPURL(pkg.name, pkg.version, pkg.ecosystem)
-    pkgByPurl.set(purl, { ...pkg, purl })
-  }
-
-  const paths = findPaths(vulnerablePurl, pkgByPurl, new Set([vulnerablePurl]), 5)
-
-  // Deduplicate paths with identical chains
-  const seen = new Set<string>()
-  const dedupedPaths = paths.filter(p => {
-    const key = p.chain.map(n => `${n.name}@${n.version}`).join(">")
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-
-  // Sort: direct dependents first, then by chain length
-  dedupedPaths.sort((a, b) => {
-    const aIsDirect = a.chain[0]?.direct === true
-    const bIsDirect = b.chain[0]?.direct === true
-    if (aIsDirect !== bIsDirect) return aIsDirect ? -1 : 1
-    return a.chain.length - b.chain.length
-  })
+  const vulnerable = new Set(openAlerts.map((a) => `${a.packageName}\u0000${a.packageVersion}`))
+  const data = buildDependents(
+    packages,
+    { name: alert.packageName, version: alert.packageVersion, ecosystem: alert.ecosystem },
+    vulnerable,
+  )
+  const targetPkg = packages.find((p) => p.name === alert.packageName && p.version === alert.packageVersion)
 
   return NextResponse.json({
-    hasDepsData: true,
-    vulnerablePurl,
-    dependents: dedupedPaths,
+    ...data,
+    assetId: alert.assetId,
+    hasRuntimeFacts: packages.some((p) => p.inUse !== null),
+    loadedBy: targetPkg?.usedBy.length ?? 0,
   })
 })

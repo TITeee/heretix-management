@@ -11,6 +11,6 @@ const DependencyGraph = dynamic(
   { ssr: false, loading: () => <div className="p-6 text-sm text-muted-foreground">Loading dependency graph...</div> }
 )
 
-export function DependencyGraphLoader({ assetId }: { assetId: string }) {
-  return <DependencyGraph assetId={assetId} />
+export function DependencyGraphLoader({ assetId, initialFocus = null }: { assetId: string; initialFocus?: string | null }) {
+  return <DependencyGraph assetId={assetId} initialFocus={initialFocus} />
 }

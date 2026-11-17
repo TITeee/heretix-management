@@ -38,7 +38,7 @@ The console's own routes under `/api`. All of them need a signed-in session, exc
 | GET | `/api/alerts/events` | Events across all alerts (the Activity page) |
 | GET | `/api/alerts/[id]/events` | One alert's events (its Timeline) |
 | GET | `/api/alerts/[id]/tags` | The tags the alert falls under: `assetTags` on its asset, `packageTags` on its package name |
-| GET | `/api/alerts/[id]/dependents` | Dependency paths to the vulnerable package, from the SBOM's dependency graph |
+| GET | `/api/alerts/[id]/dependents` | What brings the vulnerable package in: its entry points (direct, or depended on by nothing), each with one shortest path and the count of other paths, OS packages grouped by source package; also the number of packages above it and of the services that load it |
 | GET | `/api/alerts/[id]/vex-suggestions` | Judgments of the same finding on other assets |
 | GET | `/api/alerts/[id]/chat` | AI Insight chat history |
 | POST | `/api/alerts/[id]/chat` | Send a message to AI Insight |

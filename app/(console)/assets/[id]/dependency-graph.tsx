@@ -87,13 +87,14 @@ function buildLayout(data: DependencyGraphData): { nodes: Node[]; edges: Edge[] 
 }
 
 
-export function DependencyGraph({ assetId }: { assetId: string }) {
+export function DependencyGraph({ assetId, initialFocus = null }: { assetId: string; initialFocus?: string | null }) {
   const [data, setData] = useState<DependencyGraphData | null>(null)
   const [loading, setLoading] = useState(true)
   const [hops, setHops] = useState(4)
   // Which vulnerable package the graph starts from (null: the server's default, the most
   // urgent), and the nodes whose every dependent is drawn.
-  const [focus, setFocus] = useState<string | null>(null)
+  // A link may name it (?focus=, from an alert's Dependents tab).
+  const [focus, setFocus] = useState<string | null>(initialFocus)
   const [expand, setExpand] = useState<string[]>([])
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])

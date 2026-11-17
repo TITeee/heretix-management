@@ -129,11 +129,11 @@ Click an alert to open it:
 | **OSV** | Each OSV record: severity, the distro's rating, affected ranges, references |
 | **Advisory** | Vendor advisories with their affected products. A row with no fix shows *All versions (no fix yet)* and the fix status. For a Red Hat or Oracle Linux alert, the advisory and the Affected Products rows for its own release and package (or source package) are marked **This alert** and listed first; other alerts get no mark. Shown when advisory data exists |
 | **CNA** | The CVE Record's own data. Shown when available |
-| **Dependents** *(Beta)* | The packages that depend on the vulnerable one, as a graph, from the dependencies the SBOM records: lockfiles, Go modules, PyPI `site-packages`, and OS packages from heretix-cli 0.7.0 on (see the [coverage table](https://github.com/TITeee/heretix-cli/blob/main/docs/sbom.md#coverage-by-lockfile) for which source records them) |
+| **Dependents** | What brings the vulnerable package in: the entry points above it (packages marked direct, or that nothing depends on), each with one shortest path down to it and the number of other paths. OS packages are grouped by source package. Those whose services also run the vulnerable package come first, with the services named, then direct and vulnerable ones; metapackages, development dependencies and packages never run come last. Links to the Dependency Graph from this package, and to the Services tab when services load it. From the dependencies the SBOM records: lockfiles, Go modules, PyPI `site-packages`, and OS packages from heretix-cli 0.7.0 on (see the [coverage table](https://github.com/TITeee/heretix-cli/blob/main/docs/sbom.md#coverage-by-lockfile) for which source records them) |
 | **Timeline** | The alert's events |
 | **AI Insight** | Optional chat about the alert (below) |
 
-The asset page also has a **Dependency Graph** tab: what depends on one vulnerable package, 1 to 8 hops up. It starts from the most urgent one (KEV, then severity, then count); **Starting from** picks another. To stay readable on an OS host, where nearly every package depends on glibc:
+The asset page also has a **Dependency Graph** tab: what depends on one vulnerable package, 1 to 8 hops up. It starts from the most urgent one (KEV, then severity, then count); **Starting from** picks another, and a link can name it (`?tab=graph&focus=<node id>`, as the Dependents tab does). To stay readable on an OS host, where nearly every package depends on glibc:
 
 - OS packages are one node per source package (`openssl-libs` and `openssl` together).
 - A node with more than eight dependents shows eight, those already drawn and direct, in-use and vulnerable packages first, and a **+N more** node that shows the rest when clicked.
