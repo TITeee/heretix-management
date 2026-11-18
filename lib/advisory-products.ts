@@ -114,11 +114,15 @@ export const NGINX_PRODUCTS = ["nginx"]
 export const TOMCAT_PRODUCTS = ["tomcat"]
 export const ZABBIX_PRODUCTS = ["zabbix"]
 
+// Matched by heretix-api against Oracle's product names: exactly, or by prefix for the
+// families in its ORACLE_PRODUCT_PREFIXES (Database, APEX, PeopleSoft, ...), whose
+// products Oracle splits into many names.
 export const ORACLE_CPU_PRODUCTS = [
   "Database",
   "Java SE",
   "MySQL Server",
   "WebLogic Server",
+  "APEX",
   "Fusion Middleware",
   "GoldenGate",
   "HTTP Server",
