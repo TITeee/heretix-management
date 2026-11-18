@@ -12,7 +12,7 @@ It keeps what each of your assets has installed, finds the vulnerabilities in it
 
 1. **Import** an SBOM of a server or container image, or register a network appliance by hand or by CSV.
 2. **Scan**: every package is checked against heretix-api, and each match becomes an alert. Scans run on demand, after an upload from CI, and every three hours, and close the alerts that no longer apply.
-3. **Fix**: alerts are grouped by the update that resolves them, with known-exploited (CISA KEV) ones first, SLA due dates, and Slack notifications.
+3. **Fix**: each alert shows whether it is being exploited (CISA KEV), how likely it is to be (EPSS), the fixed version and the workaround. Tag the assets that matter most, or that face the internet, and the urgent alerts stand out.
 
 ![How heretix-management fits in: SBOMs from heretix-cli, Trivy, Syft or cdxgen and network appliances added by hand or CSV are imported into heretix-management, which keeps the inventory and alerts, scans on a schedule by searching heretix-api, and shows the findings to your team](docs/overview.svg)
 
