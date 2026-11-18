@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
+import { lookupSources } from "@/lib/lookup-sources"
 import { searchAllVulnerabilities, getVulnerabilityById, searchByCPE, HeretixApiError } from "@/lib/heretix-api"
 
 export async function GET(req: NextRequest) {
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
         id: data.id,
         externalId: data.externalId ?? data.cveId ?? data.osvId ?? data.advisoryId ?? id.trim(),
         source: data.source ?? (data.cveId ? "nvd" : data.osvId ? "osv" : "advisory"),
-        sources: data.sources ?? [],
+        sources: data.sources?.length ? data.sources : lookupSources(data),
         severity: data.severity ?? null,
         cvssScore: data.cvssScore ?? null,
         cvssVector: data.cvssVector ?? null,
