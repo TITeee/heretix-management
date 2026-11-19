@@ -188,6 +188,17 @@ export function SeverityBadge({ score, severity }: { score: number | null; sever
   )
 }
 
+/**
+ * The value of a CVSS row: the score, coloured by its tier, or "n/a" when the source gives
+ * none. A source with only a severity (nginx.org, an NVD record with no metrics) used to show
+ * that severity here, which read as a CVSS rating nobody had made; the Severity row beside it
+ * carries the severity.
+ */
+export function CvssScore({ score, severity }: { score: number | null | undefined; severity: string | null | undefined }) {
+  if (score == null) return <span>n/a</span>
+  return <SeverityBadge score={score} severity={severity} />
+}
+
 export function DetailSkeleton() {
   return (
     <div className="space-y-3 p-1">
@@ -236,7 +247,7 @@ export function NvdTab({ detail, loading, error }: { detail: VulnDetail | null; 
           <div className="flex items-center gap-2">
             <span className="w-28 text-muted-foreground shrink-0">CVSS</span>
             <div className="flex items-center gap-2">
-              <SeverityBadge score={nvd.cvssScore} severity={nvd.severity} />
+              <CvssScore score={nvd.cvssScore} severity={nvd.severity} />
               {nvd.cvssVector && <CvssVectorTooltip vector={nvd.cvssVector} />}
             </div>
           </div>
@@ -702,7 +713,7 @@ export function AdvisoryTab({ detail, loading, alert }: { detail: VulnDetail | n
               <div className="flex items-center gap-2">
                 <span className="w-28 text-muted-foreground shrink-0">CVSS</span>
                 <div className="flex items-center gap-2">
-                  <SeverityBadge score={adv.cvssScore} severity={adv.severity} />
+                  <CvssScore score={adv.cvssScore} severity={adv.severity} />
                   {adv.cvssVector && <CvssVectorTooltip vector={adv.cvssVector} />}
                 </div>
               </div>
