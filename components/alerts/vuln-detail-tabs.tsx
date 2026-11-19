@@ -114,6 +114,10 @@ export type CnaAffectedProduct = {
   versionEnd: string | null
   lastAffected: string | null
   affectedVersions: string[]
+  /** versionEnd is where heretix ended a range the CNA left open, not a fix (heretix-api's CnaAffectedRow.noFix). Older heretix-api omits it. */
+  noFix?: boolean
+  /** F5's Engineering Hotfixes for the range: builds for one release, not a fix version. Older heretix-api omits them. */
+  hotfixes?: string[]
 }
 
 export type VulnDetail = {
@@ -951,6 +955,7 @@ export function CnaTab({ detail, loading }: { detail: VulnDetail | null; loading
   if (loading) return <DetailSkeleton />
 
   const cna = detail?.cnaVulnerability
+  const hasHotfixes = !!cna?.affectedProducts.some((p) => (p.hotfixes?.length ?? 0) > 0)
   if (!detail || !hasCnaData(detail)) {
     return <p className="text-sm text-muted-foreground py-2">No CNA data available.</p>
   }
@@ -1017,6 +1022,7 @@ export function CnaTab({ detail, loading }: { detail: VulnDetail | null; loading
                   <th className="px-3 py-2 text-left font-medium">Vendor / Product</th>
                   <th className="px-3 py-2 text-left font-medium">Affected Versions</th>
                   <th className="px-3 py-2 text-left font-medium">Fixed</th>
+                  {hasHotfixes && <th className="px-3 py-2 text-left font-medium">Engineering Hotfix</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1047,8 +1053,16 @@ export function CnaTab({ detail, loading }: { detail: VulnDetail | null; loading
                         : "n/a"}
                     </td>
                     <td className="px-3 py-2 font-mono text-muted-foreground">
-                      {p.versionEnd ?? "n/a"}
+                      {/* An end heretix set on a range the CNA left open is not a fix. */}
+                      {p.versionEnd && !p.noFix ? p.versionEnd : "n/a"}
                     </td>
+                    {hasHotfixes && (
+                      <td className="px-3 py-2 font-mono text-muted-foreground">
+                        {/* The vendor's hotfix builds for this range, as it names them; the
+                            release stays affected without one, so they are not the fix. */}
+                        {p.hotfixes?.length ? p.hotfixes.map((h) => <div key={h}>{h}</div>) : "n/a"}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
