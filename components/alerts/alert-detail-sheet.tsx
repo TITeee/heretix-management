@@ -1246,10 +1246,18 @@ export function AlertDetailSheet({
                     </div>
                   </>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="w-28 text-muted-foreground shrink-0">Package</span>
-                    <span className="font-medium">{alert.packageName}</span>
-                  </div>
+                  <>
+                    {alert.sourcePackage && (
+                      <div className="flex items-center gap-2">
+                        <span className="w-28 text-muted-foreground shrink-0">Source</span>
+                        <span className="font-medium">{alert.sourcePackage}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="w-28 text-muted-foreground shrink-0">Package</span>
+                      <span className="font-medium">{alert.packageName}</span>
+                    </div>
+                  </>
                 )}
                 <div className="flex items-center gap-2">
                   <span className="w-28 text-muted-foreground shrink-0">Version</span>
