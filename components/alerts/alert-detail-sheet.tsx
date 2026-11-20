@@ -1110,7 +1110,7 @@ export function AlertDetailSheet({
           <SheetTitle className="font-mono text-sm">{alert.externalId}</SheetTitle>
           <SheetDescription className="flex items-center gap-2">
             {alert.packageName} {alert.packageVersion}
-            <Badge variant="secondary" className="text-xs font-normal">{alert.ecosystem}</Badge>
+            <Badge variant="secondary" className="text-xs font-normal">{alert.ecosystem || "Product"}</Badge>
           </SheetDescription>
         </SheetHeader>
 
@@ -1265,7 +1265,7 @@ export function AlertDetailSheet({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-28 text-muted-foreground shrink-0">Ecosystem</span>
-                  <span>{alert.ecosystem}</span>
+                  <span>{alert.ecosystem || "Product"}</span>
                 </div>
                 {/* A grouped alert shows package tags per member above instead:
                     one Tags row under several packages would read as covering them all. */}

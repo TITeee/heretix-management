@@ -346,7 +346,7 @@ export function buildColumns(onStatusChange: (id: string, status: string) => voi
       )
     },
   },
-  { accessorKey: "ecosystem", header: "Ecosystem" },
+  { accessorKey: "ecosystem", header: "Ecosystem", cell: ({ row }) => row.original.ecosystem || "Product" },
   {
     accessorKey: "sources",
     header: "Sources",
