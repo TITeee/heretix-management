@@ -890,7 +890,7 @@ export function PackagesTable({ data, assetId }: { data: PackageRow[]; assetId: 
         filterColumn="name"
         filterPlaceholder="Search packages or services..."
         initialSorting={[{ id: "alerts", desc: true }]}
-        initialColumnVisibility={{ location: false, usedBy: false }}
+        initialColumnVisibility={{ location: false, usedBy: false, licenses: false }}
         initialPageSize={15}
       />
     </div>
