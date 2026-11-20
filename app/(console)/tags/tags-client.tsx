@@ -220,7 +220,7 @@ export function TagsClient({ tags: initialTags }: { tags: Tag[] }) {
                     const total = critical + high + medium + low + na
                     if (total === 0) return <Badge variant="outline" className="rounded-md">0</Badge>
                     return (
-                      <div className="flex gap-1 flex-wrap">
+                      <div className="flex gap-1 flex-nowrap">
                         {critical > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.critical }} className="text-white rounded-md">{critical}</Badge>}
                         {high > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.high }} className="text-white rounded-md">{high}</Badge>}
                         {medium > 0 && <Badge style={{ backgroundColor: SEVERITY_COLORS.medium }} className="text-white rounded-md">{medium}</Badge>}
