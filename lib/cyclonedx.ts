@@ -180,7 +180,27 @@ function sourcePackageOf(c: CycloneDXComponent, name: string, isOsPackage: boole
  */
 function sourceVersionOf(c: CycloneDXComponent, isOsPackage: boolean): string | null {
   if (!isOsPackage) return null
-  return property(c, "heretix:source-version") ?? property(c, "syft:metadata:sourceVersion") ?? null
+  return property(c, "heretix:source-version") ?? property(c, "syft:metadata:sourceVersion") ?? trivyDebSourceVersion(c) ?? null
+}
+
+/**
+ * Trivy gives a deb's source version in three parts: `SrcEpoch` (only when the source has
+ * one), `SrcVersion` (the upstream version, "2.41") and `SrcRelease` (the Debian revision,
+ * "5"). Put back together they are what dpkg's `Source: util-linux (2.41-5)` says, and what
+ * the Debian and Ubuntu advisories use. Only a source version that differs from the binary's
+ * own is kept, as for the other scanners: bsdutils 1:2.41-5 is built from util-linux 2.41-5,
+ * and compared by its own version, with the epoch, it would read as newer than any fix.
+ * RPM and apk are left alone: heretix-api does not take a source version for RPM, and an
+ * apk's is its own version.
+ */
+function trivyDebSourceVersion(c: CycloneDXComponent): string | null {
+  if (!c.purl?.startsWith("pkg:deb/")) return null
+  const version = property(c, "aquasecurity:trivy:SrcVersion")
+  if (!version) return null
+  const release = property(c, "aquasecurity:trivy:SrcRelease")
+  const epoch = property(c, "aquasecurity:trivy:SrcEpoch")
+  const source = `${epoch ? `${epoch}:` : ""}${version}${release ? `-${release}` : ""}`
+  return source === c.version ? null : source
 }
 
 /**

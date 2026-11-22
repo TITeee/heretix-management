@@ -176,6 +176,35 @@ describe("convertCycloneDXToInventory — Syft", () => {
     expect(pkg(inv, "lodash").sourceVersion).toBeNull()
   })
 
+  // Trivy splits a deb's source version into SrcEpoch, SrcVersion and SrcRelease (trimmed from
+  // `trivy image nginx:1.29`, Trivy 0.76.2, and ubuntu:24.04).
+  it("puts back the source version Trivy gives in parts for a deb, and leaves RPM and apk alone", () => {
+    const trivy = (name: string, version: string, purl: string, props: Record<string, string>) => ({
+      "bom-ref": purl, type: "library" as const, name, version, purl,
+      properties: Object.entries(props).map(([k, value]) => ({ name: `aquasecurity:trivy:${k}`, value })),
+    })
+    const inv = convertCycloneDXToInventory({
+      components: [
+        // The binary's epoch is not the source's: util-linux 2.41-5 has none.
+        trivy("bsdutils", "1:2.41-5", "pkg:deb/debian/bsdutils@1%3A2.41-5?distro=debian-13.7", { SrcName: "util-linux", SrcVersion: "2.41", SrcRelease: "5" }),
+        // A binNMU: the binary is 3.11-4+b1, its source 3.11-4.
+        trivy("grep", "3.11-4+b1", "pkg:deb/debian/grep@3.11-4%2Bb1?distro=debian-13.7", { SrcName: "grep", SrcVersion: "3.11", SrcRelease: "4" }),
+        // The source has an epoch of its own, the same as the binary's: nothing to add.
+        trivy("login", "1:4.13+dfsg1-4ubuntu3.2", "pkg:deb/ubuntu/login@1%3A4.13%2Bdfsg1-4ubuntu3.2?distro=ubuntu-24.04", { SrcEpoch: "1", SrcName: "shadow", SrcVersion: "4.13+dfsg1", SrcRelease: "4ubuntu3.2" }),
+        // The same version as the binary's: nothing to add.
+        trivy("libc6", "2.41-12+deb13u4", "pkg:deb/debian/libc6@2.41-12%2Bdeb13u4?distro=debian-13.7", { SrcName: "glibc", SrcVersion: "2.41", SrcRelease: "12+deb13u4" }),
+        trivy("openssl-libs", "1:3.5.9-1.el9_9", "pkg:rpm/rocky/openssl-libs@3.5.9-1.el9_9?distro=rocky-9.9&epoch=1", { SrcEpoch: "1", SrcName: "openssl", SrcVersion: "3.5.9", SrcRelease: "1.el9_9" }),
+        trivy("musl", "1.2.5-r12", "pkg:apk/alpine/musl@1.2.5-r12?distro=3.21.10", { SrcName: "musl", SrcVersion: "1.2.5-r12" }),
+      ],
+    })
+    expect(pkg(inv, "bsdutils")).toMatchObject({ sourcePackage: "util-linux", sourceVersion: "2.41-5" })
+    expect(pkg(inv, "grep")).toMatchObject({ sourcePackage: "grep", sourceVersion: "3.11-4" })
+    expect(pkg(inv, "login")).toMatchObject({ sourcePackage: "shadow", sourceVersion: null })
+    expect(pkg(inv, "libc6")).toMatchObject({ sourcePackage: "glibc", sourceVersion: null })
+    expect(pkg(inv, "openssl-libs")).toMatchObject({ sourcePackage: "openssl", sourceVersion: null })
+    expect(pkg(inv, "musl")).toMatchObject({ sourcePackage: "musl", sourceVersion: null })
+  })
+
   it("drops RPM gpg-pubkey entries, which are imported signing keys rather than packages", () => {
     const inv = convertCycloneDXToInventory({
       components: [
