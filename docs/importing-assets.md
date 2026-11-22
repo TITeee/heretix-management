@@ -66,6 +66,16 @@ Packages are matched by name and ecosystem. Packages added by hand are never com
 | Version changed | The package moves to the new version. Its open alerts move with it, keeping their history; the next scan resolves the ones the new version no longer has |
 | No longer present | The package is removed. Its open alerts are **not** resolved, so review them by hand |
 
+### SBOMs from Trivy and Syft
+
+What was checked: SBOMs of 14 container images (Debian 12 and 13, Ubuntu 24.04, Alpine 3.21, AlmaLinux, Rocky Linux, Oracle Linux and Red Hat UBI 9, and the PostgreSQL, nginx, Node.js, Python, Go, Java and PHP images; all linux/arm64), made with Trivy 0.76.2 and Syft 1.57.1 in November 2026, were imported and compared with the package database of the image itself (dpkg, rpm, apk). The name, version and source package of every OS package matched, and the OS ecosystem was right for each. On one image, importing the same SBOM again, and importing the other tool's SBOM of the image into the same asset, changed no package or alert.
+
+Limits to know:
+
+- **A runtime that is not installed by a package manager is not scanned.** Syft lists what it recognizes from a binary, such as the Node.js, Python or Java an official image runs on, and PHP with its extensions, with the type `generic`; PEAR packages come as `pear`, and a component without a readable package URL as `unknown`. heretix-api has nothing to look these up by, so the scan does not send them, and the asset page and the scan history say how many were not scanned. In the images checked, Trivy did not list them. Either way, a vulnerability in the interpreter itself is not found unless it was installed from an OS package.
+- **Build tools and kernel headers are scanned.** heretix-cli marks them in its SBOM and heretix never scans them (see [how packages are classified](#reference-how-packages-are-classified)). Trivy and Syft carry no such mark, so a compiler or its libraries in an image raise alerts like any other package. On an image that ships a build toolchain, such as the PHP one, they were a large share of the alerts.
+- **The platform has to be the one you run.** A scanner reads the image of one platform, and versions, and some package names, differ between platforms. Trivy, run from its container image on an arm64 host, read the amd64 image of a registry image until it was given `--platform`. Say which platform you mean, for Trivy with `--platform linux/arm64` or `--platform linux/amd64`.
+
 ## Appliances and manual packages
 
 1. **Assets → Add Manually**: enter a name, hostname, and type.
