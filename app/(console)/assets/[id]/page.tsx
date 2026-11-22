@@ -1,4 +1,4 @@
-import { parseNoData } from "@/lib/no-data"
+import { parseNoData, splitNoData } from "@/lib/no-data"
 import { prisma } from "@/lib/db"
 import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -152,7 +152,7 @@ export default async function AssetDetailPage({
   const cutPackages = asset.packages.filter((p) => p.findingsCut)
 
   // Ecosystems the latest completed scan found heretix-api has no data for.
-  const noDataEcosystems = parseNoData(asset.scanJobs.find((j) => j.status === "completed")?.noDataEcosystems)
+  const { notLoaded: noDataEcosystems, notSearchable } = splitNoData(parseNoData(asset.scanJobs.find((j) => j.status === "completed")?.noDataEcosystems))
 
   const tags = asset.assetTags
     .map((at) => at.tag)
@@ -319,6 +319,26 @@ export default async function AssetDetailPage({
           </p>
           <ul className="mt-2 space-y-0.5 text-xs">
             {noDataEcosystems.map((n) => (
+              <li key={n.ecosystem}>
+                <span className="font-mono">{n.ecosystem}</span>
+                <span className="ml-2 text-muted-foreground">{n.packages === 1 ? "1 package" : `${n.packages.toLocaleString()} packages`}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {notSearchable.length > 0 && (
+        <div className="rounded-lg border border-amber-400 bg-amber-50 p-4 text-sm dark:border-amber-700 dark:bg-amber-950/40">
+          <p className="font-medium text-amber-900 dark:text-amber-200">
+            {notSearchable.reduce((n, e) => n + e.packages, 0).toLocaleString()} {notSearchable.reduce((n, e) => n + e.packages, 0) === 1 ? "package was" : "packages were"} not scanned
+          </p>
+          <p className="mt-1 text-xs text-amber-900/80 dark:text-amber-200/80">
+            The scanner listed them as runtimes or files outside any package manager (for example the Node.js, Python or Java the image runs on),
+            and heretix has no source to look them up in. Having no alerts for them does not mean they are safe.
+          </p>
+          <ul className="mt-2 space-y-0.5 text-xs">
+            {notSearchable.map((n) => (
               <li key={n.ecosystem}>
                 <span className="font-mono">{n.ecosystem}</span>
                 <span className="ml-2 text-muted-foreground">{n.packages === 1 ? "1 package" : `${n.packages.toLocaleString()} packages`}</span>

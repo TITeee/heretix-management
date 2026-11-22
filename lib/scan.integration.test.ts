@@ -626,6 +626,20 @@ describe("scanAsset: ecosystems heretix-api has no data for", () => {
     expect(deb.missingSince).not.toBeNull()
   })
 
+  it("does not send a runtime a scanner listed outside any package manager, and says it was not scanned", async () => {
+    const asset = await createAsset()
+    for (const [name, version, ecosystem] of [["lodash", "4.17.20", "npm"], ["node", "22.23.5", "generic"], ["pear.php.net/PEAR", "1.10.18", "pear"]]) {
+      await prisma.package.create({ data: { assetId: asset.id, name, version, rawVersion: version, ecosystem, source: "sbom", deps: [] } })
+    }
+    await scanAsset(asset.id)
+
+    const sent = mockedBatchSearch.mock.calls.flatMap((c) => c[0] as { package: string; ecosystem?: string }[])
+    expect(sent.map((p) => p.package)).toEqual(["lodash"])
+    const job = await prisma.scanJob.findFirstOrThrow({ where: { assetId: asset.id }, orderBy: { createdAt: "desc" } })
+    expect(job.status).toBe("completed")
+    expect(job.noDataEcosystems).toEqual([{ ecosystem: "generic", packages: 1 }, { ecosystem: "pear", packages: 1 }])
+  })
+
   it("records nothing when every ecosystem has data, or when heretix-api does not say", async () => {
     const asset = await setup()
     await scanAsset(asset.id)

@@ -1,6 +1,6 @@
 "use client"
 
-import { parseNoData } from "@/lib/no-data"
+import { parseNoData, splitNoData } from "@/lib/no-data"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -66,12 +66,20 @@ export function ScanHistoryModal({ scanJobs }: { scanJobs: ScanJob[] }) {
                         {job.cutPackages} cut
                       </span>
                     )}
-                    {parseNoData(job.noDataEcosystems).length > 0 && (
+                    {splitNoData(parseNoData(job.noDataEcosystems)).notLoaded.length > 0 && (
                       <span
                         className="text-xs text-amber-700 dark:text-amber-400"
-                        title={`heretix-api has no data for: ${parseNoData(job.noDataEcosystems).map((n) => n.ecosystem).join(", ")}. Their packages cannot show findings until it is loaded.`}
+                        title={`heretix-api has no data for: ${splitNoData(parseNoData(job.noDataEcosystems)).notLoaded.map((n) => n.ecosystem).join(", ")}. Their packages cannot show findings until it is loaded.`}
                       >
-                        {parseNoData(job.noDataEcosystems).length} not loaded
+                        {splitNoData(parseNoData(job.noDataEcosystems)).notLoaded.length} not loaded
+                      </span>
+                    )}
+                    {splitNoData(parseNoData(job.noDataEcosystems)).notSearchable.length > 0 && (
+                      <span
+                        className="text-xs text-amber-700 dark:text-amber-400"
+                        title="Runtimes or files the scanner found outside any package manager. heretix has no source to look them up in, so they were not scanned."
+                      >
+                        {splitNoData(parseNoData(job.noDataEcosystems)).notSearchable.reduce((n, e) => n + e.packages, 0)} not scanned
                       </span>
                     )}
                     {job.heldAlerts > 0 && (

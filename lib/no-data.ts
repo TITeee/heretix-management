@@ -19,3 +19,24 @@ export function parseNoData(value: unknown): NoDataEcosystem[] {
     (v): v is NoDataEcosystem => !!v && typeof v.ecosystem === "string" && typeof v.packages === "number",
   )
 }
+
+/**
+ * Ecosystems that name no package manager. A scanner lists a runtime it found as a binary
+ * (Syft: node, python, php-cli, openjdk) as `pkg:generic`, a PEAR package as `pkg:pear`, and a
+ * component with no purl comes in as "unknown". Nothing heretix-api holds is filed under such a
+ * name, so a lookup is always empty, and loading data cannot change that. They are not sent,
+ * and a scan reports them apart from the ecosystems that are only not loaded.
+ */
+export const UNSEARCHABLE_ECOSYSTEMS: ReadonlySet<string> = new Set(["generic", "pear", "unknown"])
+
+export function isUnsearchableEcosystem(ecosystem: string): boolean {
+  return UNSEARCHABLE_ECOSYSTEMS.has(ecosystem.trim().toLowerCase())
+}
+
+/** A stored list split in two: ecosystems with nothing loaded, and packages that cannot be looked up at all. */
+export function splitNoData(list: NoDataEcosystem[]): { notLoaded: NoDataEcosystem[]; notSearchable: NoDataEcosystem[] } {
+  return {
+    notLoaded: list.filter((n) => !isUnsearchableEcosystem(n.ecosystem)),
+    notSearchable: list.filter((n) => isUnsearchableEcosystem(n.ecosystem)),
+  }
+}

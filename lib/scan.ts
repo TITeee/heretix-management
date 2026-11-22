@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
 import { batchSearch, searchByCPE, type VulnSearchResult } from "@/lib/heretix-api"
-import { mergeNoData, noDataList } from "@/lib/no-data"
+import { isUnsearchableEcosystem, mergeNoData, noDataList } from "@/lib/no-data"
 import { writeInSlices } from "@/lib/in-slices"
 import { scanQueue } from "@/lib/scan-queue"
 import { notifySlackIfNeeded, type AlertSummary } from "@/lib/slack"
@@ -116,7 +116,12 @@ async function scanAssetNow(
   const runtimePkgs = pkgs.filter((p) => p.scope !== "excluded")
   const excludedPkgs = pkgs.filter((p) => p.scope === "excluded")
   const cpePkgs = runtimePkgs.filter((p) => p.cpe && p.cpe.trim().length > 0)
-  const normalPkgs = runtimePkgs.filter((p) => !p.cpe || p.cpe.trim().length === 0)
+  const cpeless = runtimePkgs.filter((p) => !p.cpe || p.cpe.trim().length === 0)
+  // A runtime or file a scanner found outside any package manager (ecosystem "generic", "pear",
+  // "unknown") has nothing to be looked up by. It is not sent, and the scan says so (below),
+  // so that its empty result is not read as "no vulnerabilities".
+  const unsearchablePkgs = cpeless.filter((p) => isUnsearchableEcosystem(p.ecosystem))
+  const normalPkgs = cpeless.filter((p) => !isUnsearchableEcosystem(p.ecosystem))
 
   // heretix-api echoes back the package name/version it matched against, not the
   // Package row itself, so sourcePackage (sent with the search for Debian, Ubuntu
@@ -529,6 +534,7 @@ async function scanAssetNow(
     // Ecosystems heretix-api has no data for: an empty answer there is not evidence of anything.
     const noData = new Map<string, number>()
     const noDataEcosystems = new Set<string>()
+    for (const p of unsearchablePkgs) noData.set(p.ecosystem, (noData.get(p.ecosystem) ?? 0) + 1)
 
     for (const chunk of chunks) {
       const results = await batchSearch(
