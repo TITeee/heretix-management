@@ -13,6 +13,7 @@ import { auditIdentity, type ApiTokenScope } from "@/lib/api-token"
 import { scanAsset } from "@/lib/scan"
 import { importBodyMaxBytes, readJsonBody } from "@/lib/request-body"
 import { demoModeBlocked } from "@/lib/demo-mode"
+import { escapeLike } from "@/lib/like"
 
 export const GET = withApiErrorHandling("assets.list", async (req: NextRequest) => {
   const session = await auth()
@@ -25,8 +26,8 @@ export const GET = withApiErrorHandling("assets.list", async (req: NextRequest) 
   const assets = await prisma.asset.findMany({
     where: search ? {
       OR: [
-        { name: { contains: search, mode: "insensitive" } },
-        { hostname: { contains: search, mode: "insensitive" } },
+        { name: { contains: escapeLike(search), mode: "insensitive" } },
+        { hostname: { contains: escapeLike(search), mode: "insensitive" } },
       ],
     } : undefined,
     orderBy: { createdAt: "desc" },

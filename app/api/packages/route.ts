@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { auth } from "@/lib/auth"
 import { withApiErrorHandling } from "@/lib/api-handler"
+import { escapeLike } from "@/lib/like"
 
 export const GET = withApiErrorHandling("packages.search", async (req: NextRequest) => {
   const session = await auth()
@@ -15,14 +16,14 @@ export const GET = withApiErrorHandling("packages.search", async (req: NextReque
 
   const [exact, partial] = await Promise.all([
     prisma.package.findMany({
-      where: { name: { equals: search, mode: "insensitive" } },
+      where: { name: { equals: escapeLike(search), mode: "insensitive" } },
       select: { name: true, ecosystem: true },
       distinct: ["name"],
     }),
     prisma.package.findMany({
       where: {
-        name: { contains: search, mode: "insensitive" },
-        NOT: { name: { equals: search, mode: "insensitive" } },
+        name: { contains: escapeLike(search), mode: "insensitive" },
+        NOT: { name: { equals: escapeLike(search), mode: "insensitive" } },
       },
       select: { name: true, ecosystem: true },
       distinct: ["name"],

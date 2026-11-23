@@ -1,14 +1,9 @@
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
 import { isDayBound, type AuditQuery } from "@/lib/audit-query"
+import { escapeLike } from "@/lib/like"
 
 const DAY_MS = 24 * 60 * 60 * 1000
-
-/**
- * Prisma's `contains` passes the text on as a LIKE pattern, so a % or _ typed in a search
- * would match any characters. Escaped, they are looked for as they are.
- */
-const literal = (text: string) => text.replace(/[\\%_]/g, "\\$&")
 
 export type AuditListRow = {
   id: string
@@ -23,11 +18,11 @@ export type AuditListRow = {
 export function auditWhere(query: AuditQuery): Prisma.AuditLogWhereInput {
   const and: Prisma.AuditLogWhereInput[] = []
   if (query.actions.length) and.push({ action: { in: query.actions } })
-  if (query.user) and.push({ userEmail: { contains: literal(query.user), mode: "insensitive" } })
+  if (query.user) and.push({ userEmail: { contains: escapeLike(query.user), mode: "insensitive" } })
   if (query.q) {
     and.push({ OR: [
-      { target: { contains: literal(query.q), mode: "insensitive" } },
-      { detail: { contains: literal(query.q), mode: "insensitive" } },
+      { target: { contains: escapeLike(query.q), mode: "insensitive" } },
+      { detail: { contains: escapeLike(query.q), mode: "insensitive" } },
     ] })
   }
   if (query.from || query.to) {

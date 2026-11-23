@@ -15,14 +15,15 @@
  */
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
+import { escapeLike } from "@/lib/like"
 import type { Alert } from "@/lib/alerts/list-filters"
 import { NONE, type AlertQuery, type SortColumn } from "@/lib/alerts/query-params"
 
 const HOUR_MS = 60 * 60 * 1000
 
-// Escapes LIKE's wildcards so a search for "_" or "%" finds itself.
+// A LIKE pattern for text that contains `s`, with `s` taken literally.
 function contains(s: string): string {
-  return `%${s.replace(/[\\%_]/g, "\\$&")}%`
+  return `%${escapeLike(s)}%`
 }
 
 function inList(values: string[]): Prisma.Sql {

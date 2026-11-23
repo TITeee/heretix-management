@@ -44,6 +44,21 @@ describe("GET /api/assets", () => {
     expect(body[0].hostname).toBe("web-01")
   })
 
+  it("takes %, _ and a backslash in the search as the characters they are", async () => {
+    const make = (name: string, hostname: string) =>
+      prisma.asset.create({ data: { name, hostname, osId: "u", osVersionId: "1", osName: "u" } })
+    await make("disk 100% full", "pct-host")
+    await make("disk 1000 full", "other-host")
+    await make("a_b", "under-host")
+    await make("axb", "plain-host")
+    await make("path", "C:\\srv")
+    const hostnames = async (search: string) => (await (await GET(getRequest(`search=${encodeURIComponent(search)}`))).json()).map((a: { hostname: string }) => a.hostname)
+    expect(await hostnames("100%")).toEqual(["pct-host"])
+    expect(await hostnames("%")).toEqual(["pct-host"])
+    expect(await hostnames("a_b")).toEqual(["under-host"])
+    expect(await hostnames("C:\\")).toEqual(["C:\\srv"])
+  })
+
   it("respects the limit param", async () => {
     for (let i = 0; i < 3; i++) {
       await prisma.asset.create({ data: { name: `h${i}`, hostname: `h${i}`, osId: "u", osVersionId: "1", osName: "u" } })
