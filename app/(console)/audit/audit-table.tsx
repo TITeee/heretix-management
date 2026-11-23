@@ -1,10 +1,18 @@
 "use client"
 
-import { DataTable } from "@/components/data-table/data-table"
-import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter"
+import { useMemo, useTransition } from "react"
+import { usePathname, useRouter } from "next/navigation"
 import { ColumnDef } from "@tanstack/react-table"
+import { X } from "lucide-react"
+import { DataTable } from "@/components/data-table/data-table"
+import { DataTableDateRangeFilter } from "@/components/data-table/data-table-date-range-filter"
+import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter"
 import { Badge } from "@/components/ui/badge"
-import { useMemo, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { auditActionLabel } from "@/lib/audit-actions"
+import {
+  auditQueryIsFiltered, auditQueryToSearchParams, boundToLocalDay, endOfLocalDay, startOfLocalDay, type AuditQuery,
+} from "@/lib/audit-query"
 
 export type AuditRow = {
   id: string
@@ -14,25 +22,6 @@ export type AuditRow = {
   detail: string | null
   createdAt: Date
 }
-
-const ACTION_LABELS: Record<string, string> = {
-  login:                "Login",
-  login_failed:         "Login Failed",
-  user_created:         "User Created",
-  user_updated:         "User Updated",
-  user_deleted:         "User Deleted",
-  user_password_reset:  "Password Reset",
-  settings_updated:     "Settings Updated",
-  asset_created:        "Asset Created",
-  asset_imported:       "Asset Imported",
-  asset_deleted:        "Asset Deleted",
-  asset_scanned:        "Asset Scanned",
-  alerts_accepted:      "Alerts Accepted",
-  ai_chat_cleared:      "AI Chat Cleared",
-  history_purged:       "History Purged",
-}
-
-const ACTION_OPTIONS = Object.entries(ACTION_LABELS).map(([value, label]) => ({ label, value }))
 
 const columns: ColumnDef<AuditRow>[] = [
   {
@@ -54,7 +43,7 @@ const columns: ColumnDef<AuditRow>[] = [
     header: "Action",
     cell: ({ row }) => (
       <Badge variant="outline" className="text-xs">
-        {ACTION_LABELS[row.original.action] ?? row.original.action}
+        {auditActionLabel(row.original.action)}
       </Badge>
     ),
   },
@@ -70,12 +59,35 @@ const columns: ColumnDef<AuditRow>[] = [
   },
 ]
 
-export function AuditTable({ logs }: { logs: AuditRow[] }) {
-  const [actionFilter, setActionFilter] = useState<Set<string>>(new Set())
+const NEWEST_FIRST = [{ id: "createdAt", desc: true }]
 
-  const filtered = useMemo(() =>
-    actionFilter.size === 0 ? logs : logs.filter(l => actionFilter.has(l.action)),
-    [logs, actionFilter]
+/**
+ * The audit log: one page the server fetched (lib/audit-list.ts), with the filters, the
+ * searches and the page in the URL, so a view can be linked to and the back button works.
+ */
+export function AuditTable({ rows, total, page, query, actions }: {
+  rows: AuditRow[]
+  total: number
+  /** The page the rows are of: the last one when the URL asked for one past the end. */
+  page: number
+  query: AuditQuery
+  /** Every action the log holds. */
+  actions: string[]
+}) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const [pending, startTransition] = useTransition()
+
+  function navigate(next: AuditQuery) {
+    const search = auditQueryToSearchParams(next).toString()
+    startTransition(() => router.replace(search ? `${pathname}?${search}` : pathname, { scroll: false }))
+  }
+
+  // An action named in the URL is offered even if the log has none of it, so it can be unticked.
+  const actionOptions = useMemo(
+    () => [...new Set([...actions, ...query.actions])].map((value) => ({ value, label: auditActionLabel(value) }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    [actions, query.actions]
   )
 
   return (
@@ -83,18 +95,48 @@ export function AuditTable({ logs }: { logs: AuditRow[] }) {
       <div className="flex flex-wrap items-center gap-2">
         <DataTableFacetedFilter
           title="Action"
-          options={ACTION_OPTIONS}
-          selected={actionFilter}
-          onSelectedChange={setActionFilter}
+          options={actionOptions}
+          selected={new Set(query.actions)}
+          onSelectedChange={(next) => navigate({ ...query, actions: [...next], page: 1 })}
         />
+        <DataTableDateRangeFilter
+          title="Date"
+          from={query.from ? boundToLocalDay(query.from) : undefined}
+          to={query.to ? boundToLocalDay(query.to) : undefined}
+          onChange={({ from, to }) =>
+            navigate({ ...query, from: from ? startOfLocalDay(from) : null, to: to ? endOfLocalDay(to) : null, page: 1 })}
+        />
+        {auditQueryIsFiltered(query) && (
+          <Button variant="ghost" size="sm" onClick={() => navigate({ ...query, actions: [], user: null, q: null, from: null, to: null, page: 1 })}>
+            Reset <X className="ml-1 size-4" />
+          </Button>
+        )}
+        <span className="ml-auto text-sm text-muted-foreground">
+          {total.toLocaleString("en-US")} event{total !== 1 ? "s" : ""}
+        </span>
       </div>
       <DataTable
         columns={columns}
-        data={filtered}
+        data={rows}
         filterColumn="userEmail"
         filterPlaceholder="Filter by user..."
-        initialPageSize={25}
-        initialSorting={[{ id: "createdAt", desc: true }]}
+        secondFilterColumn="detail"
+        secondFilterPlaceholder="Target / detail..."
+        server={{
+          rowCount: total,
+          pageIndex: page - 1,
+          pageSize: query.pageSize,
+          sorting: NEWEST_FIRST,
+          search: { first: query.user ?? "", second: query.q ?? "" },
+          pending,
+          onPageChange: (pageIndex) => navigate({ ...query, page: pageIndex + 1 }),
+          onPageSizeChange: (pageSize) => navigate({ ...query, pageSize, page: 1 }),
+          onSortingChange: () => {},
+          onSearchChange: (which, value) => {
+            const text = value.trim() || null
+            navigate(which === "first" ? { ...query, user: text, page: 1 } : { ...query, q: text, page: 1 })
+          },
+        }}
       />
     </div>
   )

@@ -2,8 +2,12 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { redirect } from "next/navigation"
 import { AuditTable } from "./audit-table"
+import { parseAuditQuery } from "@/lib/audit-query"
+import { auditActionNames, listAuditPage } from "@/lib/audit-list"
 
-export default async function AuditPage() {
+type SearchParams = Record<string, string | string[] | undefined>
+
+export default async function AuditPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const session = await auth()
   if (!session) redirect("/login")
 
@@ -13,18 +17,16 @@ export default async function AuditPage() {
   })
   if (dbUser?.role !== "admin") redirect("/")
 
-  const logs = await prisma.auditLog.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 500,
-  })
+  const query = parseAuditQuery(await searchParams)
+  const [list, actions] = await Promise.all([listAuditPage(query), auditActionNames()])
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Audit Log</h1>
       <p className="text-sm text-muted-foreground">
-        Last 500 events. Records login, user management, settings, and asset operations.
+        Newest first. Records login, user management, settings, and asset operations.
       </p>
-      <AuditTable logs={logs} />
+      <AuditTable rows={list.rows} total={list.total} page={list.page} query={query} actions={actions} />
     </div>
   )
 }

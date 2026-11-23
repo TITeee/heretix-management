@@ -55,7 +55,8 @@ Route handlers are thin: they check the session, parse the request, and call int
 | `lib/scheduler.ts` | The three scheduled jobs (refresh, scan, purge of old history); assumes a single server process |
 | `lib/retention.ts` | How long the audit log and the scan history are kept, and the daily purge |
 | `lib/url-guard.ts` | SSRF guard for user-supplied outbound URLs (Slack, heretix-api, Anthropic) |
-| `lib/api-token.ts`, `lib/api-auth.ts`, `lib/audit.ts` | Access tokens, token authentication, the audit log |
+| `lib/api-token.ts`, `lib/api-auth.ts`, `lib/audit.ts` | Access tokens, token authentication, writing the audit log |
+| `lib/audit-query.ts`, `lib/audit-list.ts`, `lib/audit-actions.ts` | The Audit Log page: its URL parameters, one filtered page from the database, the action labels |
 
 ## Data model
 

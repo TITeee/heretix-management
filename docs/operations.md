@@ -234,7 +234,7 @@ To choose the password, or the address, instead of a generated one, set `SEED_PA
 ## Users and audit log
 
 - **Users** (admin only): add, edit, and delete users. Roles are **Admin** and **Operator**; only admins manage users, access tokens, and the audit log.
-- **Audit Log** (admin only): the last 500 events: sign-ins (including failures), user management, settings changes, asset imports, scans and edits, and access tokens created, revoked, or deleted. Older events stay in the database until a period is set under [Data retention](#data-retention). Failed sign-ins are recorded up to 50 per 15 minutes, from all addresses and emails together; after that one row says the rest are not recorded here, and they appear only in the application log. An email address or client address longer than a real one is cut when recorded.
+- **Audit Log** (admin only): every event, newest first, 25 to a page by default (10, 15 or 50 too): sign-ins (including failures), user management, settings changes, asset imports, scans and edits, and access tokens created, revoked, or deleted. Narrow the list by action, by user (part of the email), by text in the target or detail, and by a range of days (the days of your own time zone, which the times in the list are shown in; both days included); the filters and the page are in the address, so a view can be linked to. Events stay in the database until a period is set under [Data retention](#data-retention). Failed sign-ins are recorded up to 50 per 15 minutes, from all addresses and emails together; after that one row says the rest are not recorded here, and they appear only in the application log. An email address or client address longer than a real one is cut when recorded.
 
 ## Data retention
 
