@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger"
 import { createAuditLog } from "@/lib/audit"
 import { isLoginRateLimited, recordLoginFailure, clearLoginRateLimit } from "@/lib/rate-limit"
 import { clientIp } from "@/lib/client-ip"
+import { auditFailedSignIn, clip, MAX_EMAIL_LENGTH } from "@/lib/signin-audit"
 import { refreshSessionToken } from "@/lib/session-token"
 import { randomBytes } from "node:crypto"
 
@@ -53,21 +54,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null
 
-        const email = credentials.email as string
-        const ip = clientIp(request.headers)
+        const rawEmail = String(credentials.email)
+        // No account has an email this long: it is not looked up, and the limiter and
+        // the logs keep only its first characters, so a client cannot make them hold
+        // arbitrarily much by sending long values.
+        const tooLong = rawEmail.length > MAX_EMAIL_LENGTH
+        const email = tooLong ? rawEmail.slice(0, MAX_EMAIL_LENGTH) : rawEmail
+        const ip = clip(clientIp(request.headers), 64)
 
         if (isLoginRateLimited(email, ip)) {
           logger.warn("login failed", { email, reason: "rate_limited", ip })
-          await createAuditLog({ userEmail: email, action: "login_failed", detail: `rate limited (IP: ${ip})` })
+          await auditFailedSignIn({ email: rawEmail, reason: "rate limited", ip })
           throw new RateLimitedSignin()
         }
 
-        const user = await prisma.user.findUnique({ where: { email } })
+        const user = tooLong ? null : await prisma.user.findUnique({ where: { email } })
         if (!user) {
           await bcrypt.compare(credentials.password as string, await unknownUserHash())
           recordLoginFailure(email, ip)
           logger.warn("login failed", { email, reason: "user_not_found", ip })
-          await createAuditLog({ userEmail: email, action: "login_failed", detail: `user not found (IP: ${ip})` })
+          await auditFailedSignIn({ email: rawEmail, reason: "user not found", ip })
           return null
         }
 
@@ -75,7 +81,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!valid) {
           recordLoginFailure(email, ip)
           logger.warn("login failed", { email, reason: "invalid_password", ip })
-          await createAuditLog({ userId: user.id, userEmail: email, action: "login_failed", detail: `invalid password (IP: ${ip})` })
+          await auditFailedSignIn({ userId: user.id, email: rawEmail, reason: "invalid password", ip })
           return null
         }
 

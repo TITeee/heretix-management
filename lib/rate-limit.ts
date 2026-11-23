@@ -44,6 +44,28 @@ export function clearLoginRateLimit(email: string): void {
   emailBuckets.delete(email)
 }
 
+// How many failed sign-ins the audit log takes in one window, from however many
+// addresses and emails they come. The limits above count per email and per address,
+// so a client that picks a new one every time is never stopped by them (without a
+// proxy in front it chooses its address too, see lib/client-ip.ts), and a refused
+// attempt is cheap, no password is hashed. The audit log is never trimmed, so
+// without this cap one client could fill it. Every failure still goes to the
+// application log, which Docker rotates.
+export const MAX_FAILED_SIGNIN_AUDITS = 50
+let failedSignInAuditWindow = { startedAt: 0, count: 0 }
+
+/**
+ * What to do with the audit row of a failed sign-in: "record" it, "summarize"
+ * (the cap was just passed: write the one row that says the rest are not recorded,
+ * so the gap is visible), or "skip" it.
+ */
+export function claimFailedSignInAudit(now = Date.now()): "record" | "summarize" | "skip" {
+  if (now - failedSignInAuditWindow.startedAt >= WINDOW_MS) failedSignInAuditWindow = { startedAt: now, count: 0 }
+  failedSignInAuditWindow.count++
+  if (failedSignInAuditWindow.count <= MAX_FAILED_SIGNIN_AUDITS) return "record"
+  return failedSignInAuditWindow.count === MAX_FAILED_SIGNIN_AUDITS + 1 ? "summarize" : "skip"
+}
+
 // Failed API-token authentications, per client IP. A token is 32 random bytes,
 // so this isn't guarding against guessing one — it stops a misconfigured CI
 // job (a revoked or expired token) from hammering the token lookup, and keeps
