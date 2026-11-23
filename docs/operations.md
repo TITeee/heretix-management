@@ -66,6 +66,7 @@ Needs Node.js 22 (as in the Docker image), pnpm, PostgreSQL 15+ with a `heretix_
 | `ANTHROPIC_API_KEY` | | | Key for AI Insight. **Settings → AI** overrides it |
 | `CRON_REFRESH` | | `0 12 * * *` | When the metadata refresh runs (cron, UTC) |
 | `CRON_SCAN` | | `45 */3 * * *` | When every asset is scanned (cron, UTC): every three hours at :45 by default |
+| `CRON_PURGE` | | `15 4 * * *` | When old history is deleted (cron, UTC). It deletes only what Settings → Data retention says; with nothing set it does nothing |
 | `SCAN_STALE_HOURS` | | `36` | Without a successful scan for this long, the dashboard says the scheduler may not be running |
 | `SEED_EMAIL` / `SEED_PASSWORD` / `SEED_NAME` | | `admin@example.com` / (generated, printed once) / `Administrator` | The admin user `seed` creates. `SEED_PASSWORD` must be at least 12 characters |
 | `MAX_IMPORT_BODY_MB` | | `50` | Largest SBOM, CSV or VEX upload accepted, in MB; a larger one is refused with 413. A heretix-cli SBOM is about 1.1 KB a package. Other requests are limited to 1 MB |
@@ -226,13 +227,23 @@ To choose the password, or the address, instead of a generated one, set `SEED_PA
 | Notifications | Slack webhook, triggers (new detections, severity changes, new KEV, a fix for an open or in-progress alert, reopened alerts), minimum severity, asset-tag filter, test message |
 | AI | Anthropic API key, model (a list of Claude models, or any model ID) and reply language for AI Insight, connection test |
 | SLA | On/off, hours or days per severity tier and for KEV, Recalculate |
+| Data retention | How long the audit log and the scan history are kept (see [Data retention](#data-retention)) |
 | Access Tokens | Tokens for CI uploads (admin only; see [importing-assets.md](importing-assets.md#uploading-from-ci)) |
 | About | Version |
 
 ## Users and audit log
 
 - **Users** (admin only): add, edit, and delete users. Roles are **Admin** and **Operator**; only admins manage users, access tokens, and the audit log.
-- **Audit Log** (admin only): the last 500 events: sign-ins (including failures), user management, settings changes, asset imports, scans and edits, and access tokens created, revoked, or deleted. Older events stay in the database and are not trimmed. Failed sign-ins are recorded up to 50 per 15 minutes, from all addresses and emails together; after that one row says the rest are not recorded here, and they appear only in the application log. An email address or client address longer than a real one is cut when recorded.
+- **Audit Log** (admin only): the last 500 events: sign-ins (including failures), user management, settings changes, asset imports, scans and edits, and access tokens created, revoked, or deleted. Older events stay in the database until a period is set under [Data retention](#data-retention). Failed sign-ins are recorded up to 50 per 15 minutes, from all addresses and emails together; after that one row says the rest are not recorded here, and they appear only in the application log. An email address or client address longer than a real one is cut when recorded.
+
+## Data retention
+
+Settings → **Data retention** (admin only) sets how long two kinds of history are kept: the **audit log** and the **scan history** (one row per scan of an asset: 3 hours apart, about 1 KB each, so about 2.7 MB per asset per year). Both start as **Keep everything**, so an upgrade deletes nothing by itself. Each has a selector (the audit log from 90 days to 5 years, the scan history from 30 days to 2 years). Under it, a coloured box shows what the selected period means: grey while everything is kept, green when a period is on and no row is older than it yet, amber when rows older than it wait for the next run.
+
+- **Periods.** The settings API takes whole days (`AUDIT_RETENTION_DAYS`, `SCAN_HISTORY_RETENTION_DAYS`; empty keeps everything), at least 90 for the audit log and 30 for the scan history. A shorter one is refused, and the purge applies the minimum again to a value written around the page, so the recent audit trail cannot be erased from Settings. Changing a period is recorded in the audit log with its value.
+- **What is deleted.** Once a day (`CRON_PURGE`, 04:15 UTC by default), in batches, the rows older than the period. The last 10 scans of every asset and its last successful scan are always kept, however old, since the asset pages list them; a running scan is never touched. Each run that deletes anything writes one `history_purged` audit entry with the counts.
+- **What is never deleted.** Alerts, their timelines (including resolved and ignored ones), package history, comments and VEX decisions stay until their asset or package is deleted.
+- **Before saving**, the page says how many rows the new period would delete at the next run, and asks to confirm if there are any. Deleted rows come back only from a backup (see [Backup and restore](#backup-and-restore)), so keep the backups at least as long as you might need them.
 
 ## Logging
 

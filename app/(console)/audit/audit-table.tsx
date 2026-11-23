@@ -29,6 +29,7 @@ const ACTION_LABELS: Record<string, string> = {
   asset_scanned:        "Asset Scanned",
   alerts_accepted:      "Alerts Accepted",
   ai_chat_cleared:      "AI Chat Cleared",
+  history_purged:       "History Purged",
 }
 
 const ACTION_OPTIONS = Object.entries(ACTION_LABELS).map(([value, label]) => ({ label, value }))

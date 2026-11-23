@@ -81,6 +81,7 @@ The console's own routes under `/api`. All of them need a signed-in session, exc
 | POST | `/api/settings/test` | Test the heretix-api connection |
 | POST | `/api/settings/slack-test` | Send a test Slack message |
 | POST | `/api/settings/ai-test` | Test the Anthropic connection |
+| GET | `/api/settings/retention` | What a retention period would delete now: `?auditDays=365&scanDays=90` (empty or missing keeps everything); returns the row counts, the oldest row and the minimum days of each (*admin*) |
 | GET | `/api/settings/sla` | Get the SLA settings |
 | POST | `/api/settings/sla` | Update the SLA settings |
 | POST | `/api/settings/sla/recalculate` | Recalculate due dates of open alerts (*admin*) |

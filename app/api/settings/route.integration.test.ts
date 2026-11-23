@@ -59,6 +59,27 @@ describe("/api/settings", () => {
     expect((await patch({ HERETIX_API_URL: "http://localhost:5000" })).status).toBe(200)
   })
 
+  it("saves a retention period, records its value in the audit log, and keeps everything for an empty one", async () => {
+    expect((await patch({ AUDIT_RETENTION_DAYS: "365", SCAN_HISTORY_RETENTION_DAYS: "90" })).status).toBe(200)
+    expect(await stored("AUDIT_RETENTION_DAYS")).toBe("365")
+    expect((await patch({ AUDIT_RETENTION_DAYS: "" })).status).toBe(200)
+    const entries = await prisma.auditLog.findMany({ where: { action: "settings_updated" }, orderBy: { createdAt: "asc" } })
+    expect(entries.map((e) => e.detail)).toEqual([
+      "AUDIT_RETENTION_DAYS=365, SCAN_HISTORY_RETENTION_DAYS=90",
+      "AUDIT_RETENTION_DAYS=keep everything",
+    ])
+  })
+
+  it("refuses a retention period below its floor or not a number, writing nothing", async () => {
+    for (const bad of [{ AUDIT_RETENTION_DAYS: "30" }, { AUDIT_RETENTION_DAYS: "0" }, { SCAN_HISTORY_RETENTION_DAYS: "7" }, { AUDIT_RETENTION_DAYS: "a year" }]) {
+      const res = await patch({ AI_MODEL: "m", ...bad })
+      expect(res.status).toBe(400)
+    }
+    expect(await stored("AUDIT_RETENTION_DAYS")).toBeUndefined()
+    expect(await stored("SCAN_HISTORY_RETENTION_DAYS")).toBeUndefined()
+    expect(await stored("AI_MODEL")).toBeUndefined()
+  })
+
   it("refuses a value that is not a string", async () => {
     expect((await patch({ SLACK_ENABLED: true })).status).toBe(400)
   })

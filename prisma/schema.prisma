@@ -145,6 +145,8 @@ model ScanJob {
 
   // The dashboard and the asset pages read an asset's latest and last successful scan.
   @@index([assetId, createdAt])
+  // The retention purge and its preview select the jobs older than a date (lib/retention.ts).
+  @@index([createdAt])
 }
 
 model Alert {

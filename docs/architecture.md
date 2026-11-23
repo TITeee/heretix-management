@@ -52,7 +52,8 @@ Route handlers are thin: they check the session, parse the request, and call int
 | `lib/vex.ts` | CycloneDX VEX export and import mapping |
 | `lib/distro-priority.ts`, `lib/fix-status.ts` | Display and sort order for the distro rating and fix status |
 | `lib/slack.ts`, `lib/ai.ts` | Slack notifications; the AI Insight chat |
-| `lib/scheduler.ts` | The two scheduled jobs (refresh, scan); assumes a single server process |
+| `lib/scheduler.ts` | The three scheduled jobs (refresh, scan, purge of old history); assumes a single server process |
+| `lib/retention.ts` | How long the audit log and the scan history are kept, and the daily purge |
 | `lib/url-guard.ts` | SSRF guard for user-supplied outbound URLs (Slack, heretix-api, Anthropic) |
 | `lib/api-token.ts`, `lib/api-auth.ts`, `lib/audit.ts` | Access tokens, token authentication, the audit log |
 

@@ -6,6 +6,7 @@ import { withApiErrorHandling } from "@/lib/api-handler"
 import { readJsonBody } from "@/lib/request-body"
 import { EDITABLE_SETTING_KEYS, SECRET_SETTING_KEYS, isMaskedSecret, maskSecret } from "@/lib/settings-keys"
 import { assertPublicHttpUrl } from "@/lib/url-guard"
+import { retentionProblem, RETENTION_KEYS } from "@/lib/retention"
 
 // Keys any signed-in user may read — a non-admin only needs the AI Insight
 // feature flag (checked from the alert detail panel); everything else here
@@ -13,6 +14,8 @@ import { assertPublicHttpUrl } from "@/lib/url-guard"
 const NON_ADMIN_READABLE_KEYS = new Set(["AI_ENABLED"])
 
 const MAX_VALUE_LENGTH = 4096
+
+const isRetentionKey = (key: string) => (Object.values(RETENTION_KEYS) as string[]).includes(key)
 
 export const GET = withApiErrorHandling("settings.get", async () => {
   const session = await auth()
@@ -65,7 +68,7 @@ export const PATCH = withApiErrorHandling("settings.update", async (req: NextReq
     }
     // The mask the page was given, sent back for a secret left as it was.
     if (SECRET_SETTING_KEYS.has(key) && isMaskedSecret(value)) continue
-    const problem = await urlProblem(key, value)
+    const problem = (await urlProblem(key, value)) ?? retentionProblem(key, value)
     if (problem) return NextResponse.json({ error: problem }, { status: 400 })
     updates.push([key, value])
   }
@@ -83,7 +86,8 @@ export const PATCH = withApiErrorHandling("settings.update", async (req: NextReq
   await createAuditLog({
     userId: session.user.id, userEmail: session.user.email,
     action: "settings_updated",
-    detail: updates.map(([k]) => k).join(", "),
+    // A retention period is no secret, and shortening it is what the audit entry has to show.
+    detail: updates.map(([k, v]) => (isRetentionKey(k) ? `${k}=${v.trim() || "keep everything"}` : k)).join(", "),
   })
 
   return NextResponse.json({ ok: true })

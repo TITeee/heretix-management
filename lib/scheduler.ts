@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger"
 import { areAutoScansPaused } from "@/lib/scan-pause"
 import { isDemoMode } from "@/lib/demo-mode"
 import { notifySlackRefreshFailed, notifySlackScanFailures, notifySlackScanNotRun } from "@/lib/slack"
+import { purgeHistory } from "@/lib/retention"
 
 export function startScheduler() {
   // Nothing survived the restart that brought us here, so any job still marked
@@ -29,6 +30,9 @@ export function startScheduler() {
   // 18:30). The defaults have to match .env.example and docker-compose.yml.
   const refreshSchedule = process.env.CRON_REFRESH ?? "0 12 * * *"
   const scanSchedule = process.env.CRON_SCAN ?? "45 */3 * * *"
+  // Once a day, off the :45 scans. Deletes only what Settings → Data retention says; with
+  // nothing set it does nothing.
+  const purgeSchedule = process.env.CRON_PURGE ?? "15 4 * * *"
 
   schedule(refreshSchedule, () => {
     runRefresh()
@@ -67,5 +71,11 @@ export function startScheduler() {
       })
   })
 
-  logger.info("scheduler started", { refreshSchedule, scanSchedule })
+  schedule(purgeSchedule, () => {
+    purgeHistory().catch((err) => {
+      logger.error("scheduler: purgeHistory failed", { error: err instanceof Error ? err.message : String(err) })
+    })
+  })
+
+  logger.info("scheduler started", { refreshSchedule, scanSchedule, purgeSchedule })
 }
