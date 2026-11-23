@@ -27,6 +27,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   api_token_deleted: "Token Deleted",
   ai_chat_cleared: "AI Chat Cleared",
   history_purged: "History Purged",
+  audit_exported: "Audit Log Exported",
 }
 
 export function auditActionLabel(action: string): string {

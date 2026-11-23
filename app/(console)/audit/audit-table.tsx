@@ -3,12 +3,14 @@
 import { useMemo, useTransition } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { ColumnDef } from "@tanstack/react-table"
-import { X } from "lucide-react"
+import { Download, X } from "lucide-react"
 import { DataTable } from "@/components/data-table/data-table"
 import { DataTableDateRangeFilter } from "@/components/data-table/data-table-date-range-filter"
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
+import { cn } from "@/lib/utils"
 import { auditActionLabel } from "@/lib/audit-actions"
 import {
   auditQueryIsFiltered, auditQueryToSearchParams, boundToLocalDay, endOfLocalDay, startOfLocalDay, type AuditQuery,
@@ -90,6 +92,13 @@ export function AuditTable({ rows, total, page, query, actions }: {
     [actions, query.actions]
   )
 
+  // The export holds the view's every page: its filters and searches, not the page.
+  const exportParams = auditQueryToSearchParams({ ...query, page: 1 })
+  const exportHref = (format: "xlsx" | "json") => {
+    exportParams.set("format", format)
+    return `/api/audit/export?${exportParams}`
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -122,6 +131,18 @@ export function AuditTable({ rows, total, page, query, actions }: {
         filterPlaceholder="Filter by user..."
         secondFilterColumn="detail"
         secondFilterPlaceholder="Target / detail..."
+        headerActions={
+          <div className="relative group">
+            <button type="button" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+              <Download className="h-4 w-4" />
+              Export
+            </button>
+            <div className="absolute right-0 top-full z-10 mt-1 hidden group-focus-within:flex group-hover:flex flex-col rounded-md border bg-popover shadow-md min-w-30">
+              <a href={exportHref("xlsx")} className="px-3 py-2 text-sm text-left hover:bg-accent rounded-t-md">Excel</a>
+              <a href={exportHref("json")} className="px-3 py-2 text-sm text-left hover:bg-accent rounded-b-md">JSON</a>
+            </div>
+          </div>
+        }
         server={{
           rowCount: total,
           pageIndex: page - 1,

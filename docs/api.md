@@ -90,6 +90,12 @@ The console's own routes under `/api`. All of them need a signed-in session, exc
 | POST | `/api/settings/api-tokens/[id]/revoke` | Revoke a token (*admin*) |
 | DELETE | `/api/settings/api-tokens/[id]` | Delete a revoked or expired token; an active one returns `409` (*admin*) |
 
+## Audit log
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/audit/export` | Every event of an Audit Log view as Excel or JSON: `format=xlsx` or `format=json`, with the page's own filters (`action`, `user`, `q`, `from`, `to`). Recorded in the audit log as `audit_exported` (*admin*) |
+
 ## Users
 
 | Method | Path | Description |

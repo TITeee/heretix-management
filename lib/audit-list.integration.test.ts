@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from "vitest"
 import { prisma } from "@/lib/db"
 import { resetDb } from "@/lib/test-utils/db"
-import { auditActionNames, listAuditPage } from "./audit-list"
+import { allAuditRows, auditActionNames, listAuditPage } from "./audit-list"
 import { parseAuditQuery } from "./audit-query"
 
 const query = (params: Record<string, string> = {}) => parseAuditQuery(params)
@@ -115,6 +115,40 @@ describe("listAuditPage", () => {
     expect(page.total).toBe(10)
     expect(page.rows).toHaveLength(10)
     expect((await listAuditPage(query({ action: "login_failed", size: "10", page: "2" }))).page).toBe(1)
+  })
+})
+
+describe("allAuditRows", () => {
+  beforeEach(async () => {
+    await resetDb()
+  })
+
+  it("reads every row a query selects, in the list's order, in batches of the size asked for", async () => {
+    // Ties in time are what a cursor has to get right: ten rows, four moments.
+    for (let i = 0; i < 10; i++) await log(i % 2 ? "odd" : "even", `2026-11-0${1 + (i % 4)}T00:00:00Z`)
+    const all: string[] = []
+    const sizes: number[] = []
+    for await (const batch of allAuditRows(query(), 3)) {
+      sizes.push(batch.length)
+      all.push(...batch.map((r) => r.id))
+    }
+    expect(sizes).toEqual([3, 3, 3, 1])
+    const listed = (await listAuditPage(query({ size: "50" }))).rows.map((r) => r.id)
+    expect(all).toEqual(listed)
+
+    const odd: string[] = []
+    for await (const batch of allAuditRows(query({ action: "odd" }), 2)) odd.push(...batch.map((r) => r.action))
+    expect(odd).toEqual(["odd", "odd", "odd", "odd", "odd"])
+  })
+
+  it("ends cleanly when the rows fill the last batch exactly, and when there are none", async () => {
+    for (let i = 0; i < 6; i++) await log("a", "2026-11-01T00:00:00Z")
+    const sizes: number[] = []
+    for await (const batch of allAuditRows(query(), 3)) sizes.push(batch.length)
+    expect(sizes).toEqual([3, 3])
+    const none: number[] = []
+    for await (const batch of allAuditRows(query({ action: "zzz" }), 3)) none.push(batch.length)
+    expect(none).toEqual([])
   })
 })
 

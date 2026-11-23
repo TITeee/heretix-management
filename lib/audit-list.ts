@@ -64,3 +64,27 @@ export async function auditActionNames(): Promise<string[]> {
   const groups = await prisma.auditLog.groupBy({ by: ["action"], orderBy: { action: "asc" } })
   return groups.map((g) => g.action)
 }
+
+/**
+ * Every row a query selects, newest first, in batches: what an export writes as it reads. The
+ * query's page and page size are not used. Each batch starts after the last row of the one before
+ * it, so events recorded while it runs do not shift the rows it has still to read.
+ */
+export async function* allAuditRows(query: AuditQuery, batchSize = 2000): AsyncGenerator<AuditListRow[]> {
+  const where = auditWhere(query)
+  let after: string | undefined
+  for (;;) {
+    const rows = await prisma.auditLog.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: batchSize,
+      ...(after ? { cursor: { id: after }, skip: 1 } : {}),
+      select: { id: true, userEmail: true, action: true, target: true, detail: true, createdAt: true },
+    })
+    if (rows.length === 0) return
+    yield rows
+    if (rows.length < batchSize) return
+    after = rows[rows.length - 1].id
+  }
+}
+
