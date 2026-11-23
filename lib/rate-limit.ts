@@ -9,8 +9,20 @@ const WINDOW_MS = 15 * 60 * 1000
 const MAX_ATTEMPTS_PER_EMAIL = 5
 const MAX_ATTEMPTS_PER_IP = 20
 
+// A bucket is made by a failed attempt and, once its window is over, has nothing left to say,
+// so a client that tries a new email or address every time makes buckets nobody reads again.
+// Without a sweep they pile up until the process restarts. The limiters therefore sweep what
+// has expired (at most once a minute, by the next failure, so there is no timer), and keep at
+// most MAX_BUCKETS of each kind: past that the oldest windows go first. A cap is a trade:
+// pushing a real email's bucket out takes that many failed attempts inside one window, and each
+// one of them costs a password hash (the token limiter has no such cost, which is why it
+// needs the cap most).
+export const MAX_BUCKETS = 20_000
+const SWEEP_EVERY_MS = 60 * 1000
+
 const emailBuckets = new Map<string, Bucket>()
 const ipBuckets = new Map<string, Bucket>()
+const lastSweep = new WeakMap<Map<string, Bucket>, number>()
 
 function isLimited(buckets: Map<string, Bucket>, key: string, max: number): boolean {
   const bucket = buckets.get(key)
@@ -18,11 +30,28 @@ function isLimited(buckets: Map<string, Bucket>, key: string, max: number): bool
   return bucket.count >= max
 }
 
+function sweep(buckets: Map<string, Bucket>, now: number): void {
+  if (now - (lastSweep.get(buckets) ?? 0) < SWEEP_EVERY_MS) return
+  lastSweep.set(buckets, now)
+  for (const [key, bucket] of buckets) {
+    if (now > bucket.resetAt) buckets.delete(key)
+  }
+}
+
 function record(buckets: Map<string, Bucket>, key: string): void {
   const now = Date.now()
+  sweep(buckets, now)
   const bucket = buckets.get(key)
   if (!bucket || now > bucket.resetAt) {
+    // Deleted first, so that a window that starts again goes to the end of the map's order:
+    // that order is the order of the windows' ends, and the cap drops from its front.
+    buckets.delete(key)
     buckets.set(key, { count: 1, resetAt: now + WINDOW_MS })
+    while (buckets.size > MAX_BUCKETS) {
+      const oldest = buckets.keys().next().value
+      if (oldest === undefined) break
+      buckets.delete(oldest)
+    }
   } else {
     bucket.count++
   }
@@ -79,4 +108,9 @@ export function isTokenAuthRateLimited(ip: string): boolean {
 
 export function recordTokenAuthFailure(ip: string): void {
   record(tokenIpBuckets, ip)
+}
+
+/** How many buckets each limiter holds, for tests and for looking into a process that grows. */
+export function rateLimitBucketCounts(): { email: number; ip: number; token: number } {
+  return { email: emailBuckets.size, ip: ipBuckets.size, token: tokenIpBuckets.size }
 }

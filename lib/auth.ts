@@ -7,7 +7,7 @@ import { logger } from "@/lib/logger"
 import { createAuditLog } from "@/lib/audit"
 import { isLoginRateLimited, recordLoginFailure, clearLoginRateLimit } from "@/lib/rate-limit"
 import { clientIp } from "@/lib/client-ip"
-import { auditFailedSignIn, clip, MAX_EMAIL_LENGTH } from "@/lib/signin-audit"
+import { auditFailedSignIn, MAX_EMAIL_LENGTH } from "@/lib/signin-audit"
 import { refreshSessionToken } from "@/lib/session-token"
 import { randomBytes } from "node:crypto"
 
@@ -60,7 +60,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // arbitrarily much by sending long values.
         const tooLong = rawEmail.length > MAX_EMAIL_LENGTH
         const email = tooLong ? rawEmail.slice(0, MAX_EMAIL_LENGTH) : rawEmail
-        const ip = clip(clientIp(request.headers), 64)
+        const ip = clientIp(request.headers)
 
         if (isLoginRateLimited(email, ip)) {
           logger.warn("login failed", { email, reason: "rate_limited", ip })

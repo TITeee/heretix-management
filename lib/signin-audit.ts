@@ -1,11 +1,9 @@
 import { createAuditLog } from "@/lib/audit"
 import { claimFailedSignInAudit, MAX_FAILED_SIGNIN_AUDITS } from "@/lib/rate-limit"
+import { MAX_IP_LENGTH } from "@/lib/client-ip"
 
 /** The longest email address there can be (RFC 5321). The sign-in limiter and the logs keep no more of what a client sent as one. */
 export const MAX_EMAIL_LENGTH = 254
-/** An IPv6 address takes at most 45 characters; without a proxy in front the address is a header the client fills in. */
-const MAX_IP_LENGTH = 64
-
 export function clip(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max)}…` : value
 }

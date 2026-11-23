@@ -15,5 +15,12 @@
 export function clientIp(headers: Headers): string {
   const forwarded = headers.get("x-forwarded-for")
   const last = forwarded?.split(",").map(s => s.trim()).filter(Boolean).pop()
-  return last || "unknown"
+  return (last || "unknown").slice(0, MAX_IP_LENGTH)
 }
+
+/**
+ * An IPv6 address takes at most 45 characters. Without a proxy the header is whatever the client
+ * sent, and the address becomes a key of the rate limits and a line of the logs: cut, it cannot
+ * make either arbitrarily large.
+ */
+export const MAX_IP_LENGTH = 64
