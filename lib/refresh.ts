@@ -24,7 +24,7 @@ const DEFAULT_LOOKUPS_PER_MINUTE = 900
 const REFRESH_ALERT_SELECT = {
   id: true, externalId: true, cvssScore: true, cvssVector: true, severity: true, isKev: true,
   epssScore: true, epssPercentile: true, fixedVersion: true, detectedAt: true,
-  assetId: true, packageName: true, packageVersion: true,
+  assetId: true, packageName: true, packageVersion: true, status: true,
 } satisfies Prisma.AlertSelect
 type RefreshAlert = Prisma.AlertGetPayload<{ select: typeof REFRESH_ALERT_SELECT }>
 

@@ -223,7 +223,7 @@ To choose the password, or the address, instead of a generated one, set `SEED_PA
 | Tab | Contents |
 |---|---|
 | Vulnerability API | heretix-api URL and key, connection test |
-| Notifications | Slack webhook, triggers (new detections, severity changes, new KEV, reopened alerts), minimum severity, asset-tag filter, test message |
+| Notifications | Slack webhook, triggers (new detections, severity changes, new KEV, a fix for an open or in-progress alert, reopened alerts), minimum severity, asset-tag filter, test message |
 | AI | Anthropic API key, model (a list of Claude models, or any model ID) and reply language for AI Insight, connection test |
 | SLA | On/off, hours or days per severity tier and for KEV, Recalculate |
 | Access Tokens | Tokens for CI uploads (admin only; see [importing-assets.md](importing-assets.md#uploading-from-ci)) |

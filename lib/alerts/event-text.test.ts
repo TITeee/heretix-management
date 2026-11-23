@@ -11,6 +11,11 @@ describe("eventLine", () => {
       .toBe("2026-11-07 13:05 UTC Package changed: openssl@3.0.2 → openssl@3.0.13")
   })
 
+  it("names the version a fix appeared in", () => {
+    expect(eventLine({ type: "fix_available", data: { fixedVersion: "3.0.13" }, createdAt: at }))
+      .toBe("2026-11-07 13:05 UTC Fix available: 3.0.13")
+  })
+
   it("adds who changed a status, the ignore reason and the reason given", () => {
     expect(eventLine({ type: "status_changed", data: { to: "ignored", userName: "Tanaka", ignoreReason: "false_positive" }, createdAt: at }))
       .toBe('2026-11-07 13:05 UTC Status changed to "Ignored"; by Tanaka; False positive')

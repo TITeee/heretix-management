@@ -196,6 +196,7 @@ async function scanAssetNow(
     const newAlertsList: AlertSummary[] = []
     const severityChangedList: AlertSummary[] = []
     const kevAddedList: AlertSummary[] = []
+    const fixAvailableList: AlertSummary[] = []
     const reopenedList: AlertSummary[] = []
     const summarize = (a: (typeof existingAlerts)[number], note: string): AlertSummary => ({
       packageName: a.packageName,
@@ -247,6 +248,7 @@ async function scanAssetNow(
       }
       if (diff.slack.severityChanged) severityChangedList.push(diff.slack.severityChanged)
       if (diff.slack.kevAdded) kevAddedList.push(diff.slack.kevAdded)
+      if (diff.slack.fixAvailable) fixAvailableList.push(diff.slack.fixAvailable)
       Object.assign(alert, diff.data)
       metadataUpdatedCount++
     }
@@ -731,6 +733,15 @@ async function scanAssetNow(
         assetTagIds,
         triggerType: "kev_added",
         alerts: kevAddedList,
+      }).catch(() => {})
+    }
+
+    if (fixAvailableList.length > 0) {
+      await notifySlackIfNeeded({
+        assetName: asset.name || asset.hostname,
+        assetTagIds,
+        triggerType: "fix_available",
+        alerts: fixAvailableList,
       }).catch(() => {})
     }
 

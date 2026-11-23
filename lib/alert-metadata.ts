@@ -37,7 +37,7 @@ export type AlertMetadataDiff = {
     dueDate?: Date | null
   }
   events: { type: string; data: object }[]
-  slack: { severityChanged?: AlertSummary; kevAdded?: AlertSummary }
+  slack: { severityChanged?: AlertSummary; kevAdded?: AlertSummary; fixAvailable?: AlertSummary }
 }
 
 /**
@@ -54,6 +54,12 @@ export type AlertMetadataDiff = {
  * refreshMetadata behavior this was extracted from. summary is applied whenever
  * anything else changes but does not by itself count as a change (also
  * pre-existing), so a summary-only edit upstream does not get picked up here.
+ *
+ * fix_available fires when an alert that is open or in progress and had no fixed
+ * version gets one, and only then: a fixed version that merely changes is not
+ * news, an alert somebody set aside or closed has its own handling (a
+ * reopen-on-fix alert is reopened by the scan), and a caller without a per-match
+ * fixed version (refreshMetadata) leaves it undefined and so never raises it.
  */
 export function diffAlertMetadata(
   alert: AlertMetadataSnapshot & {
@@ -61,6 +67,7 @@ export function diffAlertMetadata(
     packageVersion: string
     externalId: string
     detectedAt: Date
+    status: string
   },
   incoming: AlertMetadataUpdate,
   slaConfig: SlaConfig
@@ -89,6 +96,17 @@ export function diffAlertMetadata(
       externalId: alert.externalId,
       severity: incoming.severity ?? null,
       cvssScore: incoming.cvssScore ?? null,
+    }
+  }
+  if ((alert.status === "open" || alert.status === "in_progress") && !alert.fixedVersion && incoming.fixedVersion) {
+    events.push({ type: "fix_available", data: { fixedVersion: incoming.fixedVersion } })
+    slack.fixAvailable = {
+      packageName: alert.packageName,
+      packageVersion: alert.packageVersion,
+      externalId: alert.externalId,
+      severity: incoming.severity ?? null,
+      cvssScore: incoming.cvssScore ?? null,
+      note: `fixed in ${incoming.fixedVersion}`,
     }
   }
   if (alert.epssScore != null && incoming.epssScore != null && Math.abs(incoming.epssScore - alert.epssScore) >= 0.001) {

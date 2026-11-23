@@ -24,6 +24,8 @@ export const EVENT_LABELS: Record<string, (data: EventData) => string> = {
   package_changed: (data) => `Package changed: ${data.from} → ${data.to}`,
   identifier_changed: (data) => `Identifier changed: ${data.from} → ${data.to}`,
   kev_added: () => "Added to CISA KEV",
+  // An open alert that had no fixed version got one (found by a scan).
+  fix_available: (data) => `Fix available: ${data.fixedVersion}`,
   cvss_changed: (data) => `CVSS score changed: ${data.from ?? "n/a"} → ${data.to ?? "n/a"}`,
   epss_changed: (data) => `EPSS updated: ${epssChangeText(data)}`,
   severity_changed: (data) => `Severity changed: ${data.from ?? "n/a"} → ${data.to ?? "n/a"}`,

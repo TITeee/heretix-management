@@ -264,6 +264,61 @@ describe("scanAsset — reopening a no-fix acceptance once a fix exists", () => 
     expect((await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })).status).toBe("ignored")
   })
 
+  describe("a fix appears for an open or in-progress alert", () => {
+    const fixNotices = () => mockedSlack.mock.calls.filter(([arg]) => arg.triggerType === "fix_available")
+
+    async function openAlertWithoutFix(status = "open") {
+      const { asset, alert } = await acceptedAlert(false)
+      await prisma.alert.update({ where: { id: alert.id }, data: { status, ignoreReason: null } })
+      return { asset, alert }
+    }
+
+    it("records it on the timeline and says so in Slack once, when the fixed version first arrives", async () => {
+      const { asset, alert } = await openAlertWithoutFix()
+
+      mockedSlack.mockClear()
+      mockedBatchSearch.mockResolvedValue(finding(null))
+      await scanAsset(asset.id)
+      expect(fixNotices()).toHaveLength(0)
+
+      mockedBatchSearch.mockResolvedValue(finding("2.9.13-6.el9"))
+      await scanAsset(asset.id)
+      expect(fixNotices()).toHaveLength(1)
+      expect(fixNotices()[0][0]).toMatchObject({
+        alerts: [expect.objectContaining({ externalId: "CVE-2026-0004", note: "fixed in 2.9.13-6.el9" })],
+      })
+      expect(await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })).toMatchObject({ status: "open", fixedVersion: "2.9.13-6.el9" })
+      const events = await prisma.alertEvent.findMany({ where: { alertId: alert.id, type: "fix_available" } })
+      expect(events.map((e) => e.data)).toEqual([{ fixedVersion: "2.9.13-6.el9" }])
+
+      // The same answer again, and then a newer fix, are not news.
+      await scanAsset(asset.id)
+      mockedBatchSearch.mockResolvedValue(finding("2.9.13-7.el9"))
+      await scanAsset(asset.id)
+      expect(fixNotices()).toHaveLength(1)
+      expect(await prisma.alertEvent.count({ where: { alertId: alert.id, type: "fix_available" } })).toBe(1)
+    })
+
+    it("announces it for an alert somebody is working on too", async () => {
+      const { asset, alert } = await openAlertWithoutFix("in_progress")
+      mockedSlack.mockClear()
+      mockedBatchSearch.mockResolvedValue(finding("2.9.13-6.el9"))
+      await scanAsset(asset.id)
+      expect(fixNotices()).toHaveLength(1)
+      expect(await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } })).toMatchObject({ status: "in_progress", fixedVersion: "2.9.13-6.el9" })
+      expect(await prisma.alertEvent.count({ where: { alertId: alert.id, type: "fix_available" } })).toBe(1)
+    })
+
+    it("says nothing for an alert that was set aside", async () => {
+      const { asset, alert } = await openAlertWithoutFix("ignored")
+      mockedSlack.mockClear()
+      mockedBatchSearch.mockResolvedValue(finding("2.9.13-6.el9"))
+      await scanAsset(asset.id)
+      expect(fixNotices()).toHaveLength(0)
+      expect(await prisma.alertEvent.count({ where: { alertId: alert.id, type: "fix_available" } })).toBe(0)
+    })
+  })
+
   async function resolvedAlert(resolveReason: string) {
     const { asset, alert } = await acceptedAlert(false)
     await prisma.alert.update({

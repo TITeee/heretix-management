@@ -39,6 +39,7 @@ const EVENT_TYPE_CONFIG: Record<string, { label: string; variant: "secondary" | 
   cvss_changed:     { label: "CVSS Changed",    variant: "secondary" },
   severity_changed: { label: "Severity Changed",variant: "secondary" },
   kev_added:        { label: "KEV Added",       variant: "secondary" },
+  fix_available:    { label: "Fix Available",   variant: "secondary" },
   epss_changed:     { label: "EPSS Updated",    variant: "outline" },
   notes_saved:      { label: "Notes Saved",     variant: "secondary" },
 }
@@ -84,6 +85,8 @@ function EventChange({ type, data }: { type: string; data: Record<string, unknow
           <span>{String(data.to ?? "n/a")}</span>
         </span>
       )
+    case "fix_available":
+      return <span>{String(data.fixedVersion ?? "")}</span>
     case "epss_changed":
       return (
         <span className="inline-flex items-center gap-1.5">

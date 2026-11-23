@@ -210,6 +210,11 @@ const EVENT_CONFIG: Record<string, { icon: React.ComponentType<{ className?: str
     iconClass: "text-red-600",
     label: EVENT_LABELS.kev_added,
   },
+  fix_available: {
+    icon: CircleCheck,
+    iconClass: "text-green-600",
+    label: EVENT_LABELS.fix_available,
+  },
   cvss_changed: {
     icon: TrendingUp,
     iconClass: "text-orange-500",

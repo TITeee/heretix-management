@@ -51,7 +51,7 @@ Ignoring an alert requires a reason, because `ignored` covers more than VEX's `n
 
 Accepted risk is withheld from the export on purpose: its faithful encoding (`exploitable` + `will_not_fix`) gives a consumer nothing to act on while stopping the finding from being suppressed in their own scans.
 
-Status changes, memos (with author), CVSS and severity changes, KEV additions, ID changes, and VEX justifications are recorded on the alert's **Timeline**. **Alerts → Activity** lists these events across all alerts.
+Status changes, memos (with author), CVSS and severity changes, KEV additions, the first appearance of a fixed version, ID changes, and VEX justifications are recorded on the alert's **Timeline**. **Alerts → Activity** lists these events across all alerts.
 
 ## Severity and SLA
 
@@ -149,7 +149,7 @@ Which services run a vulnerable package is on the **Services** tab, which reads 
 
 ## Notifications and AI Insight
 
-- **Slack** (Settings → Notifications): a webhook message on new detections, severity changes, new KEV alerts, or alerts a scan reopened (one it had auto-resolved that is detected again, or an accepted no-fix alert whose fix is now available), filtered by a minimum severity tier and by asset tags (KEV additions ignore the severity filter). Use the test button to check the webhook.
+- **Slack** (Settings → Notifications): a webhook message on new detections, severity changes, new KEV alerts, open or in-progress alerts that have just got a fixed version (a scan found one for an alert that had none; ignored and resolved alerts are not announced), or alerts a scan reopened (one it had auto-resolved that is detected again, or an accepted no-fix alert whose fix is now available), filtered by a minimum severity tier and by asset tags (KEV additions ignore the severity filter). Use the test button to check the webhook.
 - **AI Insight** (Settings → AI): an optional chat per alert, powered by Anthropic's API. It is given the alert's CVSS, EPSS, and KEV data and how the same vulnerability was handled on other assets. Off by default; set the API key and model, and test the connection, in Settings. Settings → AI shows the instructions and the data that each request sends. The reply language can be set in Settings (Auto follows the language of the question). **Clear conversation** deletes the alert's whole conversation for all users, after a confirmation, and is recorded in the audit log (`ai_chat_cleared`). Opening the tab of an alert with no conversation asks first, and sends nothing to the API until you choose **Analyze**.
 
 ## Vulnerability Search
