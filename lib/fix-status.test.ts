@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { fixStatusLabel, fixStatusSortKey } from "./fix-status"
+import { fixStatusLabel, fixStatusSortKey, borrowedFixStatusNote } from "./fix-status"
 
 describe("fixStatusLabel", () => {
   it("labels the known values", () => {
@@ -31,5 +31,26 @@ describe("fixStatusSortKey", () => {
 
   it("is undefined when there is no fix status", () => {
     expect(fixStatusSortKey(null)).toBeUndefined()
+  })
+})
+
+describe("borrowedFixStatusNote", () => {
+  it("notes AlmaLinux/Rocky fix status borrowed from Red Hat's OVAL or VEX data", () => {
+    expect(borrowedFixStatusNote("AlmaLinux:9", ["red-hat"])).toMatch(/AlmaLinux/)
+    expect(borrowedFixStatusNote("Rocky Linux:9", ["advisory-redhat-vex"])).toMatch(/Rocky Linux/)
+    expect(borrowedFixStatusNote("AlmaLinux:8", ["red-hat-vex"])).not.toBeNull()
+  })
+
+  it("is null for AlmaLinux/Rocky's own OSV-sourced rows", () => {
+    expect(borrowedFixStatusNote("AlmaLinux:9", ["osv"])).toBeNull()
+  })
+
+  it("is null for native Red Hat/Oracle Linux, even with the same source", () => {
+    expect(borrowedFixStatusNote("Red Hat:9", ["red-hat"])).toBeNull()
+    expect(borrowedFixStatusNote("Oracle Linux:9", ["oracle-linux"])).toBeNull()
+  })
+
+  it("is null for an unrelated ecosystem", () => {
+    expect(borrowedFixStatusNote("Debian:12", ["debian-tracker"])).toBeNull()
   })
 })

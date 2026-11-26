@@ -36,7 +36,7 @@ import { CvssVectorTooltip } from "@/components/alerts/cvss-vector-tooltip"
 import { cvssVersionLabel } from "@/lib/cvss"
 import { TagBadge } from "@/components/tags/tag-badge"
 import { distroPriorityLabel } from "@/lib/distro-priority"
-import { fixStatusLabel } from "@/lib/fix-status"
+import { fixStatusLabel, borrowedFixStatusNote } from "@/lib/fix-status"
 import { IGNORE_REASONS, IGNORE_REASON_HINTS, isIgnoreReason } from "@/lib/vex"
 
 // Minimum Alert fields required by the detail sheet
@@ -1204,10 +1204,13 @@ export function AlertDetailSheet({
                 )}
                 <div className="flex items-center gap-2">
                   <span className="w-28 text-muted-foreground shrink-0">Sources</span>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap items-center gap-1">
                     {alert.sources.map(s => (
                       <Badge key={s} variant="outline" className="capitalize">{s.toUpperCase()}</Badge>
                     ))}
+                    {borrowedFixStatusNote(alert.ecosystem, alert.sources) && (
+                      <span className="text-muted-foreground text-xs ml-1">({borrowedFixStatusNote(alert.ecosystem, alert.sources)})</span>
+                    )}
                   </div>
                 </div>
                 <AffectedModules detail={vulnDetail} />
