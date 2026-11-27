@@ -17,6 +17,7 @@ export function buildPURL(name: string, version: string, ecosystem: string): str
   if (ecosystem === "NuGet")      return `pkg:nuget/${name}@${version}`
   if (ecosystem === "RubyGems")   return `pkg:gem/${name}@${version}`
   if (ecosystem === "Packagist")  return `pkg:composer/${name}@${version}`
+  if (ecosystem === "crates.io")  return `pkg:cargo/${name}@${version}`
   if (ecosystem.startsWith("Ubuntu:"))    return `pkg:deb/ubuntu/${name}@${version}`
   if (ecosystem.startsWith("Debian:"))    return `pkg:deb/debian/${name}@${version}`
   if (ecosystem.startsWith("AlmaLinux:")) return `pkg:rpm/almalinux/${name}@${version}`
@@ -43,6 +44,7 @@ export const PURL_TYPE_MAP: Record<string, string> = {
   maven:    "Maven",
   nuget:    "NuGet",
   gem:      "RubyGems",
+  cargo:    "crates.io",
 }
 
 export const OS_PURL_TYPES = new Set(["rpm", "deb", "apk"])

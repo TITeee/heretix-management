@@ -36,6 +36,10 @@ describe("buildPURL", () => {
     expect(buildPURL("symfony/console", "6.4.0", "Packagist")).toBe("pkg:composer/symfony/console@6.4.0")
   })
 
+  it("builds a crates.io PURL", () => {
+    expect(buildPURL("serde", "1.0.203", "crates.io")).toBe("pkg:cargo/serde@1.0.203")
+  })
+
   it.each([
     ["Ubuntu:22.04", "pkg:deb/ubuntu"],
     ["Debian:12", "pkg:deb/debian"],
@@ -61,7 +65,7 @@ describe("buildPURL", () => {
   })
 
   it("falls back to a generic PURL for an unrecognized ecosystem", () => {
-    expect(buildPURL("mystery-pkg", "1.0.0", "Cargo")).toBe("pkg:generic/mystery-pkg@1.0.0")
+    expect(buildPURL("mystery-pkg", "1.0.0", "Nonexistent")).toBe("pkg:generic/mystery-pkg@1.0.0")
   })
 })
 
@@ -136,6 +140,16 @@ describe("parsePURL", () => {
 
   it("round-trips a Maven package between parsePURL and buildPURL", () => {
     const purl = "pkg:maven/org.slf4j/slf4j-api@1.7.36"
+    const parsed = parsePURL(purl)!
+    expect(buildPURL(parsed.name, parsed.version!, parsed.ecosystem)).toBe(purl)
+  })
+
+  it("maps a cargo PURL to the crates.io ecosystem", () => {
+    expect(parsePURL("pkg:cargo/serde@1.0.203")).toMatchObject({ name: "serde", ecosystem: "crates.io" })
+  })
+
+  it("round-trips a crates.io package between parsePURL and buildPURL", () => {
+    const purl = "pkg:cargo/serde@1.0.203"
     const parsed = parsePURL(purl)!
     expect(buildPURL(parsed.name, parsed.version!, parsed.ecosystem)).toBe(purl)
   })
