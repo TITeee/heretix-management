@@ -9,7 +9,7 @@ import { cnaModules } from "@/lib/cna-modules"
 import { fixStatusLabel } from "@/lib/fix-status"
 import { isOwnAdvisory, isOwnAdvisoryProduct, type AdvisoryAlert } from "@/lib/advisory-own"
 import { collectWorkarounds } from "@/lib/workarounds"
-import { ownVersions, osvRangeLabel } from "@/lib/osv-own-versions"
+import { ownVersions, osvRangeLabel, isOwnOsvPackage, ownOsvRecordsFirst } from "@/lib/osv-own-versions"
 
 export type NvdPackage = {
   cpe: string | null
@@ -457,15 +457,12 @@ export type OsvTabAlert = { ecosystem: string; packageName: string; sourcePackag
  * table: a Debian:12 alert reads "Debian:11" at the top otherwise, and the Debian:12 row is one of
  * four that look alike.
  */
-function isOwnEntry(pkg: OsvPackage, alert: OsvTabAlert | null | undefined): boolean {
-  if (!alert || pkg.ecosystem !== alert.ecosystem) return false
-  return pkg.packageName === alert.packageName || (!!alert.sourcePackage && pkg.packageName === alert.sourcePackage)
-}
+const isOwnEntry = isOwnOsvPackage
 
 export function OsvTab({ detail, loading, error, alert }: { detail: VulnDetail | null; loading: boolean; error?: boolean; alert?: OsvTabAlert | null }) {
   if (loading) return <DetailSkeleton />
 
-  const osvList = detail?.osvVulnerabilities ?? []
+  const osvList = ownOsvRecordsFirst(detail?.osvVulnerabilities ?? [], alert)
   if (osvList.length === 0) {
     return <p className="text-sm text-muted-foreground py-2">{error ? "Failed to retrieve data from heretix-api." : "No OSV data available."}</p>
   }

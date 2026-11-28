@@ -13,6 +13,12 @@ describe("advisoryVendorOf", () => {
     // The bare spelling heretix-cli sent before 2026-09-01.
     expect(advisoryVendorOf("oracle-linux")).toBe("oracle-linux")
   })
+
+  it("points AlmaLinux and Rocky Linux at the Red Hat rows heretix-api borrows for them", () => {
+    expect(advisoryVendorOf("AlmaLinux:9")).toBe("red-hat-9")
+    expect(advisoryVendorOf("AlmaLinux:10")).toBe("red-hat-10")
+    expect(advisoryVendorOf("Rocky Linux:8")).toBe("red-hat-8")
+  })
 })
 
 describe("isOwnAdvisoryProduct", () => {
@@ -41,6 +47,15 @@ describe("isOwnAdvisoryProduct", () => {
     expect(isOwnAdvisoryProduct({ vendor: "microsoft", product: "Windows Server 2022" }, windows)).toBe(false)
     expect(isOwnAdvisoryProduct({ vendor: "red-hat-9", product: "openssh" }, null)).toBe(false)
     expect(isOwnAdvisoryProduct({ vendor: "red-hat-9", product: "openssh" }, { ecosystem: "", packageName: "openssh" })).toBe(false)
+  })
+
+  it("finds the borrowed Red Hat rows as the own rows of an AlmaLinux or Rocky Linux alert", () => {
+    const alma = { ecosystem: "AlmaLinux:9", packageName: "openssh-server", sourcePackage: "openssh" }
+    expect(isOwnAdvisoryProduct({ vendor: "red-hat-9", product: "openssh-server" }, alma)).toBe(true)
+    expect(isOwnAdvisoryProduct({ vendor: "red-hat-10", product: "openssh-server" }, alma)).toBe(false)
+    expect(isOwnAdvisoryProduct({ vendor: "oracle-linux-9", product: "openssh-server" }, alma)).toBe(false)
+    const rocky = { ecosystem: "Rocky Linux:8", packageName: "openssh" }
+    expect(isOwnAdvisoryProduct({ vendor: "red-hat-8", product: "openssh" }, rocky)).toBe(true)
   })
 
   it("keeps the legacy bare Oracle Linux rows to the legacy bare ecosystem", () => {

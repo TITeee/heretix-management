@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { ownVersions, osvRangeLabel } from "./osv-own-versions"
+import { ownVersions, osvRangeLabel, isOwnOsvPackage, ownOsvRecordsFirst } from "./osv-own-versions"
 
 // DEBIAN-CVE-2026-19931: one record, three Debian releases of curl.
 const affected = [
@@ -58,5 +58,35 @@ describe("osvRangeLabel", () => {
 
   it("says n/a when the entry has no range at all", () => {
     expect(osvRangeLabel(range(null, null))).toBe("n/a")
+  })
+})
+
+describe("isOwnOsvPackage", () => {
+  const curl = { ecosystem: "Debian:13", packageName: "curl" }
+  it("needs the alert's ecosystem and its package or source package", () => {
+    expect(isOwnOsvPackage(curl, { ecosystem: "Debian:13", packageName: "curl" })).toBe(true)
+    expect(isOwnOsvPackage(curl, { ecosystem: "Debian:13", packageName: "libcurl4", sourcePackage: "curl" })).toBe(true)
+    expect(isOwnOsvPackage(curl, { ecosystem: "Debian:12", packageName: "curl" })).toBe(false)
+    expect(isOwnOsvPackage(curl, { ecosystem: "Debian:13", packageName: "wget" })).toBe(false)
+    expect(isOwnOsvPackage(curl, null)).toBe(false)
+  })
+})
+
+describe("ownOsvRecordsFirst", () => {
+  // CVE-2024-6387 style: several OSV records for one CVE, only one with the alert's own entry.
+  const ubuntu = { osvId: "UBUNTU-CVE-1", affectedPackages: [{ ecosystem: "Ubuntu:22.04:LTS", packageName: "openssh" }] }
+  const debian = { osvId: "DEBIAN-CVE-1", affectedPackages: [{ ecosystem: "Debian:11", packageName: "openssh" }, { ecosystem: "Debian:12", packageName: "openssh" }] }
+  const alpine = { osvId: "ALPINE-CVE-1", affectedPackages: [{ ecosystem: "Alpine:v3.20", packageName: "openssh" }] }
+  const alert = { ecosystem: "Debian:12", packageName: "openssh" }
+
+  it("puts the records with an entry of the alert's own first and keeps the rest in order", () => {
+    expect(ownOsvRecordsFirst([ubuntu, alpine, debian], alert).map((r) => r.osvId)).toEqual(["DEBIAN-CVE-1", "UBUNTU-CVE-1", "ALPINE-CVE-1"])
+  })
+
+  it("leaves the order alone with no alert or no own record, and does not change its input", () => {
+    const input = [ubuntu, alpine, debian]
+    expect(ownOsvRecordsFirst(input, null).map((r) => r.osvId)).toEqual(["UBUNTU-CVE-1", "ALPINE-CVE-1", "DEBIAN-CVE-1"])
+    expect(ownOsvRecordsFirst(input, { ecosystem: "npm", packageName: "x" }).map((r) => r.osvId)).toEqual(["UBUNTU-CVE-1", "ALPINE-CVE-1", "DEBIAN-CVE-1"])
+    expect(input.map((r) => r.osvId)).toEqual(["UBUNTU-CVE-1", "ALPINE-CVE-1", "DEBIAN-CVE-1"])
   })
 })

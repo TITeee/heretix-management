@@ -10,13 +10,19 @@
  * "advisory", a vendor's own product advisories) matches nothing, and the row simply gets no
  * badge. A missed badge is the worst case; a wrong one cannot happen, since the product must
  * also be the alert's package.
+ *
+ * AlmaLinux and Rocky Linux are the exception to "named after the ecosystem": they publish no
+ * advisory data of their own, so heretix-api checks their packages against Red Hat's rows
+ * (RPM_ECOSYSTEM_VENDOR), and the rows that are theirs are the "red-hat-N" ones.
  */
 export type AdvisoryAlert = { ecosystem: string; packageName: string; sourcePackage?: string | null }
 
 type AdvisoryProductRow = { vendor: string; product: string }
 
-/** "Red Hat:9" -> "red-hat-9"; the bare legacy "oracle-linux" stays as it is. */
+/** "Red Hat:9" -> "red-hat-9"; "AlmaLinux:9" borrows "red-hat-9"; the bare legacy "oracle-linux" stays as it is. */
 export function advisoryVendorOf(ecosystem: string): string {
+  const borrowed = ecosystem.trim().match(/^(?:AlmaLinux|Rocky Linux):(.+)$/)
+  if (borrowed) return `red-hat-${borrowed[1]}`
   return ecosystem.trim().toLowerCase().replace(/[\s:]+/g, "-")
 }
 

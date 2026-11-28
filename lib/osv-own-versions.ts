@@ -60,3 +60,24 @@ export function osvRangeLabel(range: OsvRange): string {
   if (label) return label
   return range.introducedVersion === "0" ? "All versions" : "n/a"
 }
+
+type OsvPackageRow = { ecosystem: string; packageName: string }
+
+/** The row of a record's Affected Packages table that is the alert's own: its ecosystem, and its package or source package. */
+export function isOwnOsvPackage(pkg: OsvPackageRow, alert: OsvVersionAlert | null | undefined): boolean {
+  if (!alert || pkg.ecosystem !== alert.ecosystem) return false
+  return pkg.packageName === alert.packageName || (!!alert.sourcePackage && pkg.packageName === alert.sourcePackage)
+}
+
+/**
+ * One CVE can have several OSV records (UBUNTU-CVE-… next to DEBIAN-CVE-…, GHSA-… next to PYSEC-…),
+ * and heretix-api returns them in no order that has to do with the alert. The records with an entry
+ * of the alert's own come first; the rest, and the order within each group, stay as they were.
+ */
+export function ownOsvRecordsFirst<T extends { affectedPackages: OsvPackageRow[] }>(
+  records: T[],
+  alert: OsvVersionAlert | null | undefined,
+): T[] {
+  const hasOwn = (r: T) => r.affectedPackages.some((p) => isOwnOsvPackage(p, alert))
+  return [...records].sort((a, b) => Number(hasOwn(b)) - Number(hasOwn(a)))
+}
