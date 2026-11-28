@@ -80,4 +80,14 @@ describe("alertQueryToSearchParams", () => {
   it("writes kev=1 links back as the risk filter", () => {
     expect(alertQueryToSearchParams(parseAlertQuery({ kev: "1" })).toString()).toBe("risk=kev")
   })
+
+  it("reads the detected range as days or instants, ignores what is neither, and writes it back as read", () => {
+    expect(parseAlertQuery({}).detectedFrom).toBeNull()
+    expect(parseAlertQuery({ detectedFrom: "2026-11-10", detectedTo: "2026-11-12" })).toMatchObject({ detectedFrom: "2026-11-10", detectedTo: "2026-11-12" })
+    expect(parseAlertQuery({ detectedFrom: "2026-11-22T15:00:00Z" }).detectedFrom).toBe("2026-11-22T15:00:00.000Z")
+    expect(parseAlertQuery({ detectedFrom: "yesterday", detectedTo: "2026-02-30" })).toMatchObject({ detectedFrom: null, detectedTo: null })
+    const q = parseAlertQuery({ detectedFrom: "2026-11-22T15:00:00.000Z", detectedTo: "2026-11-23T14:59:59.999Z", status: "open" })
+    expect(parseAlertQuery(alertQueryToSearchParams(q))).toEqual(q)
+    expect(alertQueryToSearchParams(parseAlertQuery({})).has("detectedFrom")).toBe(false)
+  })
 })

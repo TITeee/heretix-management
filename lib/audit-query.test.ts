@@ -1,7 +1,5 @@
 import { describe, it, expect } from "vitest"
-import {
-  auditQueryIsFiltered, auditQueryToSearchParams, boundToLocalDay, endOfLocalDay, isDayBound, parseAuditQuery, startOfLocalDay,
-} from "./audit-query"
+import { auditQueryIsFiltered, auditQueryToSearchParams, parseAuditQuery } from "./audit-query"
 
 describe("parseAuditQuery", () => {
   it("defaults to the first page of 25 with no filter", () => {
@@ -57,39 +55,9 @@ describe("from and to as instants", () => {
     }
   })
 
-  it("tells a day from an instant", () => {
-    expect(isDayBound("2026-11-22")).toBe(true)
-    expect(isDayBound("2026-11-22T00:00:00.000Z")).toBe(false)
-  })
-
   it("round-trips through the URL", () => {
     const query = parseAuditQuery({ from: "2026-11-22T15:00:00.000Z", to: "2026-11-23T14:59:59.999Z" })
     expect(parseAuditQuery(auditQueryToSearchParams(query))).toEqual(query)
-  })
-})
-
-describe("local days", () => {
-  // Whatever time zone the tests run in: the bounds of a local day are on that day, and bracket it.
-  const noon = new Date(2026, 10, 23, 12, 0, 0)
-
-  it("starts and ends the day the user picked, in their own time zone", () => {
-    const start = new Date(startOfLocalDay(noon))
-    const end = new Date(endOfLocalDay(noon))
-    expect([start.getFullYear(), start.getMonth(), start.getDate(), start.getHours(), start.getMinutes()]).toEqual([2026, 10, 23, 0, 0])
-    expect([end.getFullYear(), end.getMonth(), end.getDate(), end.getHours(), end.getMinutes(), end.getSeconds()]).toEqual([2026, 10, 23, 23, 59, 59])
-    expect(start.getTime()).toBeLessThan(noon.getTime())
-    expect(noon.getTime()).toBeLessThan(end.getTime())
-  })
-
-  it("gives the calendar back the day it was given", () => {
-    for (const day of [noon, new Date(2026, 0, 1), new Date(2026, 11, 31)]) {
-      for (const value of [startOfLocalDay(day), endOfLocalDay(day)]) {
-        const back = boundToLocalDay(value)
-        expect([back.getFullYear(), back.getMonth(), back.getDate()]).toEqual([day.getFullYear(), day.getMonth(), day.getDate()])
-      }
-    }
-    const fromLink = boundToLocalDay("2026-11-10")
-    expect([fromLink.getFullYear(), fromLink.getMonth(), fromLink.getDate()]).toEqual([2026, 10, 10])
   })
 })
 

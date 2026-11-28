@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { Package, Server } from "lucide-react"
 import { FaTriangleExclamation } from "react-icons/fa6"
+import { recentAlertsHref } from "@/lib/alerts/recent-link"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 type SeverityCounts = { critical: number; high: number; medium: number; low: number; unknown: number }
@@ -25,7 +26,7 @@ function AssetsChip({ assets }: { assets: { id: string; name: string }[] }) {
   if (assets.length === 0) return null
   const shown = assets.slice(0, SHOWN_ASSETS)
   const rest = assets.length - shown.length
-  // The card is a link, so the names are plain text and the chip is a span, not a button.
+  // The chip sits inside a link, so the names are plain text and the chip is a span, not a button.
   return (
     <TooltipProvider>
       <Tooltip>
@@ -78,7 +79,12 @@ function SeverityRow({ label, counts }: { label: string; counts: SeverityCounts 
   )
 }
 
-export function CriticalPackagesCard({ packages }: { packages: PackageItem[] }) {
+/**
+ * The card is a stretched link to the package's alerts (the first child, laid over the card); the
+ * "24h" row and the assets chip are links of their own above it, since links cannot nest.
+ * `since24h` is the instant the 24h counts began.
+ */
+export function CriticalPackagesCard({ packages, since24h }: { packages: PackageItem[]; since24h: string }) {
   if (packages.length === 0) {
     return <p className="text-sm text-muted-foreground">No packages found.</p>
   }
@@ -86,11 +92,15 @@ export function CriticalPackagesCard({ packages }: { packages: PackageItem[] }) 
   return (
     <div className="flex flex-wrap gap-3">
       {packages.map((pkg) => (
-        <Link
+        <div
           key={`${pkg.packageName}@${pkg.packageVersion}`}
-          href={`/alerts?packageName=${encodeURIComponent(pkg.packageName)}`}
-          className="flex flex-col gap-1.5 rounded-md border-2 border-border bg-card p-3.25 shrink-0 w-66 h-66 hover:bg-accent transition-colors"
+          className="relative flex flex-col gap-1.5 rounded-md border-2 border-border bg-card p-3.25 shrink-0 w-66 h-66 hover:bg-accent transition-colors"
         >
+          <Link
+            href={`/alerts?packageName=${encodeURIComponent(pkg.packageName)}`}
+            aria-label={`Alerts of ${pkg.packageName}`}
+            className="absolute inset-0 rounded-md"
+          />
           <div className="text-center">
             <div className="flex justify-center mb-1.25">
               <Package className="h-7.75 w-7.75" />
@@ -99,7 +109,13 @@ export function CriticalPackagesCard({ packages }: { packages: PackageItem[] }) 
             <div className="text-[13px] mb-2.25">{pkg.packageVersion}</div>
           </div>
           <div className="space-y-2">
-            <SeverityRow label="24h" counts={pkg.severity24h} />
+            <Link
+              href={recentAlertsHref({ packageName: pkg.packageName, packageVersion: pkg.packageVersion }, new Date(since24h))}
+              title="Alerts detected in the last 24 hours"
+              className="relative z-10 block rounded hover:bg-foreground/10"
+            >
+              <SeverityRow label="24h" counts={pkg.severity24h} />
+            </Link>
             <SeverityRow label="All" counts={pkg.severityAll} />
           </div>
           <div className="flex items-center justify-center gap-4 mt-auto">
@@ -107,9 +123,11 @@ export function CriticalPackagesCard({ packages }: { packages: PackageItem[] }) 
               <FaTriangleExclamation className="h-3.25 w-3.25 shrink-0" />
               <span>{pkg.kevCount} KEV</span>
             </div>
-            <AssetsChip assets={pkg.assets} />
+            <Link href={`/alerts?packageName=${encodeURIComponent(pkg.packageName)}`} className="relative z-10">
+              <AssetsChip assets={pkg.assets} />
+            </Link>
           </div>
-        </Link>
+        </div>
       ))}
     </div>
   )

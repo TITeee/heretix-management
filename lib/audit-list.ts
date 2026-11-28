@@ -1,9 +1,9 @@
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
-import { isDayBound, type AuditQuery } from "@/lib/audit-query"
+import type { AuditQuery } from "@/lib/audit-query"
+import { dateRangeInstants } from "@/lib/date-range"
 import { escapeLike } from "@/lib/like"
 
-const DAY_MS = 24 * 60 * 60 * 1000
 
 export type AuditListRow = {
   id: string
@@ -26,16 +26,8 @@ export function auditWhere(query: AuditQuery): Prisma.AuditLogWhereInput {
     ] })
   }
   if (query.from || query.to) {
-    and.push({
-      createdAt: {
-        ...(query.from ? { gte: new Date(isDayBound(query.from) ? `${query.from}T00:00:00Z` : query.from) } : {}),
-        ...(query.to
-          ? isDayBound(query.to)
-            ? { lt: new Date(new Date(`${query.to}T00:00:00Z`).getTime() + DAY_MS) }
-            : { lte: new Date(query.to) }
-          : {}),
-      },
-    })
+    const { from, toExclusive } = dateRangeInstants(query.from, query.to)
+    and.push({ createdAt: { ...(from ? { gte: from } : {}), ...(toExclusive ? { lt: toExclusive } : {}) } })
   }
   return and.length ? { AND: and } : {}
 }

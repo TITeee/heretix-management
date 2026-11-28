@@ -15,6 +15,7 @@
  */
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
+import { dateRangeInstants } from "@/lib/date-range"
 import { escapeLike } from "@/lib/like"
 import type { Alert } from "@/lib/alerts/list-filters"
 import { NONE, type AlertQuery, type SortColumn } from "@/lib/alerts/query-params"
@@ -44,6 +45,11 @@ export function alertConditions(q: AlertQuery, now: Date): Prisma.Sql[] {
   // row's id: searching the alerts before grouping finds the same rows, and
   // spares grouping every other alert.
   if (q.vuln) c.push(Prisma.sql`a."externalId" ILIKE ${contains(q.vuln)}`)
+  if (q.detectedFrom || q.detectedTo) {
+    const { from, toExclusive } = dateRangeInstants(q.detectedFrom, q.detectedTo)
+    if (from) c.push(Prisma.sql`a."detectedAt" >= ${from}`)
+    if (toExclusive) c.push(Prisma.sql`a."detectedAt" < ${toExclusive}`)
+  }
   if (q.severityTiers.length) c.push(Prisma.sql`a."severityTier" IN (${inList(q.severityTiers)})`)
   if (q.risks.length) {
     const r: Prisma.Sql[] = []

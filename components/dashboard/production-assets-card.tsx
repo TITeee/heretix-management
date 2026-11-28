@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { FaDocker, FaServer } from "react-icons/fa"
 import { FaTriangleExclamation } from "react-icons/fa6"
+import { recentAlertsHref } from "@/lib/alerts/recent-link"
 
 type SeverityCounts = { critical: number; high: number; medium: number; low: number; unknown: number }
 
@@ -48,7 +49,12 @@ function SeverityRow({ label, counts }: { label: string; counts: SeverityCounts 
   )
 }
 
-export function ProductionAssetsCard({ assets }: { assets: AssetItem[] }) {
+/**
+ * The card is a stretched link to the asset's alerts (the first child, laid over the card), and
+ * the "24h" row a second link above it to the alerts detected in those 24 hours: links cannot
+ * nest, so the card itself is not an anchor. `since24h` is the instant the 24h counts began.
+ */
+export function ProductionAssetsCard({ assets, since24h }: { assets: AssetItem[]; since24h: string }) {
   if (assets.length === 0) {
     return <p className="text-sm text-muted-foreground">No assets found.</p>
   }
@@ -59,11 +65,11 @@ export function ProductionAssetsCard({ assets }: { assets: AssetItem[] }) {
         const label = asset.name || asset.hostname
 
         return (
-          <Link
+          <div
             key={asset.id}
-            href={`/alerts?assetId=${asset.id}`}
-            className="flex flex-col gap-1.5 rounded-md border-2 border-border bg-card p-3.25 shrink-0 w-66 h-66 hover:bg-accent transition-colors"
+            className="relative flex flex-col gap-1.5 rounded-md border-2 border-border bg-card p-3.25 shrink-0 w-66 h-66 hover:bg-accent transition-colors"
           >
+            <Link href={`/alerts?assetId=${asset.id}`} aria-label={`Alerts of ${label}`} className="absolute inset-0 rounded-md" />
             <div className="text-center">
               <div className="flex justify-center mb-1.25">
                 {asset.assetType === "docker_image"
@@ -74,14 +80,20 @@ export function ProductionAssetsCard({ assets }: { assets: AssetItem[] }) {
               <div className="text-[15px] font-semibold truncate mb-2.25">{label}</div>
             </div>
             <div className="space-y-2">
-              <SeverityRow label="24h" counts={asset.severity24h} />
+              <Link
+                href={recentAlertsHref({ assetId: asset.id }, new Date(since24h))}
+                title="Alerts detected in the last 24 hours"
+                className="relative z-10 block rounded hover:bg-foreground/10"
+              >
+                <SeverityRow label="24h" counts={asset.severity24h} />
+              </Link>
               <SeverityRow label="All" counts={asset.severityAll} />
             </div>
             <div className={`flex items-center justify-center gap-1 text-[13px] mt-auto ${asset.kevCount > 0 ? "text-red-600" : "text-muted-foreground"}`}>
               <FaTriangleExclamation className="h-3.25 w-3.25 shrink-0" />
               <span>{asset.kevCount} KEV</span>
             </div>
-          </Link>
+          </div>
         )
       })}
     </div>

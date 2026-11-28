@@ -7,8 +7,10 @@
  * packageName and packageVersion are exact matches, severity is a tier key
  * (CRITICAL..LOW, UNKNOWN; lib/severity.ts severityTierFromKey), kev=1 means
  * the KEV risk filter, and status narrows by status. A multi-valued filter is
- * comma-separated (`status=open,in_progress`).
+ * comma-separated (`status=open,in_progress`). `detectedFrom` and `detectedTo` bound the
+ * day the alert was detected (lib/date-range.ts: a UTC day, or an instant).
  */
+import { parseDateBound } from "@/lib/date-range"
 import { severityTierFromKey, type SeverityTier } from "@/lib/severity"
 import type { SlaStatus } from "@/lib/sla"
 
@@ -65,6 +67,9 @@ export type AlertQuery = {
   fixes: (typeof FIXES)[number][]
   /** Whether a running process had the alert's package loaded (Package.inUse): yes, no, or not determined. */
   inUses: (typeof IN_USES)[number][]
+  /** When the alert was detected: a UTC day or an ISO instant at each end, either may be open. */
+  detectedFrom: string | null
+  detectedTo: string | null
 }
 
 type Params = Record<string, string | string[] | undefined> | URLSearchParams
@@ -133,6 +138,8 @@ export function parseAlertQuery(params: Params): AlertQuery {
     fixStatuses: list(params, "fixStatus"),
     fixes: oneOf(list(params, "fix"), FIXES),
     inUses: oneOf(list(params, "inUse"), IN_USES),
+    detectedFrom: parseDateBound(get(params, "detectedFrom")),
+    detectedTo: parseDateBound(get(params, "detectedTo")),
   }
 }
 
@@ -158,6 +165,8 @@ export function alertQueryToSearchParams(q: AlertQuery): URLSearchParams {
   set("fixStatus", q.fixStatuses)
   set("fix", q.fixes)
   set("inUse", q.inUses)
+  if (q.detectedFrom) p.set("detectedFrom", q.detectedFrom)
+  if (q.detectedTo) p.set("detectedTo", q.detectedTo)
   if (q.packageName) p.set("packageName", q.packageName)
   if (q.packageVersion) p.set("packageVersion", q.packageVersion)
   if (q.q) p.set("q", q.q)

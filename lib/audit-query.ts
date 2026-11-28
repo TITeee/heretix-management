@@ -3,11 +3,10 @@
  * the back button works. Client-safe.
  *
  * `action` is comma-separated; `user` matches the email, `q` the target or the detail
- * (both case-insensitive substrings). `from` and `to` bound the time: each is a UTC day
- * (YYYY-MM-DD, the whole day, both ends included) or an instant (ISO 8601, `Z`). The page
- * sends instants, the start and the end of the days the user picked in their own time zone,
- * since the log shows local times. Anything malformed is ignored rather than refused.
+ * (both case-insensitive substrings). `from` and `to` bound the time (lib/date-range.ts).
  */
+import { parseDateBound } from "@/lib/date-range"
+
 export const AUDIT_PAGE_SIZES = [10, 15, 25, 50] as const
 export const AUDIT_DEFAULT_PAGE_SIZE = 25
 
@@ -38,41 +37,6 @@ function text(params: Params, key: string): string | null {
   return v ? v : null
 }
 
-const DAY = /^\d{4}-\d{2}-\d{2}$/
-const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/
-
-/** A real calendar day (YYYY-MM-DD) or an instant (ISO 8601, in UTC), as the ISO form of either; or null. */
-function bound(params: Params, key: string): string | null {
-  const v = get(params, key)?.trim()
-  if (!v) return null
-  if (DAY.test(v)) {
-    const d = new Date(`${v}T00:00:00Z`)
-    return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v ? null : v
-  }
-  if (INSTANT.test(v)) {
-    const d = new Date(v)
-    return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v.slice(0, 10) ? null : d.toISOString()
-  }
-  return null
-}
-
-/** Whether a `from` or `to` is a day (the whole UTC day) and not an instant. */
-export const isDayBound = (value: string) => DAY.test(value)
-
-// The days the page's calendar picks are the user's own, the ones the log's times are shown in.
-/** The first instant of a local day. */
-export const startOfLocalDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).toISOString()
-/** The last instant of a local day. */
-export const endOfLocalDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).toISOString()
-/** The local day a `from` or `to` falls on, for the calendar. A UTC day shows as the day of that name. */
-export function boundToLocalDay(value: string): Date {
-  if (DAY.test(value)) {
-    const [y, m, d] = value.split("-").map(Number)
-    return new Date(y, m - 1, d)
-  }
-  return new Date(value)
-}
-
 export function parseAuditQuery(params: Params): AuditQuery {
   const page = Math.max(1, Math.floor(Number(get(params, "page")) || 1))
   const size = Number(get(params, "size"))
@@ -83,8 +47,8 @@ export function parseAuditQuery(params: Params): AuditQuery {
     actions,
     user: text(params, "user"),
     q: text(params, "q"),
-    from: bound(params, "from"),
-    to: bound(params, "to"),
+    from: parseDateBound(get(params, "from")),
+    to: parseDateBound(get(params, "to")),
   }
 }
 

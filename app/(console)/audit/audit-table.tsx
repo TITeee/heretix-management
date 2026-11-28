@@ -12,9 +12,8 @@ import { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { cn } from "@/lib/utils"
 import { auditActionLabel } from "@/lib/audit-actions"
-import {
-  auditQueryIsFiltered, auditQueryToSearchParams, boundToLocalDay, endOfLocalDay, startOfLocalDay, type AuditQuery,
-} from "@/lib/audit-query"
+import { auditQueryIsFiltered, auditQueryToSearchParams, type AuditQuery } from "@/lib/audit-query"
+import { boundToLocalDay, endOfLocalDay, startOfLocalDay } from "@/lib/date-range"
 
 export type AuditRow = {
   id: string

@@ -6,6 +6,7 @@ import type { SortingState } from "@tanstack/react-table"
 import { Download, X } from "lucide-react"
 import { toast } from "sonner"
 import { DataTable } from "@/components/data-table/data-table"
+import { DataTableDateRangeFilter } from "@/components/data-table/data-table-date-range-filter"
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter"
 import { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button-variants"
@@ -13,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { AlertDetailSheet, StatusIcon, statusColorClass, StatusOptionLabel } from "@/components/alerts/alert-detail-sheet"
 import { STATUS_LABELS } from "@/lib/severity"
+import { boundToLocalDay, endOfLocalDay, startOfLocalDay } from "@/lib/date-range"
 import { fixStatusLabel, fixStatusSortKey } from "@/lib/fix-status"
 import { cn } from "@/lib/utils"
 import type { Alert } from "@/lib/alerts/list-filters"
@@ -103,7 +105,7 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
     query.assetIds.length > 0 || query.severityTiers.length > 0 || query.risks.length > 0 || query.ecosystems.length > 0 ||
     query.sources.length > 0 || query.tagIds.length > 0 || query.dependencies.length > 0 || query.inventories.length > 0 ||
     query.dues.length > 0 || query.distroLabels.length > 0 || query.fixStatuses.length > 0 || query.fixes.length > 0 || query.inUses.length > 0 ||
-    query.packageName !== null || query.packageVersion !== null ||
+    query.packageName !== null || query.packageVersion !== null || query.detectedFrom !== null || query.detectedTo !== null ||
     query.statuses.join(",") !== defaults.statuses.join(",")
 
   // A status changed from a row or the detail sheet shows at once; the server's
@@ -191,6 +193,13 @@ export function AlertsList({ rows, total, query, facets, slaEnabled, hasVex }: {
       <div className="flex flex-wrap items-center gap-2">
         <DataTableFacetedFilter title="Asset" options={assetOptions} selected={new Set(query.assetIds)} onSelectedChange={(v) => setFilter("assetIds", v)} searchable />
         <DataTableFacetedFilter title="Status" options={STATUS_OPTIONS} selected={new Set(query.statuses)} onSelectedChange={(v) => setFilter("statuses", v)} />
+        <DataTableDateRangeFilter
+          title="Detected"
+          from={query.detectedFrom ? boundToLocalDay(query.detectedFrom) : undefined}
+          to={query.detectedTo ? boundToLocalDay(query.detectedTo) : undefined}
+          onChange={({ from, to }) =>
+            navigate({ ...query, detectedFrom: from ? startOfLocalDay(from) : null, detectedTo: to ? endOfLocalDay(to) : null, page: 1 })}
+        />
         <DataTableFacetedFilter title="Severity" options={SEVERITY_OPTIONS} selected={new Set(query.severityTiers)} onSelectedChange={(v) => setFilter("severityTiers", v)} />
         {distroOptions.length > 0 && (
           <DataTableFacetedFilter title="Distro Rating" options={distroOptions} selected={new Set(query.distroLabels)} onSelectedChange={(v) => setFilter("distroLabels", v)} searchable />

@@ -289,6 +289,8 @@ async function getDashboardData() {
     totalPackages,
     kevCount,
     tagData,
+    // The instant the tag cards' "24h" counts began, for the links behind those rows.
+    since24h: since24h.toISOString(),
     slaSeverityData,
     overallSeverity,
     statusBreakdown,
@@ -318,6 +320,7 @@ export default async function DashboardPage() {
     totalPackages,
     kevCount,
     tagData,
+    since24h,
     slaSeverityData,
     overallSeverity,
     statusBreakdown,
@@ -348,8 +351,8 @@ export default async function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {type === "package" && <CriticalPackagesCard packages={packages ?? []} />}
-                {type === "asset" && <ProductionAssetsCard assets={assets ?? []} />}
+                {type === "package" && <CriticalPackagesCard packages={packages ?? []} since24h={since24h} />}
+                {type === "asset" && <ProductionAssetsCard assets={assets ?? []} since24h={since24h} />}
               </CardContent>
             </Card>
           ))}
